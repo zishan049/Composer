@@ -1,8 +1,8 @@
-# 🎼 Composer
-
 <div align="center">
 
-![Composer Banner](https://img.shields.io/badge/COMPOSER-Desktop_AI_Studio-b8440c?style=for-the-badge&logo=appveyor&logoColor=white)
+<img src="src-tauri/icons/icon.ico" alt="Composer Application Icon" width="128" height="128" />
+
+# 🎼 Composer
 
 **The Offline-First, Local-Native Desktop AI Workspace & Creator Studio**
 

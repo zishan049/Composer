@@ -2,7 +2,7 @@
 
 <img src="src-tauri/icons/icon.ico" alt="Composer Application Icon" width="128" height="128" />
 
-# 🎼 Composer
+# Composer
 
 **The Offline-First, Local-Native Desktop AI Workspace & Creator Studio**
 

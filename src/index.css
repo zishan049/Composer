@@ -1,0 +1,356 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;700&family=Space+Mono:wght@400;700&family=Fira+Code:wght@400;500;700&family=Lexend:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-paper: var(--theme-paper, #f6f2ea);
+  --color-ink: var(--theme-ink, #18140f);
+  --color-cream: var(--theme-cream, #ede8dc);
+  --color-muted: var(--theme-muted, #8a7f6e);
+  --color-accent: var(--theme-accent, #b8440c);
+  --color-rule: var(--theme-rule, #c9bfab);
+  --color-light-rule: var(--theme-light-rule, #e0d9cc);
+
+  --font-serif-display: var(--theme-font-display, "Playfair Display", Georgia, serif);
+  --font-serif-text: var(--theme-font-text, "EB Garamond", Georgia, serif);
+  --font-sans-meta: var(--theme-font-sans, "Inter", system-ui, -apple-system, sans-serif);
+}
+
+@layer base {
+  :root {
+    --theme-paper: #f6f2ea;
+    --theme-ink: #18140f;
+    --theme-cream: #ede8dc;
+    --theme-muted: #8a7f6e;
+    --theme-accent: #b8440c;
+    --theme-rule: #c9bfab;
+    --theme-light-rule: #e0d9cc;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-serif-text);
+    font-size: 17px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Compact Mode overrides */
+  .compact-mode {
+    font-size: 15px;
+  }
+  .compact-mode .card,
+  .compact-mode .pane-padding {
+    padding: 1rem !important;
+  }
+  .compact-mode input,
+  .compact-mode button,
+  .compact-mode select {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+  }
+
+  /* Reduce Motion overrides */
+  .reduce-motion * {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-rule);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent);
+  }
+
+  input, textarea, select {
+    font-family: var(--font-sans-meta);
+  }
+
+  select option {
+    background-color: var(--theme-paper);
+    color: var(--theme-ink);
+  }
+}
+
+/* Custom Editorial Utilities */
+.double-rule-bottom {
+  border-bottom: 3px double var(--color-rule);
+}
+.double-rule-top {
+  border-top: 3px double var(--color-rule);
+}
+
+.kicker {
+  font-family: var(--font-sans-meta);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.drop-cap::first-letter {
+  font-family: var(--font-serif-display);
+  font-size: 4rem;
+  font-weight: 900;
+  float: left;
+  line-height: 0.78;
+  margin-right: 0.12em;
+  margin-top: 0.08em;
+  color: var(--color-accent);
+}
+
+.pull-quote {
+  border-left: 3px solid var(--color-accent);
+  padding: 0.75rem 1.25rem;
+  margin: 1.5rem 0;
+  font-family: var(--font-serif-display);
+  font-size: 1.2rem;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+.custom-editor-container .monaco-editor,
+.custom-editor-container .monaco-editor .margin,
+.custom-editor-container .monaco-editor-background {
+  background-color: var(--color-paper) !important;
+}
+
+/* Sandboxed Iframe Styling */
+.sandboxed-frame {
+  background-color: #ffffff;
+  border: 1px solid var(--color-rule);
+}
+
+/* Glassmorphism Navigation variant */
+.nav-glass {
+  backdrop-filter: blur(12px);
+  background-color: rgba(246, 242, 234, 0.85);
+  border-bottom: 1px solid rgba(201, 191, 171, 0.5);
+}
+
+/* ── Premium Micro-Animations ────────────────────────────────────────────────── */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bubbleIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--color-accent-rgb, 184, 68, 12), 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(var(--color-accent-rgb, 184, 68, 12), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--color-accent-rgb, 184, 68, 12), 0);
+  }
+}
+
+.page-transition {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.chat-bubble-entry {
+  animation: bubbleIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.pulse-ring-active {
+  animation: pulseRing 1.6s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+/* Interactive elements hover-lift effect */
+.hover-lift {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
+  border-color: var(--theme-accent);
+}
+
+/* ── Specialized Navbar Icon Micro-Animations ────────────────────────────────── */
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-10deg); }
+  75% { transform: rotate(10deg); }
+}
+
+@keyframes bounceMini {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes shakeMini {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2.5px); }
+  75% { transform: translateX(2.5px); }
+}
+
+/* 1. Explorer Folder: Wiggle Swing */
+.nav-icon-explorer {
+  transition: transform 0.25s ease;
+}
+button:hover .nav-icon-explorer {
+  animation: wiggle 0.4s ease-in-out 2;
+}
+
+/* 2. Assistant Message: Vertical Bounce */
+.nav-icon-chat {
+  transition: transform 0.25s ease;
+}
+button:hover .nav-icon-chat {
+  animation: bounceMini 0.4s ease-in-out;
+}
+
+/* 3. AI Skills Code: Typing Horizontal Shake */
+.nav-icon-skills {
+  transition: transform 0.25s ease;
+}
+button:hover .nav-icon-skills {
+  animation: shakeMini 0.4s ease-in-out;
+}
+
+/* 4. Scheduler Automation: Counter-Clockwise Time Spin */
+.nav-icon-scheduler {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+button:hover .nav-icon-scheduler {
+  transform: rotate(-360deg);
+}
+
+/* 5. System Settings: Clockwise Gear 180° Spin */
+.nav-icon-settings {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+button:hover .nav-icon-settings {
+  transform: rotate(180deg);
+}
+
+/* ── Global Accent Glow System ────────────────────────────────── */
+.bg-accent,
+button.bg-accent,
+.active-accent-glow {
+  box-shadow: var(--theme-accent-glow, none);
+  transition: box-shadow 0.3s ease-out, background-color 0.3s ease-out, border-color 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.text-accent,
+.kicker,
+.active-text-accent-glow {
+  text-shadow: var(--theme-accent-text-glow, none);
+  transition: text-shadow 0.3s ease-out, color 0.3s ease-out;
+}
+
+/* ── Windows 11 Fluent Spinner & Loading screen animations ── */
+.w11-spinner-svg {
+  animation: w11-rotate 2s linear infinite;
+}
+.w11-spinner-path {
+  stroke-dasharray: 1, 150;
+  stroke-dashoffset: 0;
+  animation: w11-dash 1.5s ease-in-out infinite;
+}
+@keyframes w11-rotate {
+  100% { transform: rotate(360deg); }
+}
+@keyframes w11-dash {
+  0% {
+    stroke-dasharray: 1, 150;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -124;
+  }
+}
+
+/* Custom fade-in for loading overlay background */
+@keyframes bgFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.loading-bg-fadein {
+  animation: bgFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Gradient breathing animation for dropdown menu items */
+@keyframes gradient-breath {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-breath {
+  background-size: 200% 200% !important;
+  animation: gradient-breath 8s ease infinite !important;
+  transition: background-position 0.5s ease;
+}
+
+/* ── Dynamic Overall UI Edge Smoothness ── */
+button:not(.app-navbar *),
+input:not(.app-navbar *),
+textarea:not(.app-navbar *),
+select:not(.app-navbar *),
+.rounded-sm:not(.app-navbar *),
+.rounded:not(.app-navbar *),
+.rounded-md:not(.app-navbar *),
+.rounded-lg:not(.app-navbar *),
+.rounded-xl:not(.app-navbar *),
+.card:not(.app-navbar *),
+.dialog:not(.app-navbar *),
+.modal:not(.app-navbar *),
+.dropdown:not(.app-navbar *),
+.toast:not(.app-navbar *),
+.notification-banner:not(.app-navbar *),
+.chat-bubble-entry:not(.app-navbar *) {
+  border-radius: var(--ui-edge-smoothness, 4px) !important;
+}
+
+

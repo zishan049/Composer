@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { 
   ZoomIn, ZoomOut, Maximize2, RotateCcw, RotateCw, 
   FlipHorizontal2, FlipVertical2, Copy, Check, Download, 
-  Sun, Moon, Grid, Move, Sparkles, Pipette, FolderOpen, 
+  Sun, Moon, Grid, Move, Pipette, FolderOpen, 
   Info, Box, ChevronDown, CheckCircle2
 } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -513,11 +513,6 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
       <div className="px-3.5 py-1.5 bg-cream/35 border-b border-rule flex items-center justify-between font-sans-meta text-[11px] gap-2 shrink-0 z-20">
         {/* Left: Format, Dimensions & Badges */}
         <div className="flex items-center gap-2 overflow-hidden">
-          <div className="flex items-center gap-1.5 font-semibold text-accent uppercase tracking-wider text-[10px]">
-            <Sparkles size={11} />
-            <span>Image Viewer</span>
-          </div>
-
           <span className="font-mono text-[10px] font-bold text-accent px-1.5 py-0.5 bg-accent/10 rounded-sm border border-accent/20">
             {fileFormat}
           </span>

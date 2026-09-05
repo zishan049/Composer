@@ -534,26 +534,29 @@ Every command listed below is strictly implemented in `src-tauri/src/lib.rs` and
 | :- | :--- | :--- | :--- | :--- | :--- |
 | 1 | **System** | `greet` | `name: &str` | `String` | Connectivity test and handshake confirmation |
 | 2 | **System** | `pick_directory` | *None* | `Option<String>` | Opens native OS folder picker dialog; returns path string or None |
-| 3 | **System** | `pick_file` | *None* | `Option<String>` | Opens native OS file picker dialog; returns chosen path string |
-| 4 | **System** | `save_file_dialog` | `default_name: Option<String>`, `default_dir: Option<String>` | `Option<String>` | Opens native OS save dialog for exporting PDFs and files |
-| 5 | **System** | `import_to_directory` | `source_path: String`, `dest_dir: String` | `Result<String, String>` | Copies external file or directory tree into destination folder |
-| 6 | **System** | `get_system_ram_usage` | *None* | `u8` | Returns current physical CPU system RAM utilization percentage (0–100%) |
-| 7 | **Config** | `get_app_config` | *None* | `AppConfig` | Reads and parses active configuration from `storage/config.json` |
-| 8 | **Config** | `save_app_config` | `config: AppConfig` | `Result<(), String>` | Serializes and persists configuration updates to disk |
-| 9 | **Config** | `export_theme_toml` | `theme: ThemeConfig`, `export_path: String` | `Result<(), String>` | Exports current theme and UI overrides to an external `.toml` preset |
-| 10 | **Config** | `import_theme_toml` | `import_path: String` | `Result<ThemeConfig, String>` | Imports and validates a theme preset from an external `.toml` file |
-| 11 | **Config** | `get_app_install_path` | *None* | `String` | Resolves absolute directory path containing the running application executable |
-| 12 | **Config** | `get_workspace_path` | *None* | `String` | Resolves current active workspace root path |
-| 13 | **FileOps** | `list_directory_contents` | `dir_path: String` | `Result<Vec<FileEntry>, String>` | Lists files and subfolders for the directory tree (folders first) |
-| 14 | **FileOps** | `list_all_workspace_files`| *None* | `Result<Vec<FileEntry>, String>` | Recursive file indexer (depth <= 5, excluding heavy build directories) |
-| 15 | **FileOps** | `read_text_file` | `file_path: String` | `Result<String, String>` | Reads UTF-8 text file contents into memory |
-| 16 | **FileOps** | `write_text_file` | `file_path: String`, `content: String` | `Result<(), String>` | Writes UTF-8 string to file, creating parent directories if needed |
-| 17 | **FileOps** | `read_binary_file_base64` | `file_path: String` | `Result<String, String>` | Reads binary file (PDF, PNG, etc.) and returns base64 string |
-| 18 | **FileOps** | `write_binary_file_base64`| `file_path: String`, `base64_content: String` | `Result<(), String>` | Decodes base64 string and writes raw bytes to destination path |
-| 19 | **FileOps** | `create_new_file` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new empty file inside the specified parent folder |
-| 20 | **FileOps** | `create_new_folder` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new directory inside the specified parent folder |
-| 21 | **FileOps** | `delete_file_or_dir` | `path: String` | `Result<(), String>` | Recursively deletes file or folder from the filesystem |
-| 22 | **FileOps** | `rename_file_or_dir` | `old_path: String`, `new_name: String` | `Result<String, String>` | Renames file or directory in place |
+| 3 | **System** | `pick_directories` | *None* | `Option<Vec<String>>` | Opens native OS multi-folder picker dialog; returns list of chosen directory paths |
+| 4 | **System** | `pick_file` | *None* | `Option<String>` | Opens native OS file picker dialog; returns chosen path string |
+| 5 | **System** | `pick_files` | *None* | `Option<Vec<String>>` | Opens native OS multi-file picker dialog; returns list of chosen file paths |
+| 6 | **System** | `save_file_dialog` | `default_name: Option<String>`, `default_dir: Option<String>` | `Option<String>` | Opens native OS save dialog for exporting PDFs and files |
+| 7 | **System** | `import_to_directory` | `source_path: String`, `dest_dir: String` | `Result<String, String>` | Copies external file or directory tree into destination folder |
+| 8 | **System** | `get_system_ram_usage` | *None* | `u8` | Returns current physical CPU system RAM utilization percentage (0–100%) |
+| 9 | **Config** | `get_app_config` | *None* | `AppConfig` | Reads and parses active configuration from `storage/config.json` |
+| 10 | **Config** | `save_app_config` | `config: AppConfig` | `Result<(), String>` | Serializes and persists configuration updates to disk |
+| 11 | **Config** | `export_theme_toml` | `theme: ThemeConfig`, `export_path: String` | `Result<(), String>` | Exports current theme and UI overrides to an external `.toml` preset |
+| 12 | **Config** | `import_theme_toml` | `import_path: String` | `Result<ThemeConfig, String>` | Imports and validates a theme preset from an external `.toml` file |
+| 13 | **Config** | `get_app_install_path` | *None* | `String` | Resolves absolute directory path containing the running application executable |
+| 14 | **Config** | `get_workspace_path` | *None* | `String` | Resolves current active workspace root path |
+| 15 | **FileOps** | `list_directory_contents` | `dir_path: String` | `Result<Vec<FileEntry>, String>` | Lists files and subfolders for the directory tree (folders first) |
+| 16 | **FileOps** | `list_all_workspace_files`| *None* | `Result<Vec<FileEntry>, String>` | Recursive file indexer (depth <= 5, excluding heavy build directories) |
+| 17 | **FileOps** | `read_text_file` | `file_path: String` | `Result<String, String>` | Reads UTF-8 text file contents into memory |
+| 18 | **FileOps** | `write_text_file` | `file_path: String`, `content: String` | `Result<(), String>` | Writes UTF-8 string to file, creating parent directories if needed |
+| 19 | **FileOps** | `read_binary_file_base64` | `file_path: String` | `Result<String, String>` | Reads binary file (PDF, PNG, etc.) and returns base64 string |
+| 20 | **FileOps** | `write_binary_file_base64`| `file_path: String`, `base64_content: String` | `Result<(), String>` | Decodes base64 string and writes raw bytes to destination path |
+| 21 | **FileOps** | `create_new_file` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new empty file inside the specified parent folder |
+| 22 | **FileOps** | `create_new_folder` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new directory inside the specified parent folder |
+| 23 | **FileOps** | `delete_file_or_dir` | `path: String` | `Result<(), String>` | Recursively deletes file or folder from the filesystem |
+| 24 | **FileOps** | `rename_file_or_dir` | `old_path: String`, `new_name: String` | `Result<String, String>` | Renames file or directory in place |
+| 25 | **FileOps** | `inspect_paths` | `paths: Vec<String>` | `Vec<FileEntry>` | Inspects external paths and returns FileEntry metadata (is_dir, size) for drag-drop imports |
 
 ---
 

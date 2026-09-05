@@ -1,0 +1,487 @@
+/* ============================================================
+   COMPOSER 2.0 — SHELL STYLES
+   TitleBar + Sidebar + Application Frame
+   ============================================================ */
+
+/* ── Application Root Frame ─────────────────────────────────── */
+.c2-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Title Bar ───────────────────────────────────────────────── */
+.c2-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  background-color: var(--bg-titlebar);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  user-select: none;
+  position: relative;
+}
+
+.c2-titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  pointer-events: none;
+}
+
+.c2-titlebar-brand img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.c2-titlebar-brand-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.c2-titlebar-drag {
+  flex: 1;
+  height: 100%;
+}
+
+.c2-titlebar-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.c2-winbtn {
+  width: 40px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--duration-fast), color var(--duration-fast);
+}
+.c2-winbtn:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+}
+.c2-winbtn.c2-winbtn--close:hover {
+  background-color: #C42B1C;
+  color: #ffffff;
+}
+
+/* ── Main Body (sidebar + viewport) ─────────────────────────── */
+.c2-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Viewport ────────────────────────────────────────────────── */
+.c2-viewport {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--bg-app);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.c2-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  user-select: none;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Sidebar brand header */
+.c2-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.c2-sidebar-brand img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  opacity: 0.95;
+  flex-shrink: 0;
+}
+
+.c2-sidebar-brand-text {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+}
+
+/* Sidebar navigation */
+.c2-sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 8px 4px;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.c2-sidebar-nav::-webkit-scrollbar { display: none; }
+
+/* Nav section label */
+.c2-sidebar-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 8px 8px 4px;
+}
+
+/* Nav item */
+.c2-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+  position: relative;
+}
+
+.c2-nav-item:hover {
+  background-color: var(--sidebar-nav-hover-bg);
+  color: var(--text-secondary);
+}
+
+.c2-nav-item.active {
+  background-color: var(--sidebar-nav-active-bg);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.c2-nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 60%;
+  background-color: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.c2-nav-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.c2-nav-item.active .c2-nav-item-icon {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.c2-nav-item-label {
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Sidebar spacer */
+.c2-sidebar-spacer {
+  flex: 1;
+}
+
+/* Sidebar footer / workspace status */
+.c2-sidebar-footer {
+  padding: 10px 8px 12px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.c2-workspace-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 100%;
+}
+
+.c2-workspace-status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.c2-workspace-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.c2-workspace-online {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.c2-online-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #4CAF50;
+  flex-shrink: 0;
+}
+
+/* Sidebar divider */
+.c2-sidebar-divider {
+  height: 1px;
+  background-color: var(--border-subtle);
+  margin: 6px 8px;
+}
+
+/* ── Theme toggle button in sidebar ──────────────────────────── */
+.c2-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background-color var(--duration-fast), color var(--duration-fast);
+}
+.c2-theme-toggle:hover {
+  background-color: var(--sidebar-nav-hover-bg);
+  color: var(--text-secondary);
+}
+
+/* ── Loading Overlay ─────────────────────────────────────────── */
+.c2-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-app);
+  transition: opacity 500ms ease-out;
+}
+
+.c2-loading-brand {
+  font-family: var(--font-ui);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+/* ── Top Navbar layout variant ────────────────────────────────── */
+.c2-topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: height var(--duration-slow) var(--ease-default),
+              opacity var(--duration-slow) var(--ease-default);
+}
+
+.c2-topnav-pill-group {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 2px;
+}
+
+.c2-topnav-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: calc(var(--radius-md) - 2px);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--duration-base), color var(--duration-base);
+}
+.c2-topnav-pill:hover {
+  background-color: var(--sidebar-nav-hover-bg);
+  color: var(--text-secondary);
+}
+.c2-topnav-pill.active {
+  background-color: var(--accent-soft);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── Vertical Pills — Floating Overlay ──────────────────────── */
+/* The pillbar is position:fixed — it floats over the content,
+   does NOT take layout space. Viewport fills full width. */
+.c2-pillbar {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 80;
+
+  /* Floating pill container */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 7px;
+
+  /* Glass surface */
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  transition: opacity var(--duration-slow) var(--ease-default);
+}
+
+/* Left pill bar anchored to the left */
+.c2-pillbar--left {
+  left: 7px;
+  margin-top: 16px; /* offset below titlebar */
+}
+
+/* Right pill bar anchored to the right */
+.c2-pillbar--right {
+  right: 7px;
+  margin-top: 16px;
+}
+
+/* Each pill item is a compact capsule */
+.c2-pill-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast),
+    color var(--duration-fast),
+    box-shadow var(--duration-fast);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.c2-pill-item:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.c2-pill-item.active {
+  background-color: var(--accent-soft);
+  border-color: rgba(229, 180, 95, 0.30);
+  color: var(--accent);
+}
+
+/* Divider inside pill bar */
+.c2-pill-divider {
+  width: 18px;
+  height: 1px;
+  background-color: var(--border-default);
+  margin: 2px 0;
+  border-radius: 1px;
+}
+
+/* Tooltip — appears to the right for left bar, left for right bar */
+.c2-pill-tooltip {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast);
+  z-index: 90;
+  box-shadow: var(--shadow-sm);
+}
+
+.c2-pillbar--left  .c2-pill-tooltip { left:  calc(100% + 10px); }
+.c2-pillbar--right .c2-pill-tooltip { right: calc(100% + 10px); left: auto; }
+.c2-pill-item:hover .c2-pill-tooltip { opacity: 1; }

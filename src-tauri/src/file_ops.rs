@@ -225,3 +225,25 @@ pub fn write_binary_file_base64(file_path: String, base64_content: String) -> Re
     fs::write(path, bytes).map_err(|e| e.to_string())?;
     Ok(())
 }
+
+/// Inspects a list of external filesystem paths and returns FileEntry metadata.
+#[tauri::command]
+pub fn inspect_paths(paths: Vec<String>) -> Vec<FileEntry> {
+    paths
+        .into_iter()
+        .filter_map(|p| {
+            let path = Path::new(&p);
+            if path.exists() {
+                let meta = path.metadata().ok()?;
+                Some(FileEntry {
+                    name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                    path: p,
+                    is_dir: meta.is_dir(),
+                    size: meta.len(),
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}

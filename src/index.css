@@ -1,378 +1,99 @@
 @import "tailwindcss";
 
-@theme {
-  --color-paper: var(--theme-paper, #f6f2ea);
-  --color-ink: var(--theme-ink, #18140f);
-  --color-cream: var(--theme-cream, #ede8dc);
-  --color-muted: var(--theme-muted, #8a7f6e);
-  --color-accent: var(--theme-accent, #b8440c);
-  --color-rule: var(--theme-rule, #c9bfab);
-  --color-light-rule: var(--theme-light-rule, #e0d9cc);
+/* ── Composer 2.0 Design System ─────────────────────────────── */
+@import "./styles/tokens.css";
+@import "./styles/shell.css";
+@import "./styles/explorer.css";
+@import "./styles/settings.css";
+@import "./styles/dialogs.css";
+@import "./styles/components.css";
 
-  --font-serif-display: var(--theme-font-display, "Playfair Display", Georgia, serif);
-  --font-serif-text: var(--theme-font-text, "EB Garamond", Georgia, serif);
-  --font-sans-meta: var(--theme-font-sans, "Inter", system-ui, -apple-system, sans-serif);
+/* ── Tailwind theme bridge (maps tokens → Tailwind color classes) */
+/* NOTE: Tailwind v4 @theme requires static values, not var().
+   These match the dark-warm defaults; JS in App.tsx overrides at runtime. */
+@theme {
+  /* Dark warm defaults — overridden by JS applyTheme() at runtime */
+  --color-paper:      #141310;
+  --color-ink:        #F3EFE8;
+  --color-cream:      #1B1814;
+  --color-muted:      #71685E;
+  --color-accent:     #E5B45F;
+  --color-rule:       #222222;
+  --color-light-rule: #1a1a1a;
+
+  /* Font references */
+  --font-serif-display: "Inter", sans-serif;
+  --font-serif-text:    "Inter", sans-serif;
+  --font-sans-meta:     "Inter", sans-serif;
 }
 
+/* ── Base layer ──────────────────────────────────────────────── */
 @layer base {
   :root {
-    --theme-paper: #f6f2ea;
-    --theme-ink: #18140f;
-    --theme-cream: #ede8dc;
-    --theme-muted: #8a7f6e;
-    --theme-accent: #b8440c;
-    --theme-rule: #c9bfab;
-    --theme-light-rule: #e0d9cc;
+    /* Legacy Tailwind CSS vars: dark defaults from new token system */
+    --theme-paper:      #141310;
+    --theme-ink:        #F3EFE8;
+    --theme-cream:      #1B1814;
+    --theme-muted:      #71685E;
+    --theme-accent:     #E5B45F;
+    --theme-rule:       rgba(255, 255, 255, 0.08);
+    --theme-light-rule: rgba(255, 255, 255, 0.05);
   }
 
-  body {
-    background-color: var(--color-paper);
-    color: var(--color-ink);
-    font-family: var(--font-serif-text);
-    font-size: 17px;
-    line-height: 1.6;
+  html, body {
+    background-color: var(--bg-app, #141310);
+    color: var(--text-primary, #F3EFE8);
+    font-family: var(--font-ui, "Inter", "Segoe UI", system-ui, sans-serif);
+    font-size: 13px;
+    line-height: 1.5;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Compact Mode overrides */
-  .compact-mode {
-    font-size: 15px;
-  }
-  .compact-mode .card,
-  .compact-mode .pane-padding {
-    padding: 1rem !important;
-  }
-  .compact-mode input,
-  .compact-mode button,
-  .compact-mode select {
-    padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
-  }
-
-  /* Reduce Motion overrides */
-  .reduce-motion * {
-    transition-duration: 0s !important;
-    animation-duration: 0s !important;
-    scroll-behavior: auto !important;
-  }
-
-  /* Scrollbars */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--color-rule);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-accent);
-  }
-
-  input, textarea, select {
-    font-family: var(--font-sans-meta);
+  input, textarea, select, button {
+    font-family: var(--font-ui, "Inter", system-ui, sans-serif);
   }
 
   select option {
-    background-color: var(--theme-paper);
-    color: var(--theme-ink);
+    background-color: var(--bg-surface-elevated, #211D18);
+    color: var(--text-primary, #F3EFE8);
   }
 }
 
-/* Custom Editorial Utilities */
-.double-rule-bottom {
-  border-bottom: 3px double var(--color-rule);
-}
-.double-rule-top {
-  border-top: 3px double var(--color-rule);
-}
+/* ── Markdown Preview Typography ─────────────────────────────── */
+/* Kept intact — Markdown preview is a content reading experience,
+   not application UI. Retains editorial quality for the prose. */
 
-.kicker {
-  font-family: var(--font-sans-meta);
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--color-accent);
-}
-
-.drop-cap::first-letter {
-  font-family: var(--font-serif-display);
-  font-size: 4rem;
-  font-weight: 900;
-  float: left;
-  line-height: 0.78;
-  margin-right: 0.12em;
-  margin-top: 0.08em;
-  color: var(--color-accent);
-}
-
-.pull-quote {
-  border-left: 3px solid var(--color-accent);
-  padding: 0.75rem 1.25rem;
-  margin: 1.5rem 0;
-  font-family: var(--font-serif-display);
-  font-size: 1.2rem;
-  font-style: italic;
-  line-height: 1.45;
-  color: var(--color-ink);
-}
-
-.custom-editor-container .monaco-editor,
-.custom-editor-container .monaco-editor .margin,
-.custom-editor-container .monaco-editor-background {
-  background-color: var(--color-paper) !important;
-}
-
-/* Sandboxed Iframe Styling */
-.sandboxed-frame {
-  background-color: #ffffff;
-  border: 1px solid var(--color-rule);
-}
-
-/* Glassmorphism Navigation variant */
-.nav-glass {
-  backdrop-filter: blur(12px);
-  background-color: rgba(246, 242, 234, 0.85);
-  border-bottom: 1px solid rgba(201, 191, 171, 0.5);
-}
-
-/* ── Premium Micro-Animations ────────────────────────────────────────────────── */
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes bubbleIn {
-  0% {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes pulseRing {
-  0% {
-    box-shadow: 0 0 0 0 rgba(var(--color-accent-rgb, 184, 68, 12), 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(var(--color-accent-rgb, 184, 68, 12), 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(var(--color-accent-rgb, 184, 68, 12), 0);
-  }
-}
-
-.page-transition {
-  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.chat-bubble-entry {
-  animation: bubbleIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-.pulse-ring-active {
-  animation: pulseRing 1.6s infinite cubic-bezier(0.66, 0, 0, 1);
-}
-
-/* Interactive elements hover-lift effect */
-.hover-lift {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
-  will-change: transform;
-}
-.hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
-  border-color: var(--theme-accent);
-}
-
-/* ── Specialized Navbar Icon Micro-Animations ────────────────────────────────── */
-
-@keyframes wiggle {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-10deg); }
-  75% { transform: rotate(10deg); }
-}
-
-@keyframes bounceMini {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
-}
-
-@keyframes shakeMini {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-2.5px); }
-  75% { transform: translateX(2.5px); }
-}
-
-/* 1. Explorer Folder: Wiggle Swing */
-.nav-icon-explorer {
-  transition: transform 0.25s ease;
-}
-button:hover .nav-icon-explorer {
-  animation: wiggle 0.4s ease-in-out 2;
-}
-
-/* 2. Assistant Message: Vertical Bounce */
-.nav-icon-chat {
-  transition: transform 0.25s ease;
-}
-button:hover .nav-icon-chat {
-  animation: bounceMini 0.4s ease-in-out;
-}
-
-/* 3. AI Skills Code: Typing Horizontal Shake */
-.nav-icon-skills {
-  transition: transform 0.25s ease;
-}
-button:hover .nav-icon-skills {
-  animation: shakeMini 0.4s ease-in-out;
-}
-
-/* 4. System Settings: Clockwise Gear 180° Spin */
-.nav-icon-settings {
-  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-button:hover .nav-icon-settings {
-  transform: rotate(180deg);
-}
-
-/* ── Global Accent Glow System ────────────────────────────────── */
-.bg-accent,
-button.bg-accent,
-.active-accent-glow {
-  box-shadow: var(--theme-accent-glow, none);
-  transition: box-shadow 0.3s ease-out, background-color 0.3s ease-out, border-color 0.3s ease-out, transform 0.3s ease-out;
-}
-
-.text-accent,
-.kicker,
-.active-text-accent-glow {
-  text-shadow: var(--theme-accent-text-glow, none);
-  transition: text-shadow 0.3s ease-out, color 0.3s ease-out;
-}
-
-/* ── Windows 11 Fluent Spinner & Loading screen animations ── */
-.w11-spinner-svg {
-  animation: w11-rotate 2s linear infinite;
-}
-.w11-spinner-path {
-  stroke-dasharray: 1, 150;
-  stroke-dashoffset: 0;
-  animation: w11-dash 1.5s ease-in-out infinite;
-}
-@keyframes w11-rotate {
-  100% { transform: rotate(360deg); }
-}
-@keyframes w11-dash {
-  0% {
-    stroke-dasharray: 1, 150;
-    stroke-dashoffset: 0;
-  }
-  50% {
-    stroke-dasharray: 90, 150;
-    stroke-dashoffset: -35;
-  }
-  100% {
-    stroke-dasharray: 90, 150;
-    stroke-dashoffset: -124;
-  }
-}
-
-/* Custom fade-in for loading overlay background */
-@keyframes bgFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.loading-bg-fadein {
-  animation: bgFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Gradient breathing animation for dropdown menu items */
-@keyframes gradient-breath {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.gradient-breath {
-  background-size: 200% 200% !important;
-  animation: gradient-breath 8s ease infinite !important;
-  transition: background-position 0.5s ease;
-}
-
-/* ── Dynamic Overall UI Edge Smoothness ── */
-button:not(.app-navbar *),
-input:not(.app-navbar *),
-textarea:not(.app-navbar *),
-select:not(.app-navbar *),
-.rounded-sm:not(.app-navbar *),
-.rounded:not(.app-navbar *),
-.rounded-md:not(.app-navbar *),
-.rounded-lg:not(.app-navbar *),
-.rounded-xl:not(.app-navbar *),
-.card:not(.app-navbar *),
-.dialog:not(.app-navbar *),
-.modal:not(.app-navbar *),
-.dropdown:not(.app-navbar *),
-.toast:not(.app-navbar *),
-.notification-banner:not(.app-navbar *),
-.chat-bubble-entry:not(.app-navbar *) {
-  border-radius: var(--ui-edge-smoothness, 4px) !important;
-}/* ── Markdown Preview Typography & Editorial System ── */
 .md-preview-prose {
   color: var(--color-ink);
   word-break: break-word;
+  font-family: var(--font-ui);
 }
 
 .md-preview-prose [align="center"] {
   text-align: center;
   display: block;
 }
-
 .md-preview-prose [align="center"] > * {
   margin-left: auto;
   margin-right: auto;
 }
 
 .md-preview-prose h1 {
-  font-family: var(--font-serif-display);
-  font-size: 2.25rem;
+  font-size: 1.9rem;
   font-weight: 700;
   line-height: 1.25;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--color-light-rule);
   margin-top: 1.75rem;
   margin-bottom: 1rem;
+  color: var(--color-ink);
 }
 
 .md-preview-prose h2 {
-  font-family: var(--font-serif-display);
-  font-size: 1.65rem;
+  font-size: 1.45rem;
   font-weight: 700;
   line-height: 1.3;
   letter-spacing: -0.015em;
@@ -380,25 +101,25 @@ select:not(.app-navbar *),
   border-bottom: 1px solid var(--color-light-rule);
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
+  color: var(--color-ink);
 }
 
 .md-preview-prose h3 {
-  font-family: var(--font-serif-display);
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 600;
   line-height: 1.35;
   margin-top: 1.25rem;
   margin-bottom: 0.5rem;
+  color: var(--color-ink);
 }
 
 .md-preview-prose h4,
 .md-preview-prose h5,
 .md-preview-prose h6 {
-  font-family: var(--font-sans-meta);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-size: 0.85rem;
   margin-top: 1rem;
   margin-bottom: 0.4rem;
   color: var(--color-accent);
@@ -408,17 +129,6 @@ select:not(.app-navbar *),
   margin-top: 0.75rem;
   margin-bottom: 0.75rem;
   line-height: 1.7;
-}
-
-.drop-cap-enabled .md-preview-prose > p:not([align="center"]):first-of-type::first-letter {
-  font-family: var(--font-serif-display);
-  font-size: 3.5rem;
-  font-weight: 900;
-  float: left;
-  line-height: 0.78;
-  margin-right: 0.12em;
-  margin-top: 0.08em;
-  color: var(--color-accent);
 }
 
 .md-preview-prose ul {
@@ -454,10 +164,7 @@ select:not(.app-navbar *),
   text-underline-offset: 3px;
   transition: opacity 0.2s ease;
 }
-
-.md-preview-prose a:hover {
-  opacity: 0.8;
-}
+.md-preview-prose a:hover { opacity: 0.8; }
 
 .md-preview-prose img {
   max-width: 100%;
@@ -466,48 +173,36 @@ select:not(.app-navbar *),
   display: inline-block;
   vertical-align: middle;
 }
-
-.md-preview-prose [align="center"] img {
-  margin: 0.25rem;
-}
-
-/* Badges / Shields */
-.md-preview-prose a img {
-  display: inline-block;
-  vertical-align: middle;
-  margin: 2px 2px;
-}
+.md-preview-prose [align="center"] img { margin: 0.25rem; }
+.md-preview-prose a img { display: inline-block; vertical-align: middle; margin: 2px; }
 
 /* Markdown Tables */
 .md-preview-prose table {
   width: 100%;
   border-collapse: collapse;
   margin: 1.5rem 0;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   border: 1px solid var(--color-rule);
 }
-
 .md-preview-prose th {
   background-color: var(--color-cream);
   border: 1px solid var(--color-rule);
   padding: 0.6rem 0.85rem;
   font-weight: 700;
   text-align: left;
-  font-family: var(--font-sans-meta);
-  font-size: 0.8rem;
-  letter-spacing: 0.03em;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
-
 .md-preview-prose td {
   border: 1px solid var(--color-rule);
   padding: 0.5rem 0.85rem;
 }
-
 .md-preview-prose tr:hover td {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
-/* Inline Code */
+/* Inline code */
 .md-preview-prose code:not(pre code) {
   font-family: var(--font-mono, "JetBrains Mono", monospace);
   font-size: 0.85em;
@@ -523,61 +218,38 @@ select:not(.app-navbar *),
   border-left: 3px solid var(--color-accent);
   padding: 0.6rem 1.25rem;
   margin: 1rem 0;
-  background-color: rgba(var(--color-accent-rgb, 184, 68, 12), 0.04);
+  background-color: rgba(229, 180, 95, 0.05);
   font-style: italic;
 }
 
-/* GitHub Callout / Alerts */
+/* GitHub Alerts */
 .md-alert {
   padding: 0.85rem 1.15rem;
   margin: 1.25rem 0;
   border-radius: 4px;
   border-left: 4px solid;
-  font-style: normal;
 }
-
-.md-alert-note {
-  border-left-color: #2563eb;
-  background-color: rgba(37, 99, 235, 0.07);
-}
-
-.md-alert-tip {
-  border-left-color: #059669;
-  background-color: rgba(5, 150, 105, 0.07);
-}
-
-.md-alert-important {
-  border-left-color: #7c3aed;
-  background-color: rgba(124, 58, 237, 0.07);
-}
-
-.md-alert-warning {
-  border-left-color: #d97706;
-  background-color: rgba(217, 119, 6, 0.07);
-}
-
-.md-alert-caution {
-  border-left-color: #dc2626;
-  background-color: rgba(220, 38, 38, 0.07);
-}
+.md-alert-note    { border-left-color: #2563eb; background-color: rgba(37,99,235,0.07); }
+.md-alert-tip     { border-left-color: #059669; background-color: rgba(5,150,105,0.07); }
+.md-alert-important { border-left-color: #7c3aed; background-color: rgba(124,58,237,0.07); }
+.md-alert-warning { border-left-color: #d97706; background-color: rgba(217,119,6,0.07); }
+.md-alert-caution { border-left-color: #dc2626; background-color: rgba(220,38,38,0.07); }
 
 .md-alert-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: var(--font-sans-meta);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.35rem;
 }
-
-.md-alert-note .md-alert-title { color: #2563eb; }
-.md-alert-tip .md-alert-title { color: #059669; }
+.md-alert-note .md-alert-title     { color: #2563eb; }
+.md-alert-tip .md-alert-title      { color: #059669; }
 .md-alert-important .md-alert-title { color: #7c3aed; }
-.md-alert-warning .md-alert-title { color: #d97706; }
-.md-alert-caution .md-alert-title { color: #dc2626; }
+.md-alert-warning .md-alert-title  { color: #d97706; }
+.md-alert-caution .md-alert-title  { color: #dc2626; }
 
 /* Task list checkboxes */
 .md-preview-prose input[type="checkbox"] {
@@ -589,14 +261,12 @@ select:not(.app-navbar *),
   margin-right: 0.5rem;
   vertical-align: middle;
   position: relative;
-  background-color: var(--color-paper);
+  background-color: transparent;
 }
-
 .md-preview-prose input[type="checkbox"]:checked {
   background-color: var(--color-accent);
   border-color: var(--color-accent);
 }
-
 .md-preview-prose input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
@@ -604,48 +274,40 @@ select:not(.app-navbar *),
   top: 1px;
   width: 4px;
   height: 8px;
-  border: solid white;
+  border: solid #1A1510;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 
-/* Anchor Heading Hover link */
+/* Heading anchors */
 .md-heading-container {
   position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
-
 .md-heading-anchor {
   opacity: 0;
   transition: opacity 0.15s ease;
   color: var(--color-muted);
   text-decoration: none !important;
 }
+.md-heading-container:hover .md-heading-anchor { opacity: 1; }
 
-.md-heading-container:hover .md-heading-anchor {
-  opacity: 1;
+/* Drop-cap: only inside markdown preview (not app UI) */
+.drop-cap-enabled .md-preview-prose > p:not([align="center"]):first-of-type::first-letter {
+  font-size: 3.2rem;
+  font-weight: 800;
+  float: left;
+  line-height: 0.78;
+  margin-right: 0.12em;
+  margin-top: 0.08em;
+  color: var(--color-accent);
 }
 
-/* ── Isolated Printing System ── */
-@media print {
-  body > *:not(#composer-print-iframe) {
-    display: none !important;
-  }
-  #composer-print-iframe {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    height: 100% !important;
-    visibility: visible !important;
-  }
-}
-
-/* ── Print Studio Paper Preview Styling (Isolates from app dark mode) ── */
+/* ── Print Paper Sheets (isolated from app dark mode) ────────── */
 .print-paper-sheet {
   --color-ink: #18140f !important;
-  --color-ink-rgb: 24, 20, 15 !important;
   --color-muted: #6b6255 !important;
   --color-rule: #c9bfab !important;
   --color-light-rule: #ded6c5 !important;
@@ -653,10 +315,8 @@ select:not(.app-navbar *),
   --color-paper: #ffffff !important;
   color: #18140f !important;
 }
-
 .print-paper-sheet.theme-editorial {
   --color-ink: #18140f !important;
-  --color-ink-rgb: 24, 20, 15 !important;
   --color-muted: #6b6255 !important;
   --color-rule: #c9bfab !important;
   --color-light-rule: #ded6c5 !important;
@@ -665,10 +325,8 @@ select:not(.app-navbar *),
   background-color: #fbf8f2 !important;
   color: #18140f !important;
 }
-
 .print-paper-sheet.theme-monochrome {
   --color-ink: #000000 !important;
-  --color-ink-rgb: 0, 0, 0 !important;
   --color-muted: #444444 !important;
   --color-rule: #cccccc !important;
   --color-light-rule: #e0e0e0 !important;
@@ -678,10 +336,8 @@ select:not(.app-navbar *),
   color: #000000 !important;
   filter: grayscale(1);
 }
-
 .print-paper-sheet.theme-white {
   --color-ink: #111111 !important;
-  --color-ink-rgb: 17, 17, 17 !important;
   --color-muted: #555555 !important;
   --color-rule: #e5e5e5 !important;
   --color-light-rule: #f0f0f0 !important;
@@ -705,21 +361,7 @@ select:not(.app-navbar *),
 .print-paper-sheet em,
 .print-paper-sheet td,
 .print-paper-sheet th,
-.print-paper-sheet .md-preview-prose,
-.print-paper-sheet .md-preview-prose h1,
-.print-paper-sheet .md-preview-prose h2,
-.print-paper-sheet .md-preview-prose h3,
-.print-paper-sheet .md-preview-prose h4,
-.print-paper-sheet .md-preview-prose h5,
-.print-paper-sheet .md-preview-prose h6,
-.print-paper-sheet .md-preview-prose p,
-.print-paper-sheet .md-preview-prose span,
-.print-paper-sheet .md-preview-prose li,
-.print-paper-sheet .md-preview-prose strong,
-.print-paper-sheet .md-preview-prose em,
-.print-paper-sheet .md-preview-prose td,
-.print-paper-sheet .md-preview-prose th,
-.print-paper-sheet .md-preview-prose div:not(.md-alert) {
+.print-paper-sheet .md-preview-prose {
   color: inherit !important;
 }
 
@@ -729,52 +371,37 @@ select:not(.app-navbar *),
 .print-paper-sheet .md-preview-prose h2 {
   border-bottom: 1px solid #c9bfab !important;
 }
-
 .print-paper-sheet hr,
 .print-paper-sheet .md-preview-prose hr {
   background-color: #c9bfab !important;
   border-color: #c9bfab !important;
 }
-
 .print-paper-sheet th,
 .print-paper-sheet .md-preview-prose th {
   background-color: #f4f0e6 !important;
   border-color: #c9bfab !important;
   color: #18140f !important;
 }
-
 .print-paper-sheet td,
-.print-paper-sheet .md-preview-prose td {
-  border-color: #c9bfab !important;
-}
-
+.print-paper-sheet .md-preview-prose td { border-color: #c9bfab !important; }
 .print-paper-sheet pre,
 .print-paper-sheet .md-preview-prose pre {
   background-color: #f6f3eb !important;
   border-color: #c9bfab !important;
 }
-
 .print-paper-sheet pre code,
-.print-paper-sheet .md-preview-prose pre code {
-  color: #18140f !important;
-}
-
+.print-paper-sheet .md-preview-prose pre code { color: #18140f !important; }
 .print-paper-sheet code:not(pre code),
 .print-paper-sheet .md-preview-prose code:not(pre code) {
   background-color: #ede8dc !important;
   border-color: #c9bfab !important;
   color: #b8440c !important;
 }
-
 .print-paper-sheet blockquote,
 .print-paper-sheet .md-preview-prose blockquote {
   background-color: rgba(184, 68, 12, 0.04) !important;
   border-left-color: #b8440c !important;
   color: #2a221b !important;
 }
-
 .print-paper-sheet a,
-.print-paper-sheet .md-preview-prose a {
-  color: #b8440c !important;
-}
-
+.print-paper-sheet .md-preview-prose a { color: #b8440c !important; }

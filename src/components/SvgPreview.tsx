@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { 
   ZoomIn, ZoomOut, Maximize2, RotateCcw, Copy, Check, Download, 
-  Sun, Moon, Grid, AlertCircle, CheckCircle2, Move, Sparkles
+  Sun, Moon, Grid, AlertCircle, CheckCircle2, Move
 } from "lucide-react";
 
 interface SvgPreviewProps {
@@ -235,11 +235,6 @@ export const SvgPreview: React.FC<SvgPreviewProps> = ({
       <div className="px-3.5 py-1.5 bg-cream/30 border-b border-rule flex items-center justify-between font-sans-meta text-[11px] gap-2 shrink-0">
         {/* Left: Metadata & Validity */}
         <div className="flex items-center gap-2 overflow-hidden">
-          <div className="flex items-center gap-1.5 font-semibold text-accent uppercase tracking-wider text-[10px]">
-            <Sparkles size={11} />
-            <span>SVG Image</span>
-          </div>
-
           {dimensions.width && dimensions.height ? (
             <span className="font-mono text-[10px] text-ink/70 px-1.5 py-0.5 bg-cream/70 rounded-sm border border-rule/50">
               {dimensions.width} × {dimensions.height} px

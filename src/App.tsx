@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
   Folder, Settings as SettingsIcon,
-  RefreshCw, Sun, Moon, Minus, Square, X
+  RefreshCw, Sun, Moon, Minus, Square, X,
+  HardDrive
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
@@ -16,18 +17,24 @@ const Settings = React.lazy(() => import("./components/Settings").then(m => ({ d
 // Font presets (must match Settings.tsx)
 // ─────────────────────────────────────────────
 const FONT_PRESETS = [
-  { id: "editorial",  text: '"EB Garamond", serif',   display: '"Playfair Display", serif', sans: '"Inter", sans-serif' },
-  { id: "neo_classical", text: '"EB Garamond", serif', display: '"EB Garamond", serif',     sans: '"Inter", sans-serif' },
-  { id: "inter",      text: '"Inter", sans-serif',     display: '"Inter", sans-serif',       sans: '"Inter", sans-serif' },
-  { id: "lexend",     text: '"Lexend", sans-serif',    display: '"Lexend", sans-serif',       sans: '"Lexend", sans-serif' },
+  { id: "editorial",    text: '"Inter", sans-serif',        display: '"Inter", sans-serif',         sans: '"Inter", sans-serif' },
+  { id: "neo_classical",text: '"Inter", sans-serif',        display: '"Inter", sans-serif',         sans: '"Inter", sans-serif' },
+  { id: "inter",        text: '"Inter", sans-serif',        display: '"Inter", sans-serif',         sans: '"Inter", sans-serif' },
+  { id: "modern_sans",  text: '"Inter", sans-serif',        display: '"Inter", sans-serif',         sans: '"Inter", sans-serif' },
+  { id: "monospace",    text: '"JetBrains Mono", monospace',display: '"JetBrains Mono", monospace', sans: '"JetBrains Mono", monospace' },
+  { id: "retro_serif",  text: '"Georgia", serif',           display: '"Georgia", serif',             sans: '"Georgia", serif' },
+  { id: "outfit",       text: '"Outfit", sans-serif',       display: '"Outfit", sans-serif',         sans: '"Outfit", sans-serif' },
+  { id: "spacemono",    text: '"Space Mono", monospace',    display: '"Space Mono", monospace',      sans: '"Space Mono", monospace' },
+  { id: "firacode",     text: '"Fira Code", monospace',     display: '"Fira Code", monospace',       sans: '"Fira Code", monospace' },
+  { id: "lexend",       text: '"Lexend", sans-serif',       display: '"Lexend", sans-serif',         sans: '"Lexend", sans-serif' },
 ];
 
 // ─────────────────────────────────────────────
-// Navigation definition
+// Navigation definition  (AI / Scheduler removed)
 // ─────────────────────────────────────────────
 const NAV_ITEMS = [
-  { name: "Explorer",  label: "Explorer",    icon: <Folder      size={14} className="nav-icon-explorer"  /> },
-  { name: "Settings",  label: "System",      icon: <SettingsIcon size={14} className="nav-icon-settings"/> },
+  { name: "Explorer", label: "Explorer", icon: <Folder     size={14} className="nav-icon-explorer"  /> },
+  { name: "Settings", label: "Settings", icon: <SettingsIcon size={14} className="nav-icon-settings"/> },
 ];
 
 // ─────────────────────────────────────────────
@@ -38,60 +45,28 @@ function App() {
   const [config,      setConfig]      = useState<AppConfig | null>(null);
   const [navLayout,   setNavLayout]   = useState<string>("sidebar");
   const [sysRamUsage, setSysRamUsage] = useState<number>(0);
-  const [welcomeText, setWelcomeText] = useState("");
-  const WELCOME_MSG = "Welcome back! 👋";
 
-  // Delayed typewriter welcome message in sidebars
-  useEffect(() => {
-    const delay = setTimeout(() => {
-      let i = 0;
-      const iv = setInterval(() => {
-        if (i < WELCOME_MSG.length) {
-          setWelcomeText(WELCOME_MSG.substring(0, i + 1));
-          i++;
-        } else {
-          clearInterval(iv);
-        }
-      }, 55);
-      return () => clearInterval(iv);
-    }, 1200);
-    return () => clearTimeout(delay);
-  }, []);
-
-
-  type LoadingPhase = "loading" | "exit-spinner" | "exit-text" | "reveal-app" | "done";
+  type LoadingPhase = "loading" | "reveal-app" | "done";
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("loading");
-  const [typedText, setTypedText] = useState("Composer");
-  const fullText = "Composer";
 
-  // ── Snappy Launch Sequence (350ms total) ──
+  // ── Snappy Launch Sequence ──────────────────
   useEffect(() => {
-    // Reveal app smoothly after 200ms
-    const timer1 = setTimeout(() => {
-      setLoadingPhase("reveal-app");
-    }, 200);
-
-    // Fully done and unmount overlay at 350ms
-    const timer2 = setTimeout(() => {
-      setLoadingPhase("done");
-    }, 350);
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
+    const timer1 = setTimeout(() => setLoadingPhase("reveal-app"), 200);
+    const timer2 = setTimeout(() => setLoadingPhase("done"), 380);
+    return () => { clearTimeout(timer1); clearTimeout(timer2); };
   }, []);
 
-  // ── Apply theme from config ───────────────
+  // ── Apply theme from config ─────────────────
   const applyTheme = (cfg: AppConfig) => {
     const root = document.documentElement;
     const ov   = cfg.theme.ui_overrides ?? {};
 
-    const paperColor = ov.nav_background || "#f6f2ea";
-    const inkColor   = ov.text_color || "#18140f";
-    const creamColor = ov.card_background || "#ede8dc";
-    const ruleColor  = ov.card_border || "#c9bfab";
-    const accentColor = ov.border_accent || "#b8440c";
+    // Map user-customized colors to CSS variables
+    const paperColor  = ov.nav_background     || "#141310";
+    const inkColor    = ov.text_color         || "#F3EFE8";
+    const creamColor  = ov.card_background    || "#1B1814";
+    const ruleColor   = ov.card_border        || "rgba(255,255,255,0.08)";
+    const accentColor = ov.border_accent      || "#E5B45F";
 
     root.style.setProperty("--theme-paper",  paperColor);
     root.style.setProperty("--theme-ink",    inkColor);
@@ -99,48 +74,50 @@ function App() {
     root.style.setProperty("--theme-rule",   ruleColor);
     root.style.setProperty("--theme-accent", accentColor);
 
-    // Dynamic light rule (soft dividers) and text-muted based on hex colors
+    // Also update the new token variables so new CSS classes pick them up
+    root.style.setProperty("--bg-app",              paperColor);
+    root.style.setProperty("--bg-sidebar",          paperColor);
+    root.style.setProperty("--bg-surface",          creamColor);
+    root.style.setProperty("--bg-surface-elevated", creamColor);
+    root.style.setProperty("--text-primary",        inkColor);
+    root.style.setProperty("--accent",              accentColor);
+
     const lightRuleColor = ruleColor.startsWith("#") && ruleColor.length === 7
-      ? `${ruleColor}3a` // ~23% opacity
+      ? `${ruleColor}3a`
       : ruleColor;
     root.style.setProperty("--theme-light-rule", lightRuleColor);
 
     const mutedColor = inkColor.startsWith("#") && inkColor.length === 7
-      ? `${inkColor}90` // ~56% opacity
-      : "#8a7f6e";
+      ? `${inkColor}90`
+      : "#71685E";
     root.style.setProperty("--theme-muted", mutedColor);
+    root.style.setProperty("--text-muted",  mutedColor);
 
+    // Glow
     const glowOn     = ov.accent_glow === "true";
     const brightness = parseFloat(ov.accent_glow_brightness || "1.0");
-    const accentClr  = ov.border_accent || "#b8440c";
-
+    const accentClr  = ov.border_accent || "#E5B45F";
     const borderGlowRadius = Math.round(10 * brightness);
-    const textGlowRadius = Math.round(5 * brightness);
-
-    const baseAlpha = Math.min(1.0, brightness);
-    const borderAlphaHex = Math.round(baseAlpha * 255).toString(16).padStart(2, "0");
-    const textAlphaHex = Math.round(baseAlpha * 0.5 * 255).toString(16).padStart(2, "0");
-
-    const borderGlowColor = accentClr.startsWith("#") && accentClr.length === 7
-      ? `${accentClr}${borderAlphaHex}`
-      : accentClr;
-    const textGlowColor = accentClr.startsWith("#") && accentClr.length === 7
-      ? `${accentClr}${textAlphaHex}`
-      : `${accentClr}80`;
-
+    const textGlowRadius   = Math.round(5  * brightness);
+    const baseAlpha        = Math.min(1.0, brightness);
+    const borderAlphaHex   = Math.round(baseAlpha * 255).toString(16).padStart(2, "0");
+    const textAlphaHex     = Math.round(baseAlpha * 0.5 * 255).toString(16).padStart(2, "0");
+    const borderGlowColor  = accentClr.startsWith("#") && accentClr.length === 7 ? `${accentClr}${borderAlphaHex}` : accentClr;
+    const textGlowColor    = accentClr.startsWith("#") && accentClr.length === 7 ? `${accentClr}${textAlphaHex}` : `${accentClr}80`;
     root.style.setProperty("--theme-accent-glow",      glowOn ? `0 0 ${borderGlowRadius}px ${borderGlowColor}` : "none");
     root.style.setProperty("--theme-accent-text-glow", glowOn ? `0 0 ${textGlowRadius}px ${textGlowColor}` : "none");
 
-    const font = FONT_PRESETS.find(f => f.id === (cfg.theme.font_family_ui || "editorial")) || FONT_PRESETS[0];
+    // Font
+    const font = FONT_PRESETS.find(f => f.id === (cfg.theme.font_family_ui || "inter")) || FONT_PRESETS[2];
     root.style.setProperty("--theme-font-text",    font.text);
     root.style.setProperty("--theme-font-display", font.display);
     root.style.setProperty("--theme-font-sans",    font.sans);
 
-    root.style.setProperty("--navbar-edge-smoothness", ov.navbar_edge_smoothness || "0px");
-    root.style.setProperty("--ui-edge-smoothness", ov.ui_edge_smoothness || "4px");
+    root.style.setProperty("--navbar-edge-smoothness", ov.navbar_edge_smoothness || "4px");
+    root.style.setProperty("--ui-edge-smoothness",     ov.ui_edge_smoothness     || "4px");
   };
 
-  // ── Load config on boot ───────────────────
+  // ── Load config on boot ─────────────────────
   const loadConfig = async () => {
     try {
       const cfg: AppConfig = await invoke("get_app_config");
@@ -148,6 +125,7 @@ function App() {
       setNavLayout(cfg.theme.nav_layout || "sidebar");
       setActivePage(prev => {
         if (prev === "Explorer" && cfg.general.launch_page) {
+          // Scheduler was removed — fall back to Explorer if config references it
           return cfg.general.launch_page === "Scheduler" ? "Explorer" : cfg.general.launch_page;
         }
         return prev;
@@ -158,26 +136,34 @@ function App() {
     }
   };
 
-  // ── Toggle dark / light ───────────────────
+  // ── Toggle dark / light ─────────────────────
+  const isDarkMode = (() => {
+    const ink = config?.theme?.ui_overrides?.text_color ?? "#F3EFE8";
+    const inkLower = ink.trim().toLowerCase();
+    // Light mode if the text color is dark (i.e. dark ink on light paper)
+    return !(inkLower === "#18140f" || inkLower === "#1a1510" || inkLower.startsWith("#1") || inkLower.startsWith("#2") || inkLower.startsWith("#3"));
+  })();
+
   const toggleThemeMode = async () => {
     if (!config) return;
-    const isDark    = (config.theme.ui_overrides?.text_color ?? "#18140f") === "#ffffff";
-    const nextOv    = isDark
+    const nextOv = isDarkMode
       ? {
           ...config.theme.ui_overrides,
-          nav_background:     "#f6f2ea",
-          content_background: "#f6f2ea",
-          card_background:    "#ede8dc",
-          card_border:        "#c9bfab",
-          text_color:         "#18140f",
+          nav_background:     "#F5F1EB",
+          content_background: "#F5F1EB",
+          card_background:    "#E8E2D8",
+          card_border:        "#D4CEC6",
+          text_color:         "#1A1510",
+          border_accent:      "#C47A20",
         }
       : {
           ...config.theme.ui_overrides,
-          nav_background:     "#181410",
-          content_background: "#181410",
-          card_background:    "#221e1a",
-          card_border:        "#3c352a",
-          text_color:         "#ffffff",
+          nav_background:     "#141310",
+          content_background: "#141310",
+          card_background:    "#1B1814",
+          card_border:        "rgba(255,255,255,0.08)",
+          text_color:         "#F3EFE8",
+          border_accent:      "#E5B45F",
         };
 
     const nextConfig = { ...config, theme: { ...config.theme, ui_overrides: nextOv } };
@@ -187,10 +173,7 @@ function App() {
     await emit("config_updated", nextConfig);
   };
 
-  // ── isDark helper (derived, not state) ───
-  const isDarkMode = (config?.theme?.ui_overrides?.text_color ?? "#18140f") === "#ffffff";
-
-  // ── Effects ───────────────────────────────
+  // ── Effects ─────────────────────────────────
   useEffect(() => {
     loadConfig();
 
@@ -198,8 +181,7 @@ function App() {
     const noCtx = (e: MouseEvent) => e.preventDefault();
     document.addEventListener("contextmenu", noCtx);
 
-    // Tauri event subscriptions
-    const configUnsub  = listen<AppConfig | null>("config_updated", e => {
+    const configUnsub = listen<AppConfig | null>("config_updated", e => {
       if (e.payload) {
         const cfg = e.payload;
         setConfig(cfg);
@@ -209,15 +191,13 @@ function App() {
         loadConfig();
       }
     });
-    const taskUnsub    = listen("task_status_changed",  () => {});
-    const layoutUnsub  = listen<string>("nav_layout_changed", e => setNavLayout(e.payload));
+    const taskUnsub   = listen("task_status_changed",  () => {});
+    const layoutUnsub = listen<string>("nav_layout_changed", e => setNavLayout(e.payload));
 
-    // Real-time RAM polling every 2 s
+    // RAM polling every 2s
     const fetchRam = async () => {
-      try {
-        const pct: number = await invoke("get_system_ram_usage");
-        setSysRamUsage(pct);
-      } catch { /* ignore */ }
+      try { const pct: number = await invoke("get_system_ram_usage"); setSysRamUsage(pct); }
+      catch { /* ignore */ }
     };
     fetchRam();
     const ramTimer = setInterval(fetchRam, 2000);
@@ -231,18 +211,16 @@ function App() {
     };
   }, []);
 
-  // Global browser/Windows keyboard shortcuts
+  // Global keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
 
-      // F5 or Ctrl+R: Reload the window
       if (e.key === "F5" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "r")) {
         e.preventDefault();
         window.location.reload();
       }
 
-      // F11: Toggle fullscreen mode
       if (e.key === "F11") {
         e.preventDefault();
         getCurrentWindow().isFullscreen().then(isFS => {
@@ -250,20 +228,12 @@ function App() {
         }).catch(() => {});
       }
 
-      // Ctrl + F: Page-contextual search routing
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
-        // Let Monaco handle its own search widget internally
-        if (target?.closest(".monaco-editor")) {
-          return;
-        }
-        
+        if (target?.closest(".monaco-editor")) return;
         e.preventDefault();
         if (activePage === "Explorer") {
           const input = document.getElementById("explorer-search-input");
-          if (input) {
-            input.focus();
-            (input as HTMLInputElement).select();
-          }
+          if (input) { input.focus(); (input as HTMLInputElement).select(); }
         }
       }
     };
@@ -272,9 +242,9 @@ function App() {
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, [activePage]);
 
-  // Mouse side-button page navigation
+  // Mouse side-button navigation
   useEffect(() => {
-    const block = (e: MouseEvent) => { if (e.button === 3 || e.button === 4) e.preventDefault(); };
+    const block    = (e: MouseEvent) => { if (e.button === 3 || e.button === 4) e.preventDefault(); };
     const navigate = (e: MouseEvent) => {
       if (e.button !== 3 && e.button !== 4) return;
       const pages = NAV_ITEMS.map(i => i.name);
@@ -293,26 +263,14 @@ function App() {
     };
   }, [activePage]);
 
-  // ── Helpers ───────────────────────────────
+  // ── Helpers ──────────────────────────────────
   const iconOnly = config?.theme?.ui_overrides?.nav_icon_only === "true";
-
-  const ThemeToggle = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
-    <button
-      onClick={toggleThemeMode}
-      className={`flex items-center justify-center text-muted hover:text-ink transition-colors duration-200 cursor-pointer ${className}`}
-      title="Toggle Light / Dark"
-    >
-      {isDarkMode
-        ? <Sun  size={size} className="text-accent" />
-        : <Moon size={size} className="text-accent" />}
-    </button>
-  );
 
   const renderPages = () => (
     <React.Suspense
       fallback={
-        <div className="flex-1 flex flex-col items-center justify-center h-full text-muted font-sans-meta text-xs">
-          <RefreshCw size={18} className="animate-spin text-accent mb-2" />
+        <div className="flex-1 flex flex-col items-center justify-center h-full" style={{ color: "var(--text-muted)", fontFamily: "var(--font-ui)", fontSize: "12px" }}>
+          <RefreshCw size={18} style={{ color: "var(--accent)", marginBottom: "8px" }} className="animate-spin" />
           <span>Loading workspace...</span>
         </div>
       }
@@ -326,521 +284,363 @@ function App() {
     </React.Suspense>
   );
 
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
   // JSX
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       {/* Main Application Container */}
-      <div 
-        className={`h-full w-full flex flex-col overflow-hidden bg-paper text-ink selection:bg-accent selection:text-paper transition-opacity duration-500 ease-out ${
+      <div
+        className={`c2-app transition-opacity duration-500 ease-out ${
           (loadingPhase === "reveal-app" || loadingPhase === "done") ? "opacity-100" : "opacity-0"
         }`}
       >
 
-      {/* ── Custom OS Title Bar ───────────────────── */}
-      <div
-        className="app-navbar w-full h-8 bg-paper flex items-center justify-between shrink-0 select-none cursor-default"
-        data-tauri-drag-region
-        onMouseDown={async (e) => {
-          // Only trigger drag on left-click and if not clicking a control button
-          if (e.button === 0 && !(e.target as HTMLElement).closest("button")) {
-            try {
-              await getCurrentWindow().startDragging();
-            } catch (err) {
-              console.error("Failed to drag window:", err);
+        {/* ── Custom OS Title Bar ─────────────────────────────── */}
+        <div
+          className="c2-titlebar"
+          data-tauri-drag-region
+          onMouseDown={async (e) => {
+            if (e.button === 0 && !(e.target as HTMLElement).closest("button")) {
+              try { await getCurrentWindow().startDragging(); }
+              catch (err) { console.error("Failed to drag window:", err); }
             }
-          }
-        }}
-      >
-        {/* Brand */}
-        <div className="flex items-center gap-2 px-3 pointer-events-none" data-tauri-drag-region>
-          <img
-            src="/icon.ico"
-            alt="Composer"
-            className="w-4 h-4 object-contain shrink-0"
-            draggable={false}
-          />
-          <span className="font-serif-display font-black text-xs tracking-wider text-accent italic">
-            Composer
-          </span>
-        </div>
-
-        {/* Drag region fill */}
-        <div className="flex-1 h-full" data-tauri-drag-region />
-
-        {/* Window controls */}
-        <div className="flex items-center h-full shrink-0">
-          <button
-            onClick={() => getCurrentWindow().minimize()}
-            className="w-10 h-full flex items-center justify-center text-muted hover:bg-cream hover:text-ink transition-colors duration-150 cursor-pointer"
-            title="Minimize"
-          >
-            <Minus size={11} />
-          </button>
-          <button
-            onClick={() => getCurrentWindow().toggleMaximize()}
-            className="w-10 h-full flex items-center justify-center text-muted hover:bg-cream hover:text-ink transition-colors duration-150 cursor-pointer"
-            title="Maximize / Restore"
-          >
-            <Square size={9} />
-          </button>
-          <button
-            onClick={() => getCurrentWindow().close()}
-            className="w-10 h-full flex items-center justify-center text-muted hover:bg-red-600 hover:text-white transition-colors duration-150 cursor-pointer"
-            title="Close"
-          >
-            <X size={12} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Top Navbar layout ────────────────────── */}
-      <div
-        className="app-navbar w-full bg-cream/35 flex items-center justify-between px-6 select-none font-sans-meta border-rule/60 shrink-0 transition-all duration-300 ease-out overflow-hidden"
-        style={{
-          height:            navLayout === "top_navbar" ? "48px" : "0px",
-          opacity:           navLayout === "top_navbar" ? 1 : 0,
-          borderBottomWidth: navLayout === "top_navbar" ? "2px" : "0px",
-          pointerEvents:     navLayout === "top_navbar" ? "auto" : "none",
-        }}
-      >
-        {/* Brand */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="font-serif-display font-black text-lg tracking-wider text-accent italic">
-            Composer
-          </span>
-        </div>
-
-        {/* Nav pills + theme toggle */}
-        <div
-          className="flex items-center bg-cream p-1 border border-rule/60 text-[10.5px] uppercase font-bold tracking-wider shrink-0"
-          style={{ borderRadius: "var(--navbar-edge-smoothness, 0px)" }}
-        >
-          {NAV_ITEMS.map(item => {
-            const ico = React.cloneElement(item.icon, { size: 15 });
-            return (
-              <button
-                key={item.name}
-                onClick={() => setActivePage(item.name)}
-                className={`transition-all duration-300 relative flex items-center justify-center overflow-hidden px-3.5 py-1.5
-                  ${activePage === item.name
-                    ? "bg-ink text-paper z-10 font-extrabold"
-                    : "text-muted hover:text-ink hover:bg-cream/30 z-0"}`}
-                style={{
-                  borderRadius: "calc(var(--navbar-edge-smoothness, 0px) - 1px)",
-                  boxShadow:    activePage === item.name ? "0 3px 8px rgba(0,0,0,.2)" : "none",
-                }}
-                title={item.label}
-              >
-                {ico}
-                <span
-                  className="transition-all duration-300 ease-out overflow-hidden inline-block whitespace-nowrap"
-                  style={{
-                    maxWidth:   iconOnly ? "0px" : "80px",
-                    opacity:    iconOnly ? 0 : 1,
-                    marginLeft: iconOnly ? "0px" : "6px",
-                  }}
-                >
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-
-          {/* Divider + theme toggle inline with pills */}
-          <div className="w-px h-4 bg-rule/35 mx-1 shrink-0" />
-          <ThemeToggle
-            size={15}
-            className="px-3 py-1.5"
-          />
-        </div>
-
-        {/* System info */}
-        <div className="flex items-center gap-3 text-[10.5px] shrink-0">
-          <span className="text-muted flex items-center gap-1.5 font-bold">
-            <span className="text-accent font-semibold">{sysRamUsage}%</span>
-            <span>RAM</span>
-          </span>
-        </div>
-      </div>
-
-      {/* ── Main layout frame ────────────────────── */}
-      <div className="flex-1 flex overflow-hidden">
-
-        {/* Left Vertical Pills sidebar */}
-        <div
-          className="app-navbar h-full bg-cream/45 flex flex-col items-center justify-center relative select-none transition-all duration-300 ease-out overflow-hidden shrink-0 border-r"
-          style={{
-            width:            navLayout === "vertical_pills" ? "64px" : "0px",
-            opacity:          navLayout === "vertical_pills" ? 1 : 0,
-            borderRightWidth: navLayout === "vertical_pills" ? "2px" : "0px",
-            borderColor:      "var(--theme-rule)",
-            pointerEvents:    navLayout === "vertical_pills" ? "auto" : "none",
           }}
         >
-          <div
-            className="w-12 bg-paper/95 border border-rule shadow-md py-3 px-1 flex flex-col items-center gap-3.5 select-none font-sans-meta transition-all duration-300"
-            style={{
-              borderRadius: "var(--navbar-edge-smoothness, 0px)",
-              transform:    navLayout === "vertical_pills" ? "scale(1)" : "scale(0.85)",
-            }}
-          >
-            {/* Brand letter */}
-            <span className="font-serif-display font-black text-accent text-sm italic border-b border-light-rule pb-1.5 shrink-0">
-              C
-            </span>
-
-            {/* Nav icons */}
-            {NAV_ITEMS.map(item => (
-              <button
-                key={item.name}
-                onClick={() => setActivePage(item.name)}
-                className={`p-2 transition-all flex items-center justify-center relative group shrink-0
-                  ${activePage === item.name ? "bg-accent text-paper" : "text-muted hover:bg-cream hover:text-ink"}`}
-                style={{ borderRadius: "calc(var(--navbar-edge-smoothness, 0px) - 2px)" }}
-                title={item.label}
-              >
-                {item.icon}
-                <span className="absolute left-14 bg-ink text-paper text-[9px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-sm opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-100 whitespace-nowrap z-50">
-                  {item.label}
-                </span>
-              </button>
-            ))}
-
-            {/* Divider + theme toggle */}
-            <div className="w-8 h-px bg-rule/35 shrink-0" />
-            <ThemeToggle
-              size={13}
-              className="p-2 hover:bg-cream/30 rounded-sm"
-            />
+          {/* Brand */}
+          <div className="c2-titlebar-brand" data-tauri-drag-region>
+            <img src="/icon.ico" alt="Composer" draggable={false} />
+            <span className="c2-titlebar-brand-text">Composer</span>
           </div>
-        </div>
 
-        {/* Left Fixed Sidebar */}
-        <div
-          className="app-navbar h-full bg-cream/45 flex flex-col justify-between select-none font-sans-meta transition-all duration-300 ease-out overflow-hidden shrink-0 border-r"
-          style={{
-            width:            navLayout === "sidebar" ? "224px" : "0px",
-            opacity:          navLayout === "sidebar" ? 1 : 0,
-            borderRightWidth: navLayout === "sidebar" ? "2px" : "0px",
-            borderColor:      "var(--theme-rule)",
-            pointerEvents:    navLayout === "sidebar" ? "auto" : "none",
-          }}
-        >
-          <div className="w-56 h-full flex flex-col shrink-0">
-            {/* Header */}
-            <div className="p-4 flex flex-col gap-1 border-b border-light-rule bg-paper shrink-0">
-              <span className="font-serif-display font-black text-xl tracking-wider text-accent italic">
-                Composer
-              </span>
-              <div className="text-[10px] font-semibold text-muted tracking-wide min-h-3.5">
-                {welcomeText}
-              </div>
-            </div>
+          {/* Drag fill */}
+          <div className="c2-titlebar-drag" data-tauri-drag-region />
 
-            {/* Menu */}
-            <div className="flex-1 py-4 px-2 overflow-y-auto flex flex-col justify-between">
-              <div className="space-y-1">
-                {NAV_ITEMS.map(item => (
-                  <button
-                    key={item.name}
-                    onClick={() => setActivePage(item.name)}
-                    className={`w-full px-3 py-2 flex items-center gap-2.5 rounded-sm transition-all text-xs font-semibold uppercase tracking-wider text-left shrink-0
-                      ${activePage === item.name
-                        ? "bg-ink text-paper font-bold"
-                        : "text-muted hover:bg-cream hover:text-ink"}`}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Theme toggle at bottom of menu */}
-              <div className="pt-2 border-t border-rule/35 mt-2 px-1">
-                <button
-                  onClick={toggleThemeMode}
-                  className="w-full px-3 py-2 flex items-center gap-2.5 rounded-sm transition-all text-xs font-semibold uppercase tracking-wider text-left text-muted hover:bg-cream hover:text-ink cursor-pointer"
-                >
-                  {isDarkMode
-                    ? <Sun  size={13} className="text-accent" />
-                    : <Moon size={13} className="text-accent" />}
-                  <span>Toggle Appearance</span>
-                </button>
-              </div>
-            </div>
-
-            {/* System status footer */}
-            <div className="p-4 border-t border-light-rule bg-paper/60 space-y-3 text-[10px] shrink-0">
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between font-bold text-muted uppercase text-[9px]">
-                  <span>SYSTEM RAM UTILIZATION</span>
-                  <span className="text-accent font-semibold">{sysRamUsage}%</span>
-                </div>
-                <div className="w-full bg-cream h-1 border border-rule/35 overflow-hidden">
-                  <div
-                    style={{ width: `${sysRamUsage}%` }}
-                    className="bg-accent h-full transition-all duration-700"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Content workspace */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden select-text">
-          {renderPages()}
-        </div>
-
-        {/* Right Vertical Pills sidebar ("R Vertical Pill" with glowing text-shadow accent R) */}
-        <div
-          className="app-navbar h-full bg-cream/45 flex flex-col items-center justify-center relative select-none transition-all duration-300 ease-out overflow-hidden shrink-0 border-l"
-          style={{
-            width:           navLayout === "right_vertical_pills" ? "64px" : "0px",
-            opacity:         navLayout === "right_vertical_pills" ? 1 : 0,
-            borderLeftWidth: navLayout === "right_vertical_pills" ? "2px" : "0px",
-            borderColor:     "var(--theme-rule)",
-            pointerEvents:   navLayout === "right_vertical_pills" ? "auto" : "none",
-          }}
-        >
-          <div
-            className="w-12 bg-paper/95 border border-rule shadow-md py-3 px-1 flex flex-col items-center gap-3.5 select-none font-sans-meta transition-all duration-300"
-            style={{
-              borderRadius: "var(--navbar-edge-smoothness, 0px)",
-              transform:    navLayout === "right_vertical_pills" ? "scale(1)" : "scale(0.85)",
-            }}
-          >
-            {/* Brand letter glowing in accent color */}
-            <span 
-              className="font-serif-display font-black text-accent text-sm italic border-b border-light-rule pb-1.5 shrink-0 animate-pulse"
-              style={{
-                textShadow: "0 0 12px var(--theme-accent), 0 0 24px var(--theme-accent)",
-                filter: "drop-shadow(0 0 6px var(--theme-accent))"
-              }}
+          {/* Window controls */}
+          <div className="c2-titlebar-controls">
+            <button
+              onClick={() => getCurrentWindow().minimize()}
+              className="c2-winbtn"
+              title="Minimize"
             >
-              C
-            </span>
+              <Minus size={10} />
+            </button>
+            <button
+              onClick={() => getCurrentWindow().toggleMaximize()}
+              className="c2-winbtn"
+              title="Maximize / Restore"
+            >
+              <Square size={9} />
+            </button>
+            <button
+              onClick={() => getCurrentWindow().close()}
+              className="c2-winbtn c2-winbtn--close"
+              title="Close"
+            >
+              <X size={11} />
+            </button>
+          </div>
+        </div>
 
-            {/* Nav icons */}
+        {/* ── Top Navbar layout ─────────────────────────────── */}
+        <div
+          className="c2-topnav"
+          style={{
+            height:            navLayout === "top_navbar" ? "44px" : "0px",
+            opacity:           navLayout === "top_navbar" ? 1 : 0,
+            borderBottomWidth: navLayout === "top_navbar" ? "1px" : "0px",
+            pointerEvents:     navLayout === "top_navbar" ? "auto" : "none",
+          }}
+        >
+          {/* Brand */}
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--accent)" }}>Composer</span>
+
+          {/* Nav pills */}
+          <div className="c2-topnav-pill-group">
+            {NAV_ITEMS.map(item => {
+              const ico = React.cloneElement(item.icon, { size: 13 });
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => setActivePage(item.name)}
+                  className={`c2-topnav-pill ${activePage === item.name ? "active" : ""}`}
+                  title={item.label}
+                >
+                  {ico}
+                  {!iconOnly && <span style={{ fontSize: "12px" }}>{item.label}</span>}
+                </button>
+              );
+            })}
+            <div style={{ width: "1px", height: "14px", backgroundColor: "var(--border-default)", margin: "0 3px" }} />
+            <button
+              onClick={toggleThemeMode}
+              className="c2-topnav-pill"
+              title="Toggle Light / Dark"
+            >
+              {isDarkMode ? <Sun size={13} style={{ color: "var(--accent)" }} /> : <Moon size={13} style={{ color: "var(--accent)" }} />}
+            </button>
+          </div>
+
+          {/* RAM */}
+          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+            <span style={{ color: "var(--accent)", fontWeight: 600 }}>{sysRamUsage}%</span> RAM
+          </span>
+        </div>
+
+        {/* ── Main layout frame ────────────────────────────── */}
+        <div
+          className="c2-body"
+          style={{
+            paddingLeft:  navLayout === "vertical_pills"       ? "2px" : "0px",
+            paddingRight: navLayout === "right_vertical_pills" ? "2px" : "0px",
+            transition: "padding 0.25s ease",
+          }}
+        >
+
+          {/* Left Fixed Sidebar */}
+          <div
+            className="c2-sidebar"
+            style={{
+              width:         navLayout === "sidebar" ? "var(--sidebar-width)" : "0px",
+              opacity:       navLayout === "sidebar" ? 1 : 0,
+              pointerEvents: navLayout === "sidebar" ? "auto" : "none",
+            }}
+          >
+            {/* Brand */}
+            <div className="c2-sidebar-brand">
+              <img src="/icon.ico" alt="" draggable={false} />
+              <span className="c2-sidebar-brand-text">Composer</span>
+            </div>
+
+            {/* Navigation */}
+            <nav className="c2-sidebar-nav">
+              {NAV_ITEMS.map(item => (
+                <button
+                  key={item.name}
+                  onClick={() => setActivePage(item.name)}
+                  className={`c2-nav-item ${activePage === item.name ? "active" : ""}`}
+                  title={item.label}
+                >
+                  <span className="c2-nav-item-icon">{item.icon}</span>
+                  {!iconOnly && <span className="c2-nav-item-label">{item.label}</span>}
+                </button>
+              ))}
+            </nav>
+
+            {/* Spacer */}
+            <div className="c2-sidebar-spacer" />
+
+            {/* Footer */}
+            <div className="c2-sidebar-footer">
+              <button
+                onClick={toggleThemeMode}
+                className="c2-theme-toggle"
+                title="Toggle Light / Dark"
+              >
+                <span className="c2-nav-item-icon">
+                  {isDarkMode
+                    ? <Sun  size={13} style={{ color: "var(--accent)" }} />
+                    : <Moon size={13} style={{ color: "var(--accent)" }} />}
+                </span>
+                {!iconOnly && <span className="c2-nav-item-label">Appearance</span>}
+              </button>
+
+              <div className="c2-sidebar-divider" />
+
+              <div className="c2-workspace-status">
+                <HardDrive size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                <div className="c2-workspace-status-info">
+                  <span className="c2-workspace-label">Workspace</span>
+                  <span className="c2-workspace-online">
+                    <span className="c2-online-dot" />
+                    Online · {sysRamUsage}% RAM
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Content viewport — always full remaining width */}
+          <div className="c2-viewport select-text">
+            {renderPages()}
+          </div>
+
+          {/* Right Fixed Sidebar */}
+          <div
+            className="c2-sidebar"
+            style={{
+              width:        navLayout === "right_sidebar" ? "var(--sidebar-width)" : "0px",
+              opacity:      navLayout === "right_sidebar" ? 1 : 0,
+              pointerEvents: navLayout === "right_sidebar" ? "auto" : "none",
+              borderRight:  "none",
+              borderLeft:   "1px solid var(--border-subtle)",
+            }}
+          >
+            <div className="c2-sidebar-brand">
+              <img src="/icon.ico" alt="" draggable={false} />
+              <span className="c2-sidebar-brand-text">Composer</span>
+            </div>
+            <nav className="c2-sidebar-nav">
+              {NAV_ITEMS.map(item => (
+                <button
+                  key={item.name}
+                  onClick={() => setActivePage(item.name)}
+                  className={`c2-nav-item ${activePage === item.name ? "active" : ""}`}
+                  title={item.label}
+                >
+                  <span className="c2-nav-item-icon">{item.icon}</span>
+                  {!iconOnly && <span className="c2-nav-item-label">{item.label}</span>}
+                </button>
+              ))}
+            </nav>
+            <div className="c2-sidebar-spacer" />
+            <div className="c2-sidebar-footer">
+              <button onClick={toggleThemeMode} className="c2-theme-toggle" title="Toggle Light / Dark">
+                <span className="c2-nav-item-icon">
+                  {isDarkMode ? <Sun size={13} style={{ color: "var(--accent)" }} /> : <Moon size={13} style={{ color: "var(--accent)" }} />}
+                </span>
+                {!iconOnly && <span className="c2-nav-item-label">Appearance</span>}
+              </button>
+              <div className="c2-sidebar-divider" />
+              <div className="c2-workspace-status">
+                <HardDrive size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                <div className="c2-workspace-status-info">
+                  <span className="c2-workspace-label">Workspace</span>
+                  <span className="c2-workspace-online">
+                    <span className="c2-online-dot" />
+                    Online · {sysRamUsage}% RAM
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── Floating Left Pill Bar (position:fixed, over content) ─ */}
+        {(navLayout === "vertical_pills") && (
+          <div className="c2-pillbar c2-pillbar--left">
             {NAV_ITEMS.map(item => (
               <button
                 key={item.name}
                 onClick={() => setActivePage(item.name)}
-                className={`p-2 transition-all flex items-center justify-center relative group shrink-0
-                  ${activePage === item.name ? "bg-accent text-paper" : "text-muted hover:bg-cream hover:text-ink"}`}
-                style={{ borderRadius: "calc(var(--navbar-edge-smoothness, 0px) - 2px)" }}
-                title={item.label}
+                className={`c2-pill-item ${activePage === item.name ? "active" : ""}`}
               >
                 {item.icon}
-                <span className="absolute right-14 bg-ink text-paper text-[9px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-sm opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-100 whitespace-nowrap z-50">
-                  {item.label}
-                </span>
+                <span className="c2-pill-tooltip">{item.label}</span>
               </button>
             ))}
-
-            {/* Divider + theme toggle */}
-            <div className="w-8 h-px bg-rule/35 shrink-0" />
-            <ThemeToggle
-              size={13}
-              className="p-2 hover:bg-cream/30 rounded-sm"
-            />
+            <div className="c2-pill-divider" />
+            <button
+              onClick={toggleThemeMode}
+              className="c2-pill-item"
+            >
+              {isDarkMode
+                ? <Sun  size={13} style={{ color: "var(--accent)" }} />
+                : <Moon size={13} style={{ color: "var(--accent)" }} />}
+              <span className="c2-pill-tooltip">Appearance</span>
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* Right Fixed Sidebar */}
-        <div
-          className="app-navbar h-full bg-cream/45 flex flex-col justify-between select-none font-sans-meta transition-all duration-300 ease-out overflow-hidden shrink-0 border-l"
-          style={{
-            width:            navLayout === "right_sidebar" ? "224px" : "0px",
-            opacity:          navLayout === "right_sidebar" ? 1 : 0,
-            borderLeftWidth:  navLayout === "right_sidebar" ? "2px" : "0px",
-            borderColor:      "var(--theme-rule)",
-            pointerEvents:    navLayout === "right_sidebar" ? "auto" : "none",
-          }}
-        >
-          <div className="w-56 h-full flex flex-col shrink-0">
-            {/* Header */}
-            <div className="p-4 flex flex-col gap-1 border-b border-light-rule bg-paper shrink-0">
-              <span className="font-serif-display font-black text-xl tracking-wider text-accent italic">
-                Composer
-              </span>
-              <div className="text-[10px] font-semibold text-muted tracking-wide min-h-3.5">
-                {welcomeText}
-              </div>
-            </div>
-
-            {/* Menu */}
-            <div className="flex-1 py-4 px-2 overflow-y-auto flex flex-col justify-between">
-              <div className="space-y-1">
-                {NAV_ITEMS.map(item => (
-                  <button
-                    key={item.name}
-                    onClick={() => setActivePage(item.name)}
-                    className={`w-full px-3 py-2 flex items-center gap-2.5 rounded-sm transition-all text-xs font-semibold uppercase tracking-wider text-left shrink-0
-                      ${activePage === item.name
-                        ? "bg-ink text-paper font-bold"
-                        : "text-muted hover:bg-cream hover:text-ink"}`}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Theme toggle at bottom of menu */}
-              <div className="pt-2 border-t border-rule/35 mt-2 px-1">
-                <button
-                  onClick={toggleThemeMode}
-                  className="w-full px-3 py-2 flex items-center gap-2.5 rounded-sm transition-all text-xs font-semibold uppercase tracking-wider text-left text-muted hover:bg-cream hover:text-ink cursor-pointer"
-                >
-                  {isDarkMode
-                    ? <Sun  size={13} className="text-accent" />
-                    : <Moon size={13} className="text-accent" />}
-                  <span>Toggle Appearance</span>
-                </button>
-              </div>
-            </div>
-
-            {/* System status footer */}
-            <div className="p-4 border-t border-light-rule bg-paper/60 space-y-3 text-[10px] shrink-0">
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between font-bold text-muted uppercase text-[9px]">
-                  <span>SYSTEM RAM UTILIZATION</span>
-                  <span className="text-accent font-semibold">{sysRamUsage}%</span>
-                </div>
-                <div className="w-full bg-cream h-1 border border-rule/35 overflow-hidden">
-                  <div
-                    style={{ width: `${sysRamUsage}%` }}
-                    className="bg-accent h-full transition-all duration-700"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ── Bottom Navbar layout ─────────────────── */}
-      <div
-        className="app-navbar w-full bg-cream/35 flex items-center justify-between px-6 select-none font-sans-meta border-t border-rule/60 shrink-0 transition-all duration-300 ease-out overflow-hidden"
-        style={{
-          height:            navLayout === "bottom_navbar" ? "48px" : "0px",
-          opacity:           navLayout === "bottom_navbar" ? 1 : 0,
-          borderTopWidth:    navLayout === "bottom_navbar" ? "2px" : "0px",
-          pointerEvents:     navLayout === "bottom_navbar" ? "auto" : "none",
-        }}
-      >
-        {/* Brand */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="font-serif-display font-black text-lg tracking-wider text-accent italic">
-            Composer
-          </span>
-        </div>
-
-        {/* Nav pills + theme toggle */}
-        <div
-          className="flex items-center bg-cream p-1 border border-rule/60 text-[10.5px] uppercase font-bold tracking-wider shrink-0"
-          style={{ borderRadius: "var(--navbar-edge-smoothness, 0px)" }}
-        >
-          {NAV_ITEMS.map(item => {
-            const ico = React.cloneElement(item.icon, { size: 15 });
-            return (
+        {/* ── Floating Right Pill Bar (position:fixed, over content) ─ */}
+        {(navLayout === "right_vertical_pills") && (
+          <div className="c2-pillbar c2-pillbar--right">
+            {NAV_ITEMS.map(item => (
               <button
                 key={item.name}
                 onClick={() => setActivePage(item.name)}
-                className={`transition-all duration-300 relative flex items-center justify-center overflow-hidden px-3.5 py-1.5
-                  ${activePage === item.name
-                    ? "bg-ink text-paper z-10 font-extrabold"
-                    : "text-muted hover:text-ink hover:bg-cream/30 z-0"}`}
-                style={{
-                  borderRadius: "calc(var(--navbar-edge-smoothness, 0px) - 1px)",
-                  boxShadow:    activePage === item.name ? "0 3px 8px rgba(0,0,0,.2)" : "none",
-                }}
-                title={item.label}
+                className={`c2-pill-item ${activePage === item.name ? "active" : ""}`}
               >
-                {ico}
-                <span
-                  className="transition-all duration-300 ease-out overflow-hidden inline-block whitespace-nowrap"
-                  style={{
-                    maxWidth:   iconOnly ? "0px" : "80px",
-                    opacity:    iconOnly ? 0 : 1,
-                    marginLeft: iconOnly ? "0px" : "6px",
-                  }}
-                >
-                  {item.label}
-                </span>
+                {item.icon}
+                <span className="c2-pill-tooltip">{item.label}</span>
               </button>
-            );
-          })}
+            ))}
+            <div className="c2-pill-divider" />
+            <button
+              onClick={toggleThemeMode}
+              className="c2-pill-item"
+            >
+              {isDarkMode
+                ? <Sun  size={13} style={{ color: "var(--accent)" }} />
+                : <Moon size={13} style={{ color: "var(--accent)" }} />}
+              <span className="c2-pill-tooltip">Appearance</span>
+            </button>
+          </div>
+        )}
 
-          {/* Divider + theme toggle inline with pills */}
-          <div className="w-px h-4 bg-rule/35 mx-1 shrink-0" />
-          <ThemeToggle
-            size={15}
-            className="px-3 py-1.5"
-          />
-        </div>
 
-        {/* System info */}
-        <div className="flex items-center gap-3 text-[10.5px] shrink-0">
-          <span className="text-muted flex items-center gap-1.5 font-bold">
-            <span className="text-accent font-semibold">{sysRamUsage}%</span>
-            <span>RAM</span>
+
+        {/* ── Bottom Navbar layout ───────────────────────────── */}
+        <div
+          className="c2-topnav"
+          style={{
+            height:         navLayout === "bottom_navbar" ? "44px" : "0px",
+            opacity:        navLayout === "bottom_navbar" ? 1 : 0,
+            borderTopWidth: navLayout === "bottom_navbar" ? "1px" : "0px",
+            borderBottom:   "none",
+            borderTop:      navLayout === "bottom_navbar" ? "1px solid var(--border-default)" : "none",
+            pointerEvents:  navLayout === "bottom_navbar" ? "auto" : "none",
+          }}
+        >
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--accent)" }}>Composer</span>
+          <div className="c2-topnav-pill-group">
+            {NAV_ITEMS.map(item => {
+              const ico = React.cloneElement(item.icon, { size: 13 });
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => setActivePage(item.name)}
+                  className={`c2-topnav-pill ${activePage === item.name ? "active" : ""}`}
+                  title={item.label}
+                >
+                  {ico}
+                  {!iconOnly && <span style={{ fontSize: "12px" }}>{item.label}</span>}
+                </button>
+              );
+            })}
+            <div style={{ width: "1px", height: "14px", backgroundColor: "var(--border-default)", margin: "0 3px" }} />
+            <button onClick={toggleThemeMode} className="c2-topnav-pill" title="Toggle Appearance">
+              {isDarkMode ? <Sun size={13} style={{ color: "var(--accent)" }} /> : <Moon size={13} style={{ color: "var(--accent)" }} />}
+            </button>
+          </div>
+          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+            <span style={{ color: "var(--accent)", fontWeight: 600 }}>{sysRamUsage}%</span> RAM
           </span>
         </div>
-      </div>
 
       </div>
 
-      {/* 10s Loading Overlay Screen */}
+      {/* Loading Overlay */}
       {loadingPhase !== "done" && (
-        <div 
-          className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-paper select-none transition-opacity duration-500 ease-out loading-bg-fadein ${
+        <div
+          className={`absolute inset-0 z-50 flex flex-col items-center justify-center select-none loading-bg-fadein transition-opacity duration-500 ease-out ${
             loadingPhase === "reveal-app" ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"
           }`}
+          style={{ backgroundColor: "var(--bg-app)" }}
         >
-          {/* Main content wrapper */}
-          <div className="flex flex-col items-center justify-center">
-            {/* Composer typed text */}
-            <div 
-              className={`transition-all duration-500 ease-in-out ${
-                (loadingPhase === "loading" || loadingPhase === "exit-spinner") 
-                  ? "opacity-100 scale-100" 
-                  : "opacity-0 scale-95"
-              }`}
-            >
-              <span className="font-serif-display font-black text-5xl tracking-widest text-accent italic active-text-accent-glow">
-                {typedText}
-              </span>
-              {/* Typewriter cursor */}
-              {typedText.length < fullText.length && (
-                <span className="animate-pulse text-accent text-5xl font-light">|</span>
-              )}
-            </div>
-
-            {/* Spinner Container */}
-            <div 
-              className={`mt-10 transition-all duration-400 ease-in-out ${
-                loadingPhase === "loading" ? "opacity-100 scale-100" : "opacity-0 scale-75"
-              }`}
-            >
-              {/* Windows 11 Spinner */}
-              <svg className="w11-spinner-svg" viewBox="0 0 50 50" style={{ width: 44, height: 44 }}>
-                <circle
-                  className="w11-spinner-path"
-                  cx="25"
-                  cy="25"
-                  r="20"
-                  fill="none"
-                  stroke="var(--theme-accent, #b8440c)"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
+          <span
+            style={{
+              fontFamily: "var(--font-ui)",
+              fontSize: "24px",
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              color: "var(--accent)",
+            }}
+          >
+            Composer
+          </span>
+          <div className="mt-8">
+            <svg className="w11-spinner-svg" viewBox="0 0 50 50" style={{ width: 36, height: 36 }}>
+              <circle
+                className="w11-spinner-path"
+                cx="25" cy="25" r="20"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="4"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
         </div>
       )}

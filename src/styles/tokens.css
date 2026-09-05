@@ -1,0 +1,155 @@
+/* ============================================================
+   COMPOSER 2.0 — DESIGN TOKENS
+   Dark Warm Fluent + Soft Glass + Champagne/Gold Accent
+   ============================================================ */
+
+:root {
+  /* ── Application Backgrounds ─────────────────────────────── */
+  --bg-app:              #141310;
+  --bg-sidebar:          #171511;
+  --bg-surface:          #1B1814;
+  --bg-surface-elevated: #211D18;
+  --bg-titlebar:         #111009;
+
+  /* ── Borders ─────────────────────────────────────────────── */
+  --border-subtle:  rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong:  rgba(255, 255, 255, 0.13);
+
+  /* ── Text ────────────────────────────────────────────────── */
+  --text-primary:   #F3EFE8;
+  --text-secondary: #B0A79B;
+  --text-muted:     #71685E;
+  --text-faint:     #4A4038;
+
+  /* ── Accent (Champagne / Warm Gold) ─────────────────────── */
+  --accent:         #E5B45F;
+  --accent-hover:   #F0C984;
+  --accent-dim:     #C49A42;
+  --accent-soft:    rgba(229, 180, 95, 0.12);
+  --accent-softer:  rgba(229, 180, 95, 0.07);
+
+  /* ── Sidebar specific ────────────────────────────────────── */
+  --sidebar-width:      136px;
+  --sidebar-nav-active-bg:   rgba(229, 180, 95, 0.10);
+  --sidebar-nav-active-border: var(--accent);
+  --sidebar-nav-hover-bg:    rgba(255, 255, 255, 0.04);
+
+  /* ── Surfaces / Panels ───────────────────────────────────── */
+  --surface-card:   rgba(30, 26, 20, 0.95);
+  --surface-glass:  rgba(27, 24, 20, 0.80);
+  --surface-overlay: rgba(0, 0, 0, 0.65);
+
+  /* ── Radius ──────────────────────────────────────────────── */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+
+  /* ── Shadows (Atmospheric Multi-Layered Soft Diffusion) ──── */
+  --shadow-sm:
+    0 1px 3px rgba(0, 0, 0, 0.18),
+    0 4px 12px -1px rgba(0, 0, 0, 0.22);
+  --shadow-md:
+    0 2px 6px -1px rgba(0, 0, 0, 0.18),
+    0 8px 24px -3px rgba(0, 0, 0, 0.28),
+    0 20px 48px -6px rgba(0, 0, 0, 0.35);
+  --shadow-lg:
+    0 2px 8px -1px rgba(0, 0, 0, 0.15),
+    0 10px 24px -3px rgba(0, 0, 0, 0.22),
+    0 24px 56px -6px rgba(0, 0, 0, 0.32),
+    0 40px 96px -12px rgba(0, 0, 0, 0.42);
+  --shadow-dialog:
+    0 4px 16px -2px rgba(0, 0, 0, 0.25),
+    0 16px 40px -6px rgba(0, 0, 0, 0.38),
+    0 36px 80px -10px rgba(0, 0, 0, 0.48),
+    0 64px 140px -18px rgba(0, 0, 0, 0.58),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  /* ── Typography ──────────────────────────────────────────── */
+  --font-ui:      "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono:    "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+
+  /* ── Animation ───────────────────────────────────────────── */
+  --duration-fast:   100ms;
+  --duration-base:   175ms;
+  --duration-slow:   300ms;
+  --ease-default:    cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── BACKWARD-COMPAT: Map new tokens → legacy theme vars ── */
+  /* These allow the existing JS applyTheme() to still function
+     while the app uses new token classes for the default theme */
+  --theme-paper:      var(--bg-app);
+  --theme-ink:        var(--text-primary);
+  --theme-cream:      var(--bg-surface);
+  --theme-muted:      var(--text-muted);
+  --theme-accent:     var(--accent);
+  --theme-rule:       rgba(255, 255, 255, 0.08);
+  --theme-light-rule: rgba(255, 255, 255, 0.05);
+  --theme-accent-glow:      none;
+  --theme-accent-text-glow: none;
+  --theme-font-text:    var(--font-ui);
+  --theme-font-display: var(--font-ui);
+  --theme-font-sans:    var(--font-ui);
+  --navbar-edge-smoothness: var(--radius-sm);
+  --ui-edge-smoothness:     var(--radius-sm);
+}
+
+/* ── Light mode token overrides ─────────────────────────────── */
+.theme-light {
+  --bg-app:              #F5F1EB;
+  --bg-sidebar:          #EEE9E1;
+  --bg-surface:          #E8E2D8;
+  --bg-surface-elevated: #DED8CC;
+  --bg-titlebar:         #E0D9CE;
+
+  --border-subtle:  rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.09);
+  --border-strong:  rgba(0, 0, 0, 0.14);
+
+  --text-primary:   #1A1510;
+  --text-secondary: #5C5248;
+  --text-muted:     #8A7F6E;
+  --text-faint:     #B8AFA4;
+
+  --accent:         #C47A20;
+  --accent-hover:   #D98A28;
+  --accent-dim:     #A06318;
+  --accent-soft:    rgba(196, 122, 32, 0.10);
+  --accent-softer:  rgba(196, 122, 32, 0.06);
+
+  --sidebar-nav-active-bg:     rgba(196, 122, 32, 0.10);
+  --sidebar-nav-hover-bg:      rgba(0, 0, 0, 0.04);
+
+  --surface-glass:  rgba(240, 234, 225, 0.85);
+  --surface-overlay: rgba(0, 0, 0, 0.40);
+
+  /* ── Shadows (Atmospheric Multi-Layered Soft Diffusion - Warm Light) ── */
+  --shadow-sm:
+    0 1px 3px rgba(26, 21, 16, 0.04),
+    0 4px 12px -2px rgba(26, 21, 16, 0.06);
+  --shadow-md:
+    0 2px 6px -1px rgba(26, 21, 16, 0.04),
+    0 8px 20px -3px rgba(26, 21, 16, 0.07),
+    0 18px 40px -6px rgba(26, 21, 16, 0.06);
+  --shadow-lg:
+    0 3px 8px -1px rgba(26, 21, 16, 0.04),
+    0 10px 24px -3px rgba(26, 21, 16, 0.07),
+    0 24px 56px -6px rgba(26, 21, 16, 0.08),
+    0 40px 88px -12px rgba(26, 21, 16, 0.06);
+  --shadow-dialog:
+    0 8px 24px -4px rgba(26, 21, 16, 0.06),
+    0 20px 48px -6px rgba(26, 21, 16, 0.08),
+    0 40px 96px -12px rgba(26, 21, 16, 0.10),
+    0 64px 140px -18px rgba(26, 21, 16, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.07);
+
+  /* Map to legacy theme vars */
+  --theme-paper:  var(--bg-app);
+  --theme-ink:    var(--text-primary);
+  --theme-cream:  var(--bg-surface);
+  --theme-muted:  var(--text-muted);
+  --theme-accent: var(--accent);
+  --theme-rule:   rgba(0, 0, 0, 0.09);
+  --theme-light-rule: rgba(0, 0, 0, 0.05);
+}

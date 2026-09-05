@@ -22,6 +22,17 @@ async fn pick_directory(app: tauri::AppHandle) -> Option<String> {
     rx.recv().await.flatten()
 }
 
+/// Opens native OS folder picker supporting multiple selection, returns chosen paths or None if cancelled.
+#[tauri::command]
+async fn pick_directories(app: tauri::AppHandle) -> Option<Vec<String>> {
+    let (tx, mut rx) = tauri::async_runtime::channel::<Option<Vec<String>>>(1);
+    app.dialog().file().pick_folders(move |paths| {
+        let as_strings = paths.map(|list| list.into_iter().map(|p| p.to_string()).collect());
+        let _ = tx.blocking_send(as_strings);
+    });
+    rx.recv().await.flatten()
+}
+
 /// Opens native OS file picker, returns chosen path or None if cancelled.
 #[tauri::command]
 async fn pick_file(app: tauri::AppHandle) -> Option<String> {
@@ -29,6 +40,17 @@ async fn pick_file(app: tauri::AppHandle) -> Option<String> {
     app.dialog().file().pick_file(move |path| {
         let as_str = path.map(|p| p.to_string());
         let _ = tx.blocking_send(as_str);
+    });
+    rx.recv().await.flatten()
+}
+
+/// Opens native OS file picker supporting multiple selection, returns chosen paths or None if cancelled.
+#[tauri::command]
+async fn pick_files(app: tauri::AppHandle) -> Option<Vec<String>> {
+    let (tx, mut rx) = tauri::async_runtime::channel::<Option<Vec<String>>>(1);
+    app.dialog().file().pick_files(move |paths| {
+        let as_strings = paths.map(|list| list.into_iter().map(|p| p.to_string()).collect());
+        let _ = tx.blocking_send(as_strings);
     });
     rx.recv().await.flatten()
 }
@@ -61,12 +83,12 @@ async fn save_file_dialog(
 fn import_to_directory(source_path: String, dest_dir: String) -> Result<String, String> {
     let src = Path::new(&source_path);
     if !src.exists() {
-        return Err("Source file/folder does not exist".to_string());
+        return Err(format!("Source does not exist: {}", source_path));
     }
     let name = src.file_name().ok_or("Invalid source name")?;
     let dest = PathBuf::from(dest_dir).join(name);
     if dest.exists() {
-        return Err("Target already exists in workspace".to_string());
+        return Err(format!("'{}' already exists in workspace", name.to_string_lossy()));
     }
 
     if src.is_dir() {
@@ -111,7 +133,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             pick_directory,
+            pick_directories,
             pick_file,
+            pick_files,
             save_file_dialog,
             import_to_directory,
             get_system_ram_usage,
@@ -133,6 +157,7 @@ pub fn run() {
             file_ops::create_new_folder,
             file_ops::delete_file_or_dir,
             file_ops::rename_file_or_dir,
+            file_ops::inspect_paths,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

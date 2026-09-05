@@ -36,7 +36,7 @@
 
 **Composer** is a privacy-first, ultra-lightweight desktop creator studio designed for developers, technical writers, and researchers who demand uncompromising speed, distraction-free ergonomics, and complete data ownership.
 
-Built on **Tauri 2.0**, **Rust**, and **React 19**, Composer eliminates web-wrapper resource bloat and recurring cloud subscriptions. It consolidates code editing, long-form Markdown publishing with a native print/PDF exporter, in-place visual PDF text replacement, vector SVG graphics analysis, and pixel-level image inspection into a unified workspace powered by a multi-threaded Tokio background cron automation engine—**with zero telemetry and 100% offline isolation.**
+Built on **Tauri 2.0**, **Rust**, and **React 19**, Composer eliminates web-wrapper resource bloat and recurring cloud subscriptions. It consolidates code editing, long-form Markdown publishing with a native print/PDF exporter, in-place visual PDF text replacement, vector SVG graphics analysis, and pixel-level image inspection into a unified workspace—**with zero telemetry, zero idle background daemons, and 100% offline isolation.**
 
 ---
 
@@ -56,10 +56,10 @@ Built on **Tauri 2.0**, **Rust**, and **React 19**, Composer eliminates web-wrap
 │ 15+ language highlighters,│ GFM alerts, TOC, and    │ pixelation, SVG element analysis,│
 │ Vim mode & auto-save.   │ custom A4/Letter print PDF│ and canvas pixel eyedropper.     │
 ├─────────────────────────┼───────────────────────────┼──────────────────────────────────┤
-│ ⏱️ Background Scheduler │ 📁 Fast Workspace Walker  │ 🎨 Editorial Design System       │
-│ Multi-threaded Tokio    │ Smart recursive indexer,  │ 60+ curated palettes, 3D dice    │
-│ cron daemon with live   │ folder switcher, snapshots│ randomizer, 8 font presets, and  │
-│ task logs & hot reload. │ and file/folder CRUD.     │ 6 dynamic navigation layouts.    │
+│ 🔒 Zero Bloat & Daemon  │ 📁 Fast Workspace Walker  │ 🎨 Editorial Design System       │
+│ Pure local execution    │ Smart recursive indexer,  │ 60+ curated palettes, 3D dice    │
+│ without background cron │ folder switcher, snapshots│ randomizer, 8 font presets, and  │
+│ daemons or CPU polling. │ and file/folder CRUD.     │ 6 dynamic navigation layouts.    │
 └─────────────────────────┴───────────────────────────┴──────────────────────────────────┘
 ```
 
@@ -79,25 +79,21 @@ graph TB
         PDF[In-Place Visual PDF Canvas Editor]
         SVG[SVG Vector Inspector & Code Split]
         IMG[Image Inspector & Pixel Eyedropper]
-        SCHED[Automation Dashboard & Logs Console]
         SET[System Settings & 60+ Palette Engine]
     end
 
     subgraph IPC ["Tauri 2.0 IPC Bridge"]
-        INVOKE[27 Native Tauri Commands]
+        INVOKE[22 Native Tauri Commands]
         EVENTS[Asynchronous Event Bus]
     end
 
     subgraph Core ["Native Backend Core (Rust 2021 / Tokio Asynchronous Runtime)"]
         CONF[config.rs Configuration & Theme TOML Engine]
         FOPS[file_ops.rs Fast Directory Walker & Base64 I/O]
-        TASK[scheduler.rs Tokio Background Cron Daemon & notify Watcher]
     end
 
     subgraph LocalStorage ["Local Filesystem (/storage)"]
         CFG_STORE[storage/config.json]
-        TASK_STORE[storage/scheduler/*.task.toml]
-        LOG_STORE[storage/scheduler/logs/*.log]
         THEME_STORE[storage/users/*.json]
         BACKUP_STORE[storage_backup/]
     end
@@ -109,23 +105,17 @@ graph TB
     PDF --> INVOKE
     SVG --> INVOKE
     IMG --> INVOKE
-    SCHED --> INVOKE
     SET --> INVOKE
 
     EVENTS --> UI
-    EVENTS --> SCHED
     EVENTS --> SET
 
     INVOKE --> CONF
     INVOKE --> FOPS
-    INVOKE --> TASK
 
     CONF --> CFG_STORE
     CONF --> THEME_STORE
     FOPS --> LocalStorage
-    TASK --> TASK_STORE
-    TASK --> LOG_STORE
-    TASK --> BACKUP_STORE
 ```
 
 ---
@@ -209,17 +199,7 @@ sequenceDiagram
 
 ---
 
-### 6. ⏱️ Proactive Background Scheduler Engine
-Composer features a background Tokio cron daemon with a 1-second ticker loop and a native `notify` filesystem watcher on `storage/scheduler/`:
-* **Triggers:** One-off timestamp execution (`once`), recurring 5-field cron expressions (`cron = "0 0 2 * * *"`), and app lifecycle events (`app_launch`, `file_created`, `project_created`).
-* **Automated Operations:** Automated workspace snapshots and configuration backups to `storage_backup/`, temporary file cleanup, and export routines.
-* **Dual Editor:** Visual task configuration cards with synchronized Monaco TOML editor mode.
-* **Live Logs Console:** Real-time log streaming directly to per-task log files (`storage/scheduler/logs/<id>.log`) accessible in a slide-out UI drawer.
-* **Instant Manual Execution:** Run any task immediately with one click via `run_task_now`.
-
----
-
-### 7. 🎨 Editorial Design System & Multi-Layout Engine
+### 6. 🎨 Editorial Design System & Multi-Layout Engine
 * **Dynamic CSS Custom Properties:** Real-time styling tokens injected directly into `document.documentElement.style` (`--theme-paper`, `--theme-ink`, `--theme-cream`, `--theme-rule`, `--theme-accent`, etc.).
 * **60+ Curated Palettes:** Rich collection of dark and light themes (Nord Slate, Crimson Night, Cyber Phosphor, Editorial Linen, Sandstone, Obsidian, Synthwave, Catppuccin, etc.).
 * **3D Rolling Dice Randomizer:** Rolling 3D dice button with 360-degree animation for instant palette discovery.
@@ -307,12 +287,6 @@ Composer features a background Tokio cron daemon with a 1-second ticker loop and
     "max_versions_per_file": 20,
     "total_version_storage_limit_mb": 100
   },
-  "scheduler": {
-    "enabled": true,
-    "default_notification_behavior": "fail_only",
-    "log_retention_runs": 10,
-    "retry_default": "none"
-  },
   "theme": {
     "theme_preset": "light",
     "accent_color": "#b8440c",
@@ -331,37 +305,6 @@ Composer features a background Tokio cron daemon with a 1-second ticker loop and
 }
 ```
 
-### Scheduled Task TOML (`storage/scheduler/<id>.task.toml`)
-
-```toml
-[task]
-id = "auto-workspace-backup"
-name = "Workspace Daily Backup"
-description = "Automated snapshot backup of active workspace documents"
-type = "app"
-enabled = true
-created_at = "2026-09-01T00:00:00+00:00"
-last_run = "2026-09-06T02:00:00+00:00"
-last_status = "success"
-
-[schedule]
-frequency = "recurring"
-run_at = ""
-cron = "0 0 2 * * *"
-human_readable = "Every day at 02:00 AM"
-event = "app_launch"
-
-[action]
-operation = "backup"
-source_path = ""
-destination_path = ""
-
-[notifications]
-on_start = false
-on_complete = true
-on_fail = true
-include_result_preview = true
-```
 
 ---
 
@@ -392,7 +335,6 @@ Composer/
 │   │   ├── 📄 ImagePreview.tsx    # Raster image inspector & canvas eyedropper
 │   │   ├── 📄 MarkdownPreview.tsx # Markdown publishing & print studio
 │   │   ├── 📄 PdfEditor.tsx       # In-place visual PDF text replacement canvas
-│   │   ├── 📄 Scheduler.tsx       # Tokio cron automation dashboard & logs console
 │   │   ├── 📄 Settings.tsx        # 60+ palette engine, typography & layout settings
 │   │   └── 📄 SvgPreview.tsx      # SVG vector code & preview inspector
 │   ├── 📄 App.tsx             # Root desktop shell & 6-layout navigation router
@@ -405,9 +347,8 @@ Composer/
 │   ├── 📁 src/                # Rust backend modules
 │   │   ├── 📄 config.rs       # App configuration loader, watcher & theme TOML I/O
 │   │   ├── 📄 file_ops.rs     # Directory tree walker & base64 binary streaming
-│   │   ├── 📄 lib.rs          # Tauri command dispatcher (27 commands) & lifecycle
-│   │   ├── 📄 main.rs         # Native binary desktop entrypoint
-│   │   └── 📄 scheduler.rs    # Tokio cron daemon & notify filesystem watcher
+│   │   ├── 📄 lib.rs          # Tauri command dispatcher (22 commands) & lifecycle
+│   │   └── 📄 main.rs         # Native binary desktop entrypoint
 │   ├── 📄 Cargo.toml          # Rust dependencies & compiler optimization flags
 │   └── 📄 tauri.conf.json     # Tauri 2.0 window configuration & security settings
 ├── 📄 PRD.md                  # Comprehensive Product Requirements Document (PRD v2.0.0)
@@ -426,12 +367,10 @@ Composer/
   - [x] In-place direct vector text replacement for PDFs (`pdf-lib` + `pdfjs-dist`)
   - [x] Markdown publishing studio with A4/Letter/Legal print & PDF export engine
   - [x] Interactive SVG inspector and raster image studio with pixel eyedropper
-  - [x] Background Tokio cron automation daemon with live logs and `notify` hot-reload
   - [x] Editorial typography design system with 60+ palettes and 6 navigation layouts
 - [ ] **Phase 2: Enhanced Developer Tools**
   - [ ] Local Git status indicators in Explorer and side-by-side Monaco diff viewer
   - [ ] Multi-pane horizontal and vertical editor splitting
-  - [ ] Shell script execution runner (`.bat`, `.sh`, `.ps1`) for scheduler tasks
 - [ ] **Phase 3: Advanced Ecosystem**
   - [ ] Encrypted local workspace backup archives
   - [ ] Peer-to-peer local network workspace synchronization

@@ -246,15 +246,7 @@ button:hover .nav-icon-skills {
   animation: shakeMini 0.4s ease-in-out;
 }
 
-/* 4. Scheduler Automation: Counter-Clockwise Time Spin */
-.nav-icon-scheduler {
-  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-button:hover .nav-icon-scheduler {
-  transform: rotate(-360deg);
-}
-
-/* 5. System Settings: Clockwise Gear 180° Spin */
+/* 4. System Settings: Clockwise Gear 180° Spin */
 .nav-icon-settings {
   transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

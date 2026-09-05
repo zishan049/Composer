@@ -31,14 +31,6 @@ pub struct EditorConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SchedulerConfig {
-    pub enabled: bool,
-    pub default_notification_behavior: String, // "complete" | "fail_only" | "silent"
-    pub log_retention_runs: u32,
-    pub retry_default: String, // "none" | "once" | "3_times"
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ThemeConfig {
     pub theme_preset: String, // "light" | "dark" | "system"
     pub accent_color: String, // color hex/hsl override
@@ -65,7 +57,6 @@ pub struct AppConfig {
     pub general: GeneralConfig,
     pub storage: StorageConfig,
     pub editor: EditorConfig,
-    pub scheduler: SchedulerConfig,
     pub theme: ThemeConfig,
 }
 
@@ -117,12 +108,6 @@ pub fn create_default_config(storage_root: &Path) -> AppConfig {
             vim_mode: false,
             max_versions_per_file: 20,
             total_version_storage_limit_mb: 100,
-        },
-        scheduler: SchedulerConfig {
-            enabled: true,
-            default_notification_behavior: "fail_only".to_string(),
-            log_retention_runs: 10,
-            retry_default: "none".to_string(),
         },
         theme: ThemeConfig {
             theme_preset: "light".to_string(), // Editorial warm light first
@@ -203,8 +188,6 @@ pub fn load_config() -> AppConfig {
     // Initialize workspace subdirectories in active storage root
     let active_root = resolve_storage_path(&config.storage.root_path);
     let _ = fs::create_dir_all(&active_root.join("workspace"));
-    let _ = fs::create_dir_all(&active_root.join("scheduler"));
-    let _ = fs::create_dir_all(&active_root.join("scheduler").join("logs"));
     let _ = fs::create_dir_all(&active_root.join("users"));
 
     config

@@ -524,7 +524,7 @@ export const Settings: React.FC = () => {
                     onChange={e => saveConfig({ ...config, general: { ...config.general, launch_page: e.target.value } })}
                     className="p-2 border border-rule/50 rounded-sm bg-paper outline-none cursor-pointer">
                     <option value="Explorer">Explorer</option>
-                    <option value="Scheduler">Scheduler</option>
+                    <option value="Settings">Settings</option>
                   </select>
                 </div>
 

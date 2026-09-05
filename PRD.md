@@ -11,13 +11,13 @@
 ## 1. Executive Summary & Product Vision
 
 ### 1.1 Vision Statement
-**Composer** is an offline-first, local-native desktop creator studio and developer workbench that unifies VS Code-grade code editing, long-form Markdown publishing with a native print/PDF engine, in-place visual PDF text replacement, high-precision SVG vector inspection, an advanced pixel-level image inspector with an eyedropper, and background cron task automation—all wrapped within an exquisite, highly customizable editorial design system.
+**Composer** is an offline-first, local-native desktop creator studio and developer workbench that unifies VS Code-grade code editing, long-form Markdown publishing with a native print/PDF engine, in-place visual PDF text replacement, high-precision SVG vector inspection, and an advanced pixel-level image inspector with an eyedropper—all wrapped within an exquisite, highly customizable editorial design system.
 
 ### 1.2 Core Value Propositions
-* **100% Local, Offline & Private:** Zero cloud dependencies, zero external network requests, and zero telemetry. All documents, configurations, media assets, and scheduled routines remain strictly contained within the user’s local storage.
+* **100% Local, Offline & Private:** Zero cloud dependencies, zero external network requests, and zero telemetry. All documents, configurations, and media assets remain strictly contained within the user’s local storage.
 * **Instantaneous Performance & Micro Footprint:** Cold application startup in under 350ms, idle memory footprint under 80 MB RAM, zero native C++ compilation friction, and silky 60 FPS slider interactions.
 * **Unified Creator Workbench:** Eliminates the need to switch between fragmented single-purpose applications by seamlessly integrating code editing, Markdown authoring, visual PDF editing, vector graphics analysis, and raster image inspection into a multi-tab workspace.
-* **Proactive Background Automation:** A multi-threaded Tokio cron and event-driven automation engine that hot-reloads `.task.toml` configurations from disk via `notify` filesystem watchers, handling automated workspace snapshots, backups, and file housekeeping.
+* **Zero Idle Bloat & Daemon-Free:** Pure local execution without background cron tickers, polling loops, or idle CPU wakeups, ensuring maximal laptop battery longevity and workstation responsiveness.
 * **Bespoke Editorial Aesthetics:** A warm typography engine paired with high-contrast dark themes, 60+ curated palettes, a 3D rolling dice theme randomizer, typewriter-animated color controls, dynamic atmospheric accent glow, edge smoothness adjustments, and 6 interchangeable navigation layouts.
 
 ---
@@ -78,27 +78,23 @@ graph TB
         PDF[In-Place Visual PDF Canvas Editor]
         SVG[SVG Vector Inspector]
         IMG[Image Studio & Pixel Eyedropper]
-        SCHED[Automation Dashboard & Live Logs Console]
         SET[System Settings & 60+ Palette Engine]
         CTX[Universal Context Menu System]
     end
 
     subgraph IPC ["Tauri 2.0 Native IPC Bridge"]
-        INVOKE[Tauri Command Invocation (27 Registered Commands)]
-        EVENTS[Asynchronous Event Bus (tasks_updated, task_run_start, task_run_complete, config_updated)]
+        INVOKE[Tauri Command Invocation (22 Registered Commands)]
+        EVENTS[Asynchronous Event Bus (config_updated)]
     end
 
     subgraph Backend ["Native Backend Core (Rust 2021 / Tokio / Tauri Core)"]
         LIB[lib.rs Command Dispatcher & Lifecycle Hooks]
         CONF[config.rs App Configuration & Theme TOML I/O]
         FOPS[file_ops.rs Filesystem Walker & Base64 I/O]
-        TASK[scheduler.rs Tokio Background Cron Daemon & notify Watcher]
     end
 
     subgraph Storage ["Local Storage Directory (/storage)"]
         CFG[config.json Master Configuration]
-        TASK_TOML[scheduler/*.task.toml Automation Tasks]
-        LOGS[scheduler/logs/*.log Task Execution Logs]
         THEMES[users/*.json Custom Theme Presets]
         BACKUP[storage_backup/ Automated Workspace Snapshots]
     end
@@ -110,24 +106,18 @@ graph TB
     PDF --> INVOKE
     SVG --> INVOKE
     IMG --> INVOKE
-    SCHED --> INVOKE
     SET --> INVOKE
 
     EVENTS --> UI
-    EVENTS --> SCHED
     EVENTS --> SET
 
     INVOKE --> LIB
     LIB --> CONF
     LIB --> FOPS
-    LIB --> TASK
 
     CONF --> CFG
     CONF --> THEMES
     FOPS --> Storage
-    TASK --> TASK_TOML
-    TASK --> LOGS
-    TASK --> BACKUP
 ```
 
 ### 3.2 Technology Stack
@@ -389,69 +379,6 @@ graph LR
    * One-click "Copy Image" to system clipboard as a PNG blob.
    * One-click "Download Image" to local disk.
 
----
-
-### 4.7 Module 7: Background Automation & Tokio Cron Scheduler
-
-```mermaid
-graph TD
-    subgraph Daemon ["Tokio 1-Second Background Ticker"]
-        TICK[1-Second Interval Ticker]
-        WATCHER[notify File Watcher on storage/scheduler/]
-        RELOAD[Hot-Reload .task.toml Files without Restart]
-        EVAL{Evaluate Trigger Schedules}
-    end
-
-    subgraph Triggers ["Supported Triggers"]
-        ONCE["once: Run at ISO Timestamp"]
-        CRON["recurring: 5-Field Cron (e.g. 0 0 2 * * *)"]
-        EVENT["on_event: app_launch, file_created, project_created"]
-    end
-
-    subgraph Operations ["Built-in Tasks"]
-        BACKUP["backup: Workspace & Config Snapshot to storage_backup/"]
-        CLEAN["cleanup: Purge Temporary Files"]
-        EXPORT["export: Structured Workspace Export"]
-    end
-
-    subgraph Telemetry ["Logging & Feedback"]
-        LOGS["Append stdout to storage/scheduler/logs/task-id.log"]
-        EVENT_BUS["Emit tasks_updated & task_run_complete"]
-        DRAWER["Slide-Out UI Console Drawer"]
-        TOAST["Tauri Desktop Notification"]
-    end
-
-    TICK --> EVAL
-    WATCHER --> RELOAD --> EVAL
-    EVAL --> ONCE --> BACKUP
-    EVAL --> CRON --> BACKUP
-    EVAL --> EVENT --> CLEAN
-    BACKUP --> LOGS --> EVENT_BUS --> DRAWER
-    CLEAN --> LOGS --> TOAST
-```
-
-#### 4.7.1 Capabilities & Functional Rules
-1. **Multi-Threaded Tokio Daemon:**
-   * Background engine spawned upon application startup in `src-tauri/src/lib.rs`.
-   * Continuous 1-second ticker loop evaluating task conditions with minimal CPU impact (<0.1%).
-2. **Hot-Reloading Task Watcher:**
-   * Utilizes the native OS `notify` crate to watch `storage/scheduler/`. Modifying or adding `.task.toml` files updates the active scheduler task memory immediately without restarting the application.
-3. **Flexible Trigger Frequencies:**
-   * `once`: Executes at a specific ISO DateTime string (`run_at`). Upon execution, the frequency automatically transitions to `"completed"` and disables the task.
-   * `recurring`: Evaluates standard 5-field cron expressions using the `cron` crate (e.g., `0 0 2 * * *` for daily at 2:00 AM).
-   * `on_event`: Event-driven execution triggered by application lifecycle hooks (`app_launch`, `file_created`, `project_created`).
-4. **Built-In Operations:**
-   * `backup`: Creates timestamped backups of `storage/config.json` and workspace assets into `storage_backup/`.
-   * `cleanup`: Housekeeping routine purging temporary workspace caches.
-   * `export`: Packages active workspace documents into structured archives.
-5. **Dual Visual & Monaco TOML Editor:**
-   * Form-based visual configuration for task name, frequency, cron expression, operation, and notification settings.
-   * Full Monaco TOML editor mode with real-time bidirectional synchronization.
-6. **Execution Telemetry & Logs Drawer:**
-   * Each task execution writes timestamped execution logs to `storage/scheduler/logs/<task_id>.log`.
-   * Slide-out UI console drawer allows live inspection of stdout and run history.
-   * Manual instant execution trigger via `run_task_now`.
-   * Desktop notifications via Tauri event dispatcher based on completion or failure triggers.
 
 ---
 
@@ -518,7 +445,6 @@ Composer supports 6 interchangeable navigation layouts selectable in real-time f
 * **DOM Sanitization:** All rendered Markdown HTML is strictly sanitized via `DOMPurify` to eliminate XSS risks from untrusted documents.
 
 ### 5.3 Reliability & Fault Tolerance
-* **Hot-Reloading File Watchers:** Scheduler tasks and theme configurations reload dynamically via `notify` without requiring an application restart.
 * **Non-Blocking XML/SVG Errors:** Parsing errors in SVG or Markdown render informative inline warnings rather than crashing the workspace view.
 * **Atomic File Writes:** Text and binary file operations ensure directory parents exist before committing bytes to disk.
 
@@ -550,12 +476,6 @@ Composer supports 6 interchangeable navigation layouts selectable in real-time f
     "vim_mode": false,
     "max_versions_per_file": 20,
     "total_version_storage_limit_mb": 100
-  },
-  "scheduler": {
-    "enabled": true,
-    "default_notification_behavior": "fail_only",
-    "log_retention_runs": 10,
-    "retry_default": "none"
   },
   "theme": {
     "theme_preset": "light",
@@ -589,39 +509,7 @@ Composer supports 6 interchangeable navigation layouts selectable in real-time f
 }
 ```
 
-### 6.2 Scheduled Task Definition (`storage/scheduler/<task_id>.task.toml`)
-
-```toml
-[task]
-id = "auto-workspace-backup"
-name = "Workspace Daily Backup"
-description = "Automated snapshot backup of active workspace documents"
-type = "app"
-enabled = true
-created_at = "2026-09-01T00:00:00+00:00"
-last_run = "2026-09-06T02:00:00+00:00"
-last_status = "success"
-
-[schedule]
-frequency = "recurring" # "once" | "recurring" | "on_event"
-run_at = ""
-cron = "0 0 2 * * *"
-human_readable = "Every day at 02:00 AM"
-event = "app_launch"
-
-[action]
-operation = "backup" # "backup" | "cleanup" | "export"
-source_path = ""
-destination_path = ""
-
-[notifications]
-on_start = false
-on_complete = true
-on_fail = true
-include_result_preview = true
-```
-
-### 6.3 Custom User Theme Schema (`storage/users/<name>.json`)
+### 6.2 Custom User Theme Schema (`storage/users/<name>.json`)
 
 ```json
 {
@@ -638,7 +526,7 @@ include_result_preview = true
 
 ---
 
-## 7. Tauri IPC API & Rust Commands Matrix (27 Registered Commands)
+## 7. Tauri IPC API & Rust Commands Matrix (22 Registered Commands)
 
 Every command listed below is strictly implemented in `src-tauri/src/lib.rs` and actively callable by the frontend via `@tauri-apps/api/core::invoke`:
 
@@ -656,21 +544,16 @@ Every command listed below is strictly implemented in `src-tauri/src/lib.rs` and
 | 10 | **Config** | `import_theme_toml` | `import_path: String` | `Result<ThemeConfig, String>` | Imports and validates a theme preset from an external `.toml` file |
 | 11 | **Config** | `get_app_install_path` | *None* | `String` | Resolves absolute directory path containing the running application executable |
 | 12 | **Config** | `get_workspace_path` | *None* | `String` | Resolves current active workspace root path |
-| 13 | **Scheduler**| `load_scheduler_tasks` | *None* | `Vec<ScheduledTask>` | Reads all scheduled task `.task.toml` definitions from disk |
-| 14 | **Scheduler**| `save_scheduler_task` | `task: ScheduledTask` | `Result<(), String>` | Persists or updates a task definition file in `storage/scheduler/` |
-| 15 | **Scheduler**| `delete_scheduler_task`| `id: String` | `Result<(), String>` | Removes the `.task.toml` file matching the specified task ID |
-| 16 | **Scheduler**| `run_task_now` | `id: String` | `Result<(), String>` | Instantly triggers execution of a scheduled task in the background |
-| 17 | **Scheduler**| `get_task_run_logs` | `id: String` | `Result<String, String>` | Reads execution log history from `storage/scheduler/logs/<id>.log` |
-| 18 | **FileOps** | `list_directory_contents` | `dir_path: String` | `Result<Vec<FileEntry>, String>` | Lists files and subfolders for the directory tree (folders first) |
-| 19 | **FileOps** | `list_all_workspace_files`| *None* | `Result<Vec<FileEntry>, String>` | Recursive file indexer (depth <= 5, excluding heavy build directories) |
-| 20 | **FileOps** | `read_text_file` | `file_path: String` | `Result<String, String>` | Reads UTF-8 text file contents into memory |
-| 21 | **FileOps** | `write_text_file` | `file_path: String`, `content: String` | `Result<(), String>` | Writes UTF-8 string to file, creating parent directories if needed |
-| 22 | **FileOps** | `read_binary_file_base64` | `file_path: String` | `Result<String, String>` | Reads binary file (PDF, PNG, etc.) and returns base64 string |
-| 23 | **FileOps** | `write_binary_file_base64`| `file_path: String`, `base64_content: String` | `Result<(), String>` | Decodes base64 string and writes raw bytes to destination path |
-| 24 | **FileOps** | `create_new_file` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new empty file inside the specified parent folder |
-| 25 | **FileOps** | `create_new_folder` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new directory inside the specified parent folder |
-| 26 | **FileOps** | `delete_file_or_dir` | `path: String` | `Result<(), String>` | Recursively deletes file or folder from the filesystem |
-| 27 | **FileOps** | `rename_file_or_dir` | `old_path: String`, `new_name: String` | `Result<String, String>` | Renames file or directory in place |
+| 13 | **FileOps** | `list_directory_contents` | `dir_path: String` | `Result<Vec<FileEntry>, String>` | Lists files and subfolders for the directory tree (folders first) |
+| 14 | **FileOps** | `list_all_workspace_files`| *None* | `Result<Vec<FileEntry>, String>` | Recursive file indexer (depth <= 5, excluding heavy build directories) |
+| 15 | **FileOps** | `read_text_file` | `file_path: String` | `Result<String, String>` | Reads UTF-8 text file contents into memory |
+| 16 | **FileOps** | `write_text_file` | `file_path: String`, `content: String` | `Result<(), String>` | Writes UTF-8 string to file, creating parent directories if needed |
+| 17 | **FileOps** | `read_binary_file_base64` | `file_path: String` | `Result<String, String>` | Reads binary file (PDF, PNG, etc.) and returns base64 string |
+| 18 | **FileOps** | `write_binary_file_base64`| `file_path: String`, `base64_content: String` | `Result<(), String>` | Decodes base64 string and writes raw bytes to destination path |
+| 19 | **FileOps** | `create_new_file` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new empty file inside the specified parent folder |
+| 20 | **FileOps** | `create_new_folder` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new directory inside the specified parent folder |
+| 21 | **FileOps** | `delete_file_or_dir` | `path: String` | `Result<(), String>` | Recursively deletes file or folder from the filesystem |
+| 22 | **FileOps** | `rename_file_or_dir` | `old_path: String`, `new_name: String` | `Result<String, String>` | Renames file or directory in place |
 
 ---
 
@@ -698,9 +581,7 @@ flowchart TD
     E1[Invalid SVG XML Syntax] --> R1[Display Non-Blocking Warning Badge & Retain Previous Valid Render]
     E2[Large PDF Memory Overflow] --> R2[Chunked 8KB Base64 Streaming to Avoid Call-Stack Limits]
     E3[Corrupt or Missing config.json] --> R3[Load In-Memory create_default_config & Create Directory]
-    E4[Corrupt or Malformed .task.toml] --> R4[Log Deserialization Error & Skip Task without Halting Daemon]
     E5[Deep Workspace Directory Tree] --> R5[Bound list_all_workspace_files Depth to 5 & Skip Heavy Dirs]
-    E6[Concurrent Scheduler File Watcher] --> R6[Debounced mpsc Channel Receiver for Hot-Reload Events]
 ```
 
 ---
@@ -717,11 +598,10 @@ gantt
     In-Place Visual PDF Canvas Vector Editor    :done,    2026-08-02, 2026-08-20
     Markdown Publishing & Print Studio          :done,    2026-08-21, 2026-09-01
     SVG & Image Inspection Studio               :done,    2026-09-02, 2026-09-04
-    Tokio Cron Daemon & 60-Palette System       :done,    2026-09-05, 2026-09-06
+    Editorial Typography & 60-Palette Engine    :done,    2026-09-05, 2026-09-06
     section Phase 2: Enhanced Studio
     Git Branch & Visual Diff Viewer             :active,  2026-09-10, 2026-10-15
     Split-Pane Editor (Vertical & Horizontal)   :         2026-10-16, 2026-11-01
-    Custom Shell Script Scheduler Runner        :         2026-11-02, 2026-11-20
     section Phase 3: Advanced Ecosystem
     Encrypted Local Workspace Backups           :         2026-11-21, 2026-12-15
     Cross-Device Local P2P Sync (Local Network) :         2026-12-16, 2027-01-20
@@ -731,5 +611,3 @@ gantt
   * Introduce native local Git status tracking in the Explorer sidebar alongside a Monaco side-by-side visual diff viewer for code and Markdown documents.
 * **Milestone 2: Multi-Pane Split Editor**
   * Support arbitrary vertical and horizontal tab pane splitting, allowing simultaneous editing of code, Markdown preview, and PDF viewing side by side.
-* **Milestone 3: Shell Script & Executable Task Runners**
-  * Expand the Tokio background scheduler to support executing user-defined shell scripts (`.bat`, `.sh`, `.ps1`) and external CLI utilities with real-time stdout capture.

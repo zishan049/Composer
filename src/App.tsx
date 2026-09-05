@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  Folder, History, Settings as SettingsIcon,
+  Folder, Settings as SettingsIcon,
   RefreshCw, Sun, Moon, Minus, Square, X
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -10,7 +10,6 @@ import { AppConfig } from "./types";
 
 // Page Components (Code-split with React.lazy for instant startup)
 const Explorer = React.lazy(() => import("./components/Explorer").then(m => ({ default: m.Explorer })));
-const Scheduler = React.lazy(() => import("./components/Scheduler").then(m => ({ default: m.Scheduler })));
 const Settings = React.lazy(() => import("./components/Settings").then(m => ({ default: m.Settings })));
 
 // ─────────────────────────────────────────────
@@ -28,7 +27,6 @@ const FONT_PRESETS = [
 // ─────────────────────────────────────────────
 const NAV_ITEMS = [
   { name: "Explorer",  label: "Explorer",    icon: <Folder      size={14} className="nav-icon-explorer"  /> },
-  { name: "Scheduler", label: "Automation",  icon: <History     size={14} className="nav-icon-scheduler"/> },
   { name: "Settings",  label: "System",      icon: <SettingsIcon size={14} className="nav-icon-settings"/> },
 ];
 
@@ -148,9 +146,12 @@ function App() {
       const cfg: AppConfig = await invoke("get_app_config");
       setConfig(cfg);
       setNavLayout(cfg.theme.nav_layout || "sidebar");
-      setActivePage(prev =>
-        prev === "Explorer" && cfg.general.launch_page ? cfg.general.launch_page : prev
-      );
+      setActivePage(prev => {
+        if (prev === "Explorer" && cfg.general.launch_page) {
+          return cfg.general.launch_page === "Scheduler" ? "Explorer" : cfg.general.launch_page;
+        }
+        return prev;
+      });
       applyTheme(cfg);
     } catch (err) {
       console.error("loadConfig error:", err);
@@ -318,9 +319,6 @@ function App() {
     >
       <div className={`h-full w-full ${activePage === "Explorer" ? "block" : "hidden"}`}>
         <Explorer />
-      </div>
-      <div className={`h-full w-full ${activePage === "Scheduler" ? "block" : "hidden"}`}>
-        <Scheduler />
       </div>
       <div className={`h-full w-full ${activePage === "Settings" ? "block" : "hidden"}`}>
         <Settings />

@@ -1,10 +1,7 @@
 pub mod config;
-pub mod scheduler;
 pub mod file_ops;
 
-use std::sync::Arc;
 use std::path::{Path, PathBuf};
-use tauri::Manager;
 
 use tauri_plugin_dialog::DialogExt;
 
@@ -111,16 +108,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        // Register thread-safe scheduler state
-        .manage(scheduler::SchedulerState::new())
-        // Initialize background scheduler on startup
-        .setup(|app| {
-            let handle = app.handle().clone();
-            let state = app.state::<scheduler::SchedulerState>();
-            let tasks_clone = Arc::clone(&state.tasks);
-            scheduler::start_scheduler_engine(handle, tasks_clone);
-            Ok(())
-        })
         .invoke_handler(tauri::generate_handler![
             greet,
             pick_directory,
@@ -135,12 +122,6 @@ pub fn run() {
             config::import_theme_toml,
             config::get_app_install_path,
             config::get_workspace_path,
-            // Scheduler commands
-            scheduler::load_scheduler_tasks,
-            scheduler::save_scheduler_task,
-            scheduler::delete_scheduler_task,
-            scheduler::run_task_now,
-            scheduler::get_task_run_logs,
             // Explorer file operations
             file_ops::list_directory_contents,
             file_ops::list_all_workspace_files,

@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from "react";
 import {
-  Folder, MessageSquare, Code, History, Settings as SettingsIcon,
-  Cpu, RefreshCw, Sun, Moon, Minus, Square, X
+  Folder, History, Settings as SettingsIcon,
+  RefreshCw, Sun, Moon, Minus, Square, X
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "./types";
 
-// Page Components
-import { Explorer } from "./components/Explorer";
-import { Chat } from "./components/Chat";
-import { Skills } from "./components/Skills";
-import { Scheduler } from "./components/Scheduler";
-import { Settings } from "./components/Settings";
+// Page Components (Code-split with React.lazy for instant startup)
+const Explorer = React.lazy(() => import("./components/Explorer").then(m => ({ default: m.Explorer })));
+const Scheduler = React.lazy(() => import("./components/Scheduler").then(m => ({ default: m.Scheduler })));
+const Settings = React.lazy(() => import("./components/Settings").then(m => ({ default: m.Settings })));
 
 // ─────────────────────────────────────────────
 // Font presets (must match Settings.tsx)
@@ -30,8 +28,6 @@ const FONT_PRESETS = [
 // ─────────────────────────────────────────────
 const NAV_ITEMS = [
   { name: "Explorer",  label: "Explorer",    icon: <Folder      size={14} className="nav-icon-explorer"  /> },
-  { name: "Chat",      label: "Assistant",   icon: <MessageSquare size={14} className="nav-icon-chat"   /> },
-  { name: "Skills",    label: "AI Skills",   icon: <Code        size={14} className="nav-icon-skills"   /> },
   { name: "Scheduler", label: "Automation",  icon: <History     size={14} className="nav-icon-scheduler"/> },
   { name: "Settings",  label: "System",      icon: <SettingsIcon size={14} className="nav-icon-settings"/> },
 ];
@@ -43,7 +39,6 @@ function App() {
   const [activePage,  setActivePage]  = useState<string>("Explorer");
   const [config,      setConfig]      = useState<AppConfig | null>(null);
   const [navLayout,   setNavLayout]   = useState<string>("sidebar");
-  const [activeModel, setActiveModel] = useState<string | null>(null);
   const [sysRamUsage, setSysRamUsage] = useState<number>(0);
   const [welcomeText, setWelcomeText] = useState("");
   const WELCOME_MSG = "Welcome back! 👋";
@@ -68,51 +63,24 @@ function App() {
 
   type LoadingPhase = "loading" | "exit-spinner" | "exit-text" | "reveal-app" | "done";
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("loading");
-  const [typedText, setTypedText] = useState("");
+  const [typedText, setTypedText] = useState("Composer");
   const fullText = "Composer";
 
-  // ── 10s Loading Screen sequence ──
+  // ── Snappy Launch Sequence (350ms total) ──
   useEffect(() => {
-    // Start typing after a short delay so the background can fade in first
-    const typeDelay = setTimeout(() => {
-      let index = 0;
-      const typeInterval = setInterval(() => {
-        if (index < fullText.length) {
-          setTypedText(fullText.substring(0, index + 1));
-          index++;
-        } else {
-          clearInterval(typeInterval);
-        }
-      }, 150);
-      return () => clearInterval(typeInterval);
-    }, 800); // 800ms delay for background fade-in
-
-    // 10.0s: Hide spinner
+    // Reveal app smoothly after 200ms
     const timer1 = setTimeout(() => {
-      setLoadingPhase("exit-spinner");
-    }, 10000);
-
-    // 10.4s: Hide text
-    const timer2 = setTimeout(() => {
-      setLoadingPhase("exit-text");
-    }, 10400);
-
-    // 10.8s: Reveal app (fade out overlay, fade in app)
-    const timer3 = setTimeout(() => {
       setLoadingPhase("reveal-app");
-    }, 10800);
+    }, 200);
 
-    // 11.3s: Fully done, unmount overlay
-    const timer4 = setTimeout(() => {
+    // Fully done and unmount overlay at 350ms
+    const timer2 = setTimeout(() => {
       setLoadingPhase("done");
-    }, 11300);
+    }, 350);
 
     return () => {
-      clearTimeout(typeDelay);
       clearTimeout(timer1);
       clearTimeout(timer2);
-      clearTimeout(timer3);
-      clearTimeout(timer4);
     };
   }, []);
 
@@ -184,8 +152,6 @@ function App() {
         prev === "Explorer" && cfg.general.launch_page ? cfg.general.launch_page : prev
       );
       applyTheme(cfg);
-      const model: string | null = await invoke("get_loaded_model");
-      setActiveModel(model);
     } catch (err) {
       console.error("loadConfig error:", err);
     }
@@ -297,11 +263,6 @@ function App() {
             input.focus();
             (input as HTMLInputElement).select();
           }
-        } else if (activePage === "Chat") {
-          const textarea = document.getElementById("chat-message-textarea");
-          if (textarea) {
-            textarea.focus();
-          }
         }
       }
     };
@@ -346,20 +307,26 @@ function App() {
     </button>
   );
 
-  const renderPage = () => {
-    const map: Record<string, React.ReactNode> = {
-      Explorer:  <Explorer />,
-      Chat:      <Chat />,
-      Skills:    <Skills />,
-      Scheduler: <Scheduler />,
-      Settings:  <Settings />,
-    };
-    return (
-      <div key={activePage} className="page-transition h-full w-full">
-        {map[activePage] ?? <Explorer />}
+  const renderPages = () => (
+    <React.Suspense
+      fallback={
+        <div className="flex-1 flex flex-col items-center justify-center h-full text-muted font-sans-meta text-xs">
+          <RefreshCw size={18} className="animate-spin text-accent mb-2" />
+          <span>Loading workspace...</span>
+        </div>
+      }
+    >
+      <div className={`h-full w-full ${activePage === "Explorer" ? "block" : "hidden"}`}>
+        <Explorer />
       </div>
-    );
-  };
+      <div className={`h-full w-full ${activePage === "Scheduler" ? "block" : "hidden"}`}>
+        <Scheduler />
+      </div>
+      <div className={`h-full w-full ${activePage === "Settings" ? "block" : "hidden"}`}>
+        <Settings />
+      </div>
+    </React.Suspense>
+  );
 
   // ─────────────────────────────────────────────
   // JSX
@@ -491,11 +458,11 @@ function App() {
           />
         </div>
 
-        {/* Active model badge */}
+        {/* System info */}
         <div className="flex items-center gap-3 text-[10.5px] shrink-0">
-          <span className="text-muted flex items-center gap-1 font-bold">
-            <Cpu size={12} className="text-accent" />
-            <span className="truncate max-w-[120px]">{activeModel || "No model loaded"}</span>
+          <span className="text-muted flex items-center gap-1.5 font-bold">
+            <span className="text-accent font-semibold">{sysRamUsage}%</span>
+            <span>RAM</span>
           </span>
         </div>
       </div>
@@ -569,7 +536,7 @@ function App() {
               <span className="font-serif-display font-black text-xl tracking-wider text-accent italic">
                 Composer
               </span>
-              <div className="text-[10px] font-semibold text-muted tracking-wide min-h-[14px]">
+              <div className="text-[10px] font-semibold text-muted tracking-wide min-h-3.5">
                 {welcomeText}
               </div>
             </div>
@@ -606,21 +573,11 @@ function App() {
               </div>
             </div>
 
-            {/* Hardware status footer */}
+            {/* System status footer */}
             <div className="p-4 border-t border-light-rule bg-paper/60 space-y-3 text-[10px] shrink-0">
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between font-bold text-muted uppercase text-[9px]">
-                  <span>VRAM ALLOCATION</span>
-                  <span className="text-accent font-semibold">{activeModel ? "LOADED" : "FREE"}</span>
-                </div>
-                <p className="font-mono text-ink/80 truncate font-bold">
-                  {activeModel || "No model loaded"}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between font-bold text-muted uppercase text-[9px]">
-                  <span>LOCAL CPU RAM</span>
+                  <span>SYSTEM RAM UTILIZATION</span>
                   <span className="text-accent font-semibold">{sysRamUsage}%</span>
                 </div>
                 <div className="w-full bg-cream h-1 border border-rule/35 overflow-hidden">
@@ -636,7 +593,7 @@ function App() {
 
         {/* Content workspace */}
         <div className="flex-1 flex flex-col h-full overflow-hidden select-text">
-          {renderPage()}
+          {renderPages()}
         </div>
 
         {/* Right Vertical Pills sidebar ("R Vertical Pill" with glowing text-shadow accent R) */}
@@ -711,7 +668,7 @@ function App() {
               <span className="font-serif-display font-black text-xl tracking-wider text-accent italic">
                 Composer
               </span>
-              <div className="text-[10px] font-semibold text-muted tracking-wide min-h-[14px]">
+              <div className="text-[10px] font-semibold text-muted tracking-wide min-h-3.5">
                 {welcomeText}
               </div>
             </div>
@@ -748,21 +705,11 @@ function App() {
               </div>
             </div>
 
-            {/* Hardware status footer */}
+            {/* System status footer */}
             <div className="p-4 border-t border-light-rule bg-paper/60 space-y-3 text-[10px] shrink-0">
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between font-bold text-muted uppercase text-[9px]">
-                  <span>VRAM ALLOCATION</span>
-                  <span className="text-accent font-semibold">{activeModel ? "LOADED" : "FREE"}</span>
-                </div>
-                <p className="font-mono text-ink/80 truncate font-bold">
-                  {activeModel || "No model loaded"}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between font-bold text-muted uppercase text-[9px]">
-                  <span>LOCAL CPU RAM</span>
+                  <span>SYSTEM RAM UTILIZATION</span>
                   <span className="text-accent font-semibold">{sysRamUsage}%</span>
                 </div>
                 <div className="w-full bg-cream h-1 border border-rule/35 overflow-hidden">
@@ -839,11 +786,11 @@ function App() {
           />
         </div>
 
-        {/* Active model badge */}
+        {/* System info */}
         <div className="flex items-center gap-3 text-[10.5px] shrink-0">
-          <span className="text-muted flex items-center gap-1 font-bold">
-            <Cpu size={12} className="text-accent" />
-            <span className="truncate max-w-[120px]">{activeModel || "No model loaded"}</span>
+          <span className="text-muted flex items-center gap-1.5 font-bold">
+            <span className="text-accent font-semibold">{sysRamUsage}%</span>
+            <span>RAM</span>
           </span>
         </div>
       </div>

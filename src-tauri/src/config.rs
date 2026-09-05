@@ -19,28 +19,6 @@ pub struct StorageConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ModelsConfig {
-    pub default_llm: String,
-    pub hf_token: String,
-    pub default_whisper: String,
-    #[serde(default)]
-    pub gpu_layers: i32,       // -1=all GPU, 0=CPU only, n=partial
-    #[serde(default = "default_gpu_backend")]
-    pub gpu_backend: String,   // "cpu" | "cuda" | "rocm" | "metal" | "vulkan"
-}
-
-fn default_gpu_backend() -> String { "cpu".to_string() }
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MemoryConfig {
-    pub enabled: bool,
-    pub size_limit_mb: u32,
-    pub compression_ratio_target: f32,
-    pub compression_model: String,
-    pub default_scope: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EditorConfig {
     pub font_family: String,
     pub font_size: u32,
@@ -53,34 +31,8 @@ pub struct EditorConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct VoiceConfig {
-    pub enabled: bool,
-    pub active_whisper_model: String,
-    pub microphone_device: String,
-    pub language_hint: String,
-    pub display_type: String, // "inline" | "popup"
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ChatConfig {
-    pub auto_project_promotion_threshold: u32,
-    pub auto_project_promotion_enabled: bool,
-    pub project_naming_model: String,
-    pub default_sort: String,
-    pub default_ai_mode: String,
-    pub context_overflow_enabled: bool,
-    pub context_overflow_buffer_percent: u32, // 5-25%
-    pub continuation_summary_model: String,
-    pub auto_switch_to_continuation: bool,
-    pub show_context_summary_banner: String, // "always" | "collapsed" | "never"
-    #[serde(default)]
-    pub user_avatar_image: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SchedulerConfig {
     pub enabled: bool,
-    pub max_concurrent_inferences: u32,
     pub default_notification_behavior: String, // "complete" | "fail_only" | "silent"
     pub log_retention_runs: u32,
     pub retry_default: String, // "none" | "once" | "3_times"
@@ -112,11 +64,7 @@ pub struct ThemeConfig {
 pub struct AppConfig {
     pub general: GeneralConfig,
     pub storage: StorageConfig,
-    pub models: ModelsConfig,
-    pub memory: MemoryConfig,
     pub editor: EditorConfig,
-    pub voice: VoiceConfig,
-    pub chat: ChatConfig,
     pub scheduler: SchedulerConfig,
     pub theme: ThemeConfig,
 }
@@ -148,13 +96,6 @@ pub fn create_default_config(storage_root: &Path) -> AppConfig {
     ui_overrides.insert("text_color".to_string(), "#18140f".to_string());
     ui_overrides.insert("border_accent".to_string(), "#b8440c".to_string());
 
-    let gpus = crate::models::detect_gpu_devices();
-    let (default_gpu_layers, default_gpu_backend) = if !gpus.is_empty() {
-        (-1, gpus[0].backend.clone())
-    } else {
-        (0, "cpu".to_string())
-    };
-
     AppConfig {
         general: GeneralConfig {
             app_name: "Composer".to_string(),
@@ -167,20 +108,6 @@ pub fn create_default_config(storage_root: &Path) -> AppConfig {
             root_path: storage_root.to_string_lossy().to_string(),
             workspace_path: "".to_string(),
         },
-        models: ModelsConfig {
-            default_llm: "".to_string(),
-            hf_token: "".to_string(),
-            default_whisper: "base".to_string(),
-            gpu_layers: default_gpu_layers,
-            gpu_backend: default_gpu_backend,
-        },
-        memory: MemoryConfig {
-            enabled: true,
-            size_limit_mb: 256,
-            compression_ratio_target: 0.2,
-            compression_model: "active".to_string(),
-            default_scope: "global".to_string(),
-        },
         editor: EditorConfig {
             font_family: "EB Garamond".to_string(),
             font_size: 17,
@@ -191,29 +118,8 @@ pub fn create_default_config(storage_root: &Path) -> AppConfig {
             max_versions_per_file: 20,
             total_version_storage_limit_mb: 100,
         },
-        voice: VoiceConfig {
-            enabled: true,
-            active_whisper_model: "base".to_string(),
-            microphone_device: "Default".to_string(),
-            language_hint: "en".to_string(),
-            display_type: "inline".to_string(),
-        },
-        chat: ChatConfig {
-            auto_project_promotion_threshold: 20,
-            auto_project_promotion_enabled: true,
-            project_naming_model: "active".to_string(),
-            default_sort: "date".to_string(),
-            default_ai_mode: "General".to_string(),
-            context_overflow_enabled: true,
-            context_overflow_buffer_percent: 10,
-            continuation_summary_model: "active".to_string(),
-            auto_switch_to_continuation: true,
-            show_context_summary_banner: "collapsed".to_string(),
-            user_avatar_image: None,
-        },
         scheduler: SchedulerConfig {
             enabled: true,
-            max_concurrent_inferences: 1,
             default_notification_behavior: "fail_only".to_string(),
             log_retention_runs: 10,
             retry_default: "none".to_string(),
@@ -296,12 +202,7 @@ pub fn load_config() -> AppConfig {
 
     // Initialize workspace subdirectories in active storage root
     let active_root = resolve_storage_path(&config.storage.root_path);
-    let _ = fs::create_dir_all(&active_root.join("documents"));
-    let _ = fs::create_dir_all(&active_root.join("conversations"));
-    let _ = fs::create_dir_all(&active_root.join("conversations").join("projects"));
-    let _ = fs::create_dir_all(&active_root.join("memory"));
-    let _ = fs::create_dir_all(&active_root.join("memory").join("archive"));
-    let _ = fs::create_dir_all(&active_root.join("skills"));
+    let _ = fs::create_dir_all(&active_root.join("workspace"));
     let _ = fs::create_dir_all(&active_root.join("scheduler"));
     let _ = fs::create_dir_all(&active_root.join("scheduler").join("logs"));
     let _ = fs::create_dir_all(&active_root.join("users"));

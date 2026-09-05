@@ -1,24 +1,24 @@
 # Product Requirements Document (PRD): Composer Desktop
 
-**Document Version:** 1.0.0  
+**Document Version:** 1.1.0  
 **Product Name:** Composer  
 **Product Category:** Local-First AI Creator & Developer Studio  
 **Target Platform:** Desktop (Windows, macOS, Linux)  
-**Tech Stack:** Tauri 2.0 + Rust + React 19 + TypeScript + Vite + Tailwind CSS v4 + Monaco Editor + llama.cpp + Whisper.cpp  
+**Tech Stack:** Tauri 2.0 + Rust + React 19 + TypeScript + Vite + Tailwind CSS v4 + Monaco Editor + llama.cpp (`llama-cpp-2`) + Whisper.cpp  
 
 ---
 
 ## 1. Executive Summary & Product Vision
 
 ### 1.1 Vision Statement
-**Composer** is an offline-first, local-native desktop AI workspace and creator studio that unifies local LLM inference, voice dictation, multi-format file management, interactive in-place PDF editing, persistent long-term memory, and background task automation—encapsulated within a customizable editorial design system.
+**Composer** is an offline-first, local-native desktop AI workspace and creator studio that unifies local LLM inference, voice dictation, multi-format file management, interactive in-place PDF editing, persistent long-term memory, and background task automation—encapsulated within a highly customizable editorial design system.
 
 ### 1.2 Core Value Propositions
-* **100% Local & Private:** Zero cloud dependency for core features; all LLM inference (`llama.cpp`), speech-to-text transcription (`whisper.cpp`), document indexing, and memory persistence occur strictly on the user’s local machine.
-* **Integrated Document & Code Studio:** Seamless editing of code, Markdown, text, images, and visual PDFs with in-place text replacement in a single unified workspace.
-* **Context-Aware Conversational Intelligence:** Autonomous context overflow continuation, `@` workspace file tagging, `/` skill prompt templates, and semantic document search.
-* **Proactive Automation Engine:** A multi-threaded cron and event-driven scheduler that can execute periodic AI generations, automated backups, and memory compression in the background.
-* **Bespoke Editorial Aesthetics:** A warm editorial typography engine paired with high-contrast dark themes, 60+ curated palettes, dynamic accent glows, and 5 distinct layout navigation structures.
+* **100% Local & Private:** Zero cloud dependency for core features; all LLM inference (`llama.cpp` via `llama-cpp-2`), speech-to-text transcription (`whisper.cpp`), document indexing, and memory persistence occur strictly on the user’s local machine with zero telemetry.
+* **Integrated Document & Code Studio:** Seamless editing of code, Markdown, plain text, images, and visual PDFs with in-place text replacement in a single unified workspace.
+* **Context-Aware Conversational Intelligence:** Autonomous context overflow continuation, `@` workspace file tagging, `/` skill prompt templates, persistent multi-scope memory injection, and real-time token streaming.
+* **Proactive Automation Engine:** A multi-threaded Tokio cron and event-driven scheduler that hot-reloads tasks from disk via `notify` watchers, executing periodic AI generations, automated backups, and memory compression in the background.
+* **Bespoke Editorial Aesthetics:** A warm editorial typography engine paired with high-contrast dark themes, 60+ curated palettes, dynamic accent glows, edge smoothness controls, and 6 distinct layout navigation structures.
 
 ---
 
@@ -33,11 +33,11 @@ mindmap
       Offline Copilot / Coding
     Writers & Researchers
       Long-form Editorial
-      PDF Annotation & Editing
+      PDF Annotation & In-Place Editing
       Voice-to-Text Ideation
     Privacy-Conscious Creators
       Zero-Telemetry AI
-      Local RAG over Docs
+      Local Document Inspection
       Persistent Knowledge Graphs
     System Operators & Power Users
       Scheduled Background Tasks
@@ -46,9 +46,9 @@ mindmap
 ```
 
 ### 2.1 Target Personas
-1. **The Privacy-Conscious Developer:** Demands zero data exfiltration, runs quantized open-weight models (Llama 3, DeepSeek R1, Qwen 2.5 Coder) on local GPU VRAM, and requires an integrated Monaco code editor.
-2. **The Researcher & Editorial Writer:** Requires distraction-free typography (EB Garamond, Playfair Display), quick audio transcription for brainstorming, split-view Markdown preview, and seamless PDF modification.
-3. **The Knowledge Worker & Power User:** Manages dense multi-session projects, requires persistent memory across chat sessions, and relies on automated background workflows (e.g., daily summaries, automatic document indexing).
+1. **The Privacy-Conscious Developer:** Demands zero data exfiltration, runs quantized open-weight models (Llama 3, DeepSeek R1, Qwen 2.5 Coder) on local GPU VRAM, and requires an integrated Monaco code editor with split previews.
+2. **The Researcher & Editorial Writer:** Requires distraction-free typography (EB Garamond, Playfair Display), quick audio transcription for brainstorming, split-view Markdown preview, and seamless PDF modification without layout drift.
+3. **The Knowledge Worker & Power User:** Manages dense multi-session projects, requires persistent memory across chat sessions, and relies on automated background workflows (e.g., daily summaries, automatic document backups).
 
 ### 2.2 Key Problems Solved
 * **Privacy & Subscription Fatigue:** Eliminates cloud API costs and privacy risks by running inference on local hardware.
@@ -64,40 +64,43 @@ Composer is built as a hybrid desktop application utilizing **Tauri v2** with a 
 
 ```mermaid
 graph TB
-    subgraph Frontend ["Frontend Layer (React 19 + TypeScript + Vite)"]
-        UI[App Shell & Titlebar]
-        EXP[Explorer & Monaco Workspace]
-        PDF[In-Place PDF Canvas Editor]
-        CHAT[Chat Studio & Token Streamer]
+    subgraph Frontend ["Frontend Presentation Layer (React 19 + TypeScript + Vite)"]
+        UI[App Shell, Navigation & Titlebar]
+        EXP[Explorer & Monaco Workspace Studio]
+        PDF[In-Place PDF Canvas & Vector Editor]
+        CHAT[Chat Studio, Token Streamer & Voice Recorder]
         SKILLS[Skills Manager & TOML Editor]
-        SCHED[Scheduler Dashboard & Logs]
-        SET[System & Model Hub Settings]
+        SCHED[Scheduler Dashboard & Live Logs Console]
+        SET[System Settings, Theme Engine & Model Hub]
+        CTX[Universal Context Menu Provider]
     end
 
     subgraph IPC ["Tauri 2.0 IPC Bridge"]
-        INVOKE[Tauri Command Invocation]
-        EVENTS[Event Emitter / Listener Bus]
+        INVOKE[Tauri Command Invocation (44 Native Commands)]
+        EVENTS[Event Bus (inference_token, whisper_chunk, download_progress, config_updated)]
     end
 
-    subgraph Backend ["Native Core (Rust / Tokio / Tauri Core)"]
-        CONF[Config & Workspace Manager]
-        FOPS[File Ops & Directory Walker]
-        LLAMA[llama-cpp-2 Engine / GPU Offload]
-        WHISP[Whisper CLI Process & WAV Writer]
-        MEM[Memory Store & Compression Engine]
-        RAG[Semantic Indexer & Search]
-        TASK[Cron & Event Scheduler Engine]
+    subgraph Backend ["Native Backend Core (Rust / Tokio / Tauri Core)"]
+        LIB[lib.rs Tauri IPC Router]
+        CONF[config.rs Configuration & Path Resolver]
+        FOPS[file_ops.rs Filesystem Walker & Binary I/O]
+        MODELS[models.rs llama-cpp-2 Inference, GPU Detection & Whisper CLI]
+        MEM[memory.rs Hierarchical Memory Store & Compression]
+        TASK[scheduler.rs Tokio Background Daemon & Notify Watcher]
     end
 
-    subgraph Storage ["Local Filesystem (/storage)"]
-        DOCS[storage/documents/]
-        CONV[storage/conversations/]
-        MODELS[storage/models/*.gguf]
-        WHISPER_STORE[storage/whisper/*.bin]
-        MEM_STORE[storage/memory/memory_store.json]
-        SKILL_STORE[storage/skills/*.skill.toml]
-        TASK_STORE[storage/scheduler/*.task.toml]
-        CFG_STORE[storage/config.json]
+    subgraph Storage ["Local Storage Root Directory (/storage)"]
+        DOCS[workspace/ User Code & Documents]
+        CONV[conversations/ Standalone Chats & Project Trees]
+        GGUF_MODELS[models/*.gguf Weights]
+        WHISPER_STORE[whisper/ whisper-cli.exe & ggml-*.bin]
+        MEM_STORE[memory/memory_store.json & archive/]
+        SKILL_STORE[skills/*.skill.toml]
+        TASK_STORE[scheduler/*.task.toml & logs/*.log]
+        THEMES_STORE[users/*.json Custom Theme Presets]
+        ASSETS_STORE[assets/user_avatar.* User Custom Logo]
+        CFG_STORE[config.json Master Configuration]
+        BACKUP_STORE[storage_backup/ Automated Snapshots]
     end
 
     UI --> INVOKE
@@ -112,22 +115,24 @@ graph TB
     EVENTS --> CHAT
     EVENTS --> SET
 
-    INVOKE --> CONF
-    INVOKE --> FOPS
-    INVOKE --> LLAMA
-    INVOKE --> WHISP
-    INVOKE --> MEM
-    INVOKE --> RAG
-    INVOKE --> TASK
+    INVOKE --> LIB
+    LIB --> CONF
+    LIB --> FOPS
+    LIB --> MODELS
+    LIB --> MEM
+    LIB --> TASK
 
     CONF --> CFG_STORE
     FOPS --> DOCS
     FOPS --> CONV
-    LLAMA --> MODELS
-    WHISP --> WHISPER_STORE
+    FOPS --> ASSETS_STORE
+    FOPS --> THEMES_STORE
+    MODELS --> GGUF_MODELS
+    MODELS --> WHISPER_STORE
     MEM --> MEM_STORE
     FOPS --> SKILL_STORE
     TASK --> TASK_STORE
+    TASK --> BACKUP_STORE
 ```
 
 ### 3.2 Technology Stack
@@ -144,7 +149,8 @@ graph TB
 | **PDF Rendering** | `pdfjs-dist` (v6.0) | PDF canvas rendering, viewport transform, text content coordinate extraction |
 | **PDF Manipulation** | `pdf-lib` (v1.17) | User-space text deletion/white-out and vector font redraw |
 | **Styling & Theme** | Tailwind CSS v4 + CSS Variables | Dynamic editorial theme tokens, glassmorphism, responsive navigation layouts |
-| **Icons & Motion** | `lucide-react` + `framer-motion` | Micro-interactions, iconography, custom controls |
+| **Icons & Motion** | `lucide-react` | Iconography and UI controls |
+| **System Plugins** | `tauri-plugin-dialog`, `tauri-plugin-fs`, `tauri-plugin-notification`, `tauri-plugin-opener` | Native system dialogs, file system security, push notifications, and default browser links |
 
 ---
 
@@ -157,36 +163,47 @@ graph TB
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> LoadingDirectory: Browse / Change Root
+    Idle --> LoadingDirectory: Browse / Change Root / Refresh
     LoadingDirectory --> DisplayFiles: Success
-    DisplayFiles --> OpenTab: Select File
-    OpenTab --> MonacoEditor: Code / Text / Markdown
+    DisplayFiles --> OpenTab: Select File from Tree
+    OpenTab --> MonacoEditor: Code / Text / HTML / Markdown / JSON / TOML
     OpenTab --> MarkdownPreview: Toggle Split-View (.md)
-    OpenTab --> ImageViewer: Image File (.png, .jpg, .webp)
+    OpenTab --> HtmlPreview: Toggle Split-View (.html Sandboxed iframe)
+    OpenTab --> ImageViewer: Image File (.png, .jpg, .webp, .gif)
+    OpenTab --> AudioPlayer: Audio File (.mp3, .wav, .ogg, .aac, .flac)
     OpenTab --> PdfEditor: PDF File (.pdf)
     MonacoEditor --> EditContent: User Modifies Buffer
-    EditContent --> SaveFile: Ctrl+S / Auto-Save
-    SaveFile --> DisplayFiles: Update Metadata / Diff History
+    EditContent --> SaveFile: Ctrl+S / Debounced Auto-Save
+    SaveFile --> DisplayFiles: Update Metadata / Dirty State Cleared
 ```
 
 #### 4.1.1 Capabilities & Functional Rules
 1. **Directory Tree & File Walker:**
-   * Dynamic folder expansion, collapsible trees, file searching, and sorting (directories first, then files alphabetically).
+   * Resizable sidebar width (160px to 600px) with interactive column drag-handle.
+   * Collapsible directory trees, file searching by name, and alphabetical sorting with directories prioritized.
    * Fast recursive workspace indexer excluding heavy directories (`node_modules`, `target`, `.git`, `dist`, `build`, `models`, `whisper`).
 2. **Multi-Tab Document Workspace:**
-   * Support for simultaneously opened tabs with dirty state indicators (`•`), tab close shortcuts, and unsaved changes confirmation.
-   * File type classification: `code`, `markdown`, `text`, `pdf`, `image`, `audio`.
+   * Support for simultaneously opened tabs with dirty state indicators (`•`), tab close shortcuts, and unsaved changes tracking.
+   * Dynamic file type classification: `code`, `markdown`, `html`, `json`, `toml`, `pdf`, `image`, `audio`.
 3. **Monaco Editor Integration:**
-   * Language auto-detection based on file extension (Rust, TypeScript, Python, JSON, TOML, Markdown, HTML, CSS, SQL, Shell).
-   * Real-time dark/light theme switching (`vs-dark` vs. `vs-light`) mapped to the active app palette.
-   * Configurable editor preferences: Font family (e.g., EB Garamond, JetBrains Mono), font size, tab size, line height, and Vim keybindings mode.
-4. **Interactive Markdown Split-View:**
-   * Side-by-side editing with live rendered Markdown preview supporting tables, task lists, blockquotes, and fenced code blocks.
-5. **Image & Asset Inspection:**
-   * Base64 preview of PNG, JPEG, GIF, and WebP images with intrinsic width, height, and file size metadata.
-6. **File Operations & Modals:**
-   * Native file/folder creation, system file/folder picker imports (`pick_file`, `pick_directory`), recursive deletion, and inline modal renaming.
-   * Multi-version history tracking per file with rollback capability.
+   * Dynamic theme switching (`vs-dark` vs. `vs-light`) automatically calculated from active theme lightness (`--theme-ink`).
+   * Language auto-detection based on file extension (TypeScript, JavaScript, Rust, Python, HTML, Markdown, JSON, TOML/INI).
+   * Word wrap enabled, compact scrollbars, and customized typography.
+4. **Interactive Markdown & HTML Split-View:**
+   * Side-by-side editing with live rendered Markdown preview supporting drop-cap editorial styling.
+   * Sandboxed HTML `<iframe>` preview with live reload and inspection controls.
+5. **Interactive Asset Viewers:**
+   * **Image Inspector:** Base64 preview of PNG, JPEG, GIF, and WebP images displaying intrinsic dimensions (width × height), formatted file size, and file path.
+   * **Audio Player & Waveform Visualizer:** In-app audio player supporting `.mp3`, `.wav`, `.ogg`, `.aac`, `.flac` with Web Audio API canvas waveform visualizer and playback controls.
+6. **File Operations & Custom Modals:**
+   * Native creation of new files and folders within current active directory.
+   * Native OS file/folder picker imports (`pick_file`, `pick_directory` via `import_to_directory`).
+   * Inline renaming modal with error validation.
+   * File deletion with recursive directory removal (`delete_file_or_dir`).
+   * Reveal in native OS file manager (`open_in_file_manager`).
+   * Multi-version snapshot history tracking per file with one-click restore.
+7. **Docked AI Assistant Sidebar:**
+   * Collapsible AI Copilot panel docked directly beside the active Monaco editor buffer, allowing inline prompts, code reviews, and explanations.
 
 ---
 
@@ -211,7 +228,7 @@ sequenceDiagram
     PDFJS-->>View: Viewports & TextItem[] (x, y, w, h, fontSize, transform)
     View->>View: Render Canvas Layer + Transparent Textarea Overlays
     User->>View: Click text and modify content
-    View->>View: Highlight modified boxes in amber
+    View->>View: Highlight modified boxes in warm amber
     User->>View: Click "Save Changes"
     View->>PDFLIB: Load original PDF raw bytes
     loop For each edited TextItem
@@ -247,30 +264,36 @@ flowchart TD
     G --> E
 
     E --> H[Check Token Usage vs Context Window]
-    H -- Tokens Exceed Threshold --> I[Trigger Context Overflow Pipeline]
+    H -- Tokens Exceed 90% Threshold --> I[Trigger Context Overflow Pipeline]
     H -- Tokens Within Limits --> J[Stream Inference via llama-cpp-2]
 
     subgraph OverflowPipeline ["11-Step Context Overflow Continuation"]
-        I --> K1[Freeze Input]
-        K1 --> K2[Promote to Project Folder]
-        K2 --> K3[Unload LLM Context & Synthesize Dense Summary]
-        K3 --> K4[Create Chained Continuation Session]
-        K4 --> K5[Reload GGUF Model & Inject Summary Node]
-        K5 --> K6[Resume Interactive Chat]
+        I --> K1[Freeze Input Buffer]
+        K1 --> K2[Promote to Project Folder if Ungrouped]
+        K2 --> K3[De-allocate LLM Context & Release VRAM]
+        K3 --> K4[Synthesize Dense Semantic Summary]
+        K4 --> K5[Tear Down Compressor Context]
+        K5 --> K6[Create Chained Continuation Session with parent_id]
+        K6 --> K7[Reload Active GGUF Model]
+        K7 --> K8[Transition View to Continuation Chat]
+        K8 --> K9[Inject Summary Memory Node & Unfreeze Prompt]
     end
 
-    J --> L[Real-Time Token Stream Display]
+    J --> L[Real-Time Token Stream Display via inference_token]
 ```
 
 #### 4.3.1 Conversational Structure
 * **Project Folders vs. Ungrouped Chats:**
   * Conversations are organized either as standalone files (`storage/conversations/<id>.json`) or nested inside structured Project directories (`storage/conversations/projects/<project_id>/`).
-  * Project metadata is tracked via `project.toml`.
+  * Projects include custom color badges, dedicated skills, and metadata stored in `project.toml`.
+  * Inline renaming for both chats and projects directly in the sidebar.
 * **Automatic Project Promotion:**
-  * When an ungrouped conversation exceeds the configured message threshold (default: 20 messages), it is automatically promoted to a named Project folder using automated naming inference (`run_project_naming_inference`).
+  * When an ungrouped conversation exceeds the configured message threshold (default: 20 messages), it is automatically promoted to a named Project folder using automated naming inference.
 * **Autocomplete Mentions:**
   * `/` Trigger: Autocompletes installed AI Skills, automatically applying the skill's system instructions, temperature, and token parameters.
   * `@` Trigger: Autocompletes workspace files, pulling their raw contents directly into the prompt context.
+* **Live Token Streaming:**
+  * Subscribes to Tauri event `inference_token`, rendering tokens as they are emitted from the native inference loop.
 * **Context Overflow Continuation Pipeline:**
   * Protects against context limit truncation with an automated 11-step visual transition:
     1. Context limit boundary warning.
@@ -284,6 +307,10 @@ flowchart TD
     9. GGUF model reloading.
     10. View transition to new session.
     11. Prompt unfreeze with compressed summary injected.
+* **Context Drawer:**
+  * Inspects current token usage, active skill, loaded model, and pinned/relevant memory nodes (`query_memories`).
+* **Custom User Chat Avatar:**
+  * Displays a personalized avatar image loaded via `convertFileSrc` from `storage/assets/user_avatar.<ext>`, replacing the default "U" icon. Supports image upload and removal.
 
 ---
 
@@ -306,8 +333,8 @@ graph LR
 
     subgraph Execution ["llama-cpp-2 Runtime"]
         LOAD["LlamaModel::load_from_file"]
-        CTX["LlamaContext (4096 tokens)"]
-        STREAM["Token Streaming via app.emit"]
+        CTX["LlamaContext"]
+        STREAM["Token Streaming via app.emit('inference_token')"]
     end
 
     NVIDIA --> CALC
@@ -331,9 +358,11 @@ graph LR
   * **DeepSeek R1:** DeepSeek-R1-Distill-Qwen-7B, DeepSeek-R1-Distill-Llama-70B.
   * **Qwen 2.5:** Qwen2.5-7B-Instruct, Qwen2.5-Coder-14B-Instruct.
   * **Falcon 3:** Falcon3-7B-Instruct.
+* **Gated Model Access:**
+  * Secure local storage of Hugging Face access tokens (`hf_token`) required for gated models like Gemma 3.
 * **Resilient Download Manager:**
-  * Direct downloads via `reqwest` streaming with custom redirect handling for HuggingFace CDN tokens.
-  * Real-time progress broadcasting (`download_progress` events throttled to 4/sec) and instant cancellation support.
+  * Direct downloads via `reqwest` streaming with redirect handling for HuggingFace CDN tokens.
+  * Real-time progress broadcasting (`download_progress` events throttled to 4/sec) and instant cancellation support (`cancel_model_download`).
 
 #### 4.4.2 Hardware Acceleration & GPU Offloading
 * **Multi-Backend GPU Detection:**
@@ -341,6 +370,7 @@ graph LR
   * AMD ROCm: JSON output parsing of `rocm-smi` to extract memory total and usage metrics.
 * **Intelligent Layer Allocation:**
   * Dynamically computes layer offloading based on free VRAM: returns `-1` (full GPU offload) if total size fits; otherwise calculates partial layer offload (~0.13 GB per layer up to 80 layers) or falls back to CPU (`0` layers).
+  * Backend selector: `cpu`, `cuda`, `rocm`, `metal`, `vulkan`.
 * **Live System Metrics:**
   * Background polling of physical CPU RAM usage via `sys-info` rendered in the sidebar status bar.
 
@@ -377,8 +407,8 @@ sequenceDiagram
 ```
 
 #### 4.5.1 Functional Rules
-1. **Engine Auto-Provisioning:** Automatic download and extraction of precompiled `whisper-cli.exe` binaries from official GitHub releases (`ggerganov/whisper.cpp`) into `storage/whisper/`.
-2. **Model Selection:** Support for multiple model tiers: `tiny` (75 MB), `base` (145 MB), `small` (460 MB), `medium` (1.5 GB), `large-v3` (2.9 GB).
+1. **Engine Auto-Provisioning:** Automatic download and extraction of precompiled `whisper-cli.exe` binaries from official GitHub releases (`ggerganov/whisper.cpp`) into `storage/whisper/` via `download_whisper_binary`.
+2. **Model Selection & VRAM Check:** Support for multiple model tiers: `tiny` (75 MB), `base` (145 MB), `small` (460 MB), `medium` (1.5 GB), `large-v3` (2.9 GB). Automatic VRAM verification via `check_vram_available` to suggest GPU vs CPU execution mode.
 3. **Lossless Pure-Rust WAV Formatting:** Audio captured via Web Audio API at 16kHz mono is formatted directly into a standard 16-bit PCM RIFF WAV container without external encoding dependencies.
 4. **Streaming Chunk Feedback:** Transcription output is streamed line-by-line via `whisper_chunk` events, giving instant visual feedback in the message textarea.
 
@@ -420,6 +450,7 @@ auto_activate_on_chat_start = false
 
 #### 4.6.2 Key Features
 * **Dual Editing Modes:** Visual form editor for rapid tuning and Monaco TOML editor with real-time bidirectional synchronization.
+* **System Skill Protection:** Built-in system skills are protected from accidental edits with a one-click "Duplicate to Custom" feature.
 * **Context Injection:** Automatic injection of long-term memory nodes and skill-specific behavior into chat sessions and scheduled tasks.
 
 ---
@@ -431,7 +462,7 @@ graph TD
     subgraph SchedulerLoop ["Tokio 1-Second Background Ticker"]
         TICK[1-Second Interval]
         NOTIFY[notify crate Watcher on storage/scheduler/]
-        RELOAD[Hot-Reload Task TOMLs]
+        RELOAD[Hot-Reload Task TOMLs without Restart]
         CHECK{Check Schedules & Events}
     end
 
@@ -445,7 +476,7 @@ graph TD
         AI_TASK[AI Inference Task: Generate Report / Process Docs]
         APP_TASK[App Task: Backup Storage / Compress Memory / Index Files]
         LOGS[Append to storage/scheduler/logs/task-id.log]
-        NOTIF[Desktop Notification Toast]
+        NOTIF[Desktop Notification Toast via tauri-plugin-notification]
     end
 
     TICK --> CHECK
@@ -466,8 +497,8 @@ graph TD
   * `recurring`: Standard 5-field cron parsing using the `cron` crate (e.g., `0 9 * * 1` for every Monday at 9:00 AM).
   * `on_event`: Event-driven execution triggered by lifecycle events (`app_launch`, `model_loaded`, `file_created`, `chat_context_full`, `project_created`).
 * **Variable Template Expansion:** Output file paths support dynamic template tokens: `{date}` (YYYY-MM-DD), `{time}` (HH-MM), and `{user_storage_root}`.
-* **System Operations:** Pre-built native operations including automated config backup (`storage_backup/`), memory store threshold checking, and workspace document re-indexing.
-* **Live Logging & Inspection:** Real-time log streaming to dedicated log files (`storage/scheduler/logs/<id>.log`) accessible directly in the UI.
+* **System Operations:** Pre-built native operations including automated config backup (`storage_backup/`), memory store compression, and workspace document re-indexing.
+* **Live Logging & Inspection:** Real-time log streaming to dedicated log files (`storage/scheduler/logs/<id>.log`) accessible directly in the UI console drawer.
 
 ---
 
@@ -513,7 +544,8 @@ erDiagram
 
 ### 4.9 Module 9: Design System, Aesthetic Customization & Multi-Layouts
 
-#### 4.9.1 Design System Tokens & Typography
+#### 4.9.1 Design System Tokens & Palette Engine
+Colors update dynamically in `document.documentElement.style` with zero page reload.
 
 | Token | Light Default | Dark Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -524,28 +556,43 @@ erDiagram
 | `--theme-accent` | `#b8440c` | `#b8440c` | Brand accent color, primary buttons, indicators |
 | `--theme-muted` | `#8a7f6e` | `#a0988a` | Subtitle text, metadata, secondary icons |
 
-#### 4.9.2 Typography Presets
-* **Neo-Classical (Default):** EB Garamond (Body) + Playfair Display (Headings) + Inter (Metadata).
-* **Crisp Sans:** Unified Inter for a sleek, modern, technical aesthetic.
-* **Cyber Mono:** JetBrains Mono for a terminal-centric experience.
-* **Warm Retro:** Georgia + Courier New for a vintage press feel.
-* **Data Geometric:** Lexend for enhanced mathematical and tabular readability.
+#### 4.9.2 Theme Presets & Randomizer
+* **Built-In Presets:**
+  * **Default Light:** Warm editorial linen paper `#f6f2ea`, deep charcoal ink `#18140f`, terracotta accent `#b8440c`.
+  * **Default Dark:** Rich night ink `#181410`, pure paper text `#ffffff`, muted card `#221e1a`.
+  * **Red Night:** Deep maroon-black `#1a0d0d`, electric crimson `#ff3d3d`.
+  * **Matrix Shit:** Terminal deep green `#0a1a10`, cyber phosphor `#00ff88`.
+* **Custom Saved Themes:** Saved as JSON in `storage/users/<name>.json`, with live gradient preview buttons.
+* **60 Curated Editorial Palettes:** Built-in randomized palettes with rolling 3D dice button for instant visual discovery.
 
-#### 4.9.3 Multi-Layout Navigation Engine
-Composer supports 5 distinct navigation layouts configurable in real-time:
+#### 4.9.3 Visual Controls & Atmospheric Detail
+* **Dynamic Accent Glow:** Toggleable neon atmospheric glow with brightness slider (20% to 250%).
+* **Edge Smoothness Controls:** Sliders for overall UI edge smoothness (0px to 24px) and Navbar edge smoothness.
+* **Typography Presets:** 8 distinct profiles:
+  1. *Editorial Neo-Classical:* EB Garamond (Body) + Playfair Display (Headings) + Inter (Metadata).
+  2. *Crisp Modern Sans:* Unified Inter for a sleek technical interface.
+  3. *Cyber Terminal Mono:* JetBrains Mono for a developer-centric aesthetic.
+  4. *Warm Press Retro:* Georgia + Courier New for a vintage press feel.
+  5. *High-Tech Grotesk:* Space Grotesk + JetBrains Mono.
+  6. *Humanist Soft:* Plus Jakarta Sans + Outfit.
+  7. *Swiss Minimalist:* Helvetica / Arial + Inter.
+  8. *Technical Code:* Fira Code + Inter.
+
+#### 4.9.4 Multi-Layout Navigation Engine
+Composer supports 6 distinct navigation layouts configurable in real-time:
 1. **Left Fixed Sidebar (Default):** Classic 224px sidebar with brand header, welcome banner, page list, and live VRAM/RAM hardware meter.
-2. **Left Vertical Pills:** Ultra-compact 64px icon bar with hover tooltips and minimal screen footprint.
-3. **Top Navbar:** Horizontal 48px header bar with integrated navigation pills and status badges.
-4. **Right Fixed Sidebar:** Mirrored right-hand layout optimized for RTL or secondary monitor placement.
-5. **Right Vertical Pills:** Right-hand vertical pill bar with glowing brand accent icon.
-6. **Bottom Navbar:** Horizontal 48px footer bar.
+2. **Right Fixed Sidebar:** Mirrored right-hand layout optimized for RTL or secondary monitor placement.
+3. **Left Vertical Pills:** Ultra-compact 64px icon bar with glowing monogram indicator and minimal screen footprint.
+4. **Right Vertical Pills:** Mirrored compact vertical pill bar.
+5. **Top Navbar:** Horizontal 48px header bar with integrated navigation pills and status badges. Supports Icon Only vs. Icon + Text mode.
+6. **Bottom Navbar:** Horizontal 48px footer bar. Supports Icon Only vs. Icon + Text mode.
 
 ---
 
 ## 5. Non-Functional Requirements
 
 ### 5.1 Performance & Resource Targets
-* **Cold Startup Time:** `< 800ms` to interactive UI (loading splash screen gracefully unmounts at 10s or upon ready signal).
+* **Cold Startup Time:** `< 800ms` to interactive UI (loading splash screen gracefully unmounts upon initialization).
 * **Inference Latency:** Zero UI freeze during inference; token generation streams at `>= 25 tokens/sec` on GPU (CUDA/ROCm) and `>= 8 tokens/sec` on CPU for 7B-class models.
 * **Memory Footprint:** Native Tauri frontend idle RAM `< 90 MB`; background Rust core `< 45 MB` (excluding loaded GGUF model buffer).
 * **UI Responsiveness:** 60 FPS slider interactions for color adjustments, theme switching, and live layout transitions.
@@ -558,7 +605,7 @@ Composer supports 5 distinct navigation layouts configurable in real-time:
 ### 5.3 Reliability & Fault Tolerance
 * **GGUF Load Protection:** Graceful fallback to CPU if GPU VRAM allocation fails or is insufficient.
 * **Hot-Reloading File Watchers:** Config, scheduler tasks, and skills reload dynamically via `notify` without requiring an application restart.
-* **Safe PDF Overwrite:** Binary operations write through temporary buffers, preventing document corruption on interrupted writes.
+* **Safe Binary Overwrite:** Binary operations write through temporary buffers, preventing document corruption on interrupted writes.
 
 ---
 
@@ -621,7 +668,7 @@ Composer supports 5 distinct navigation layouts configurable in real-time:
     "continuation_summary_model": "active",
     "auto_switch_to_continuation": true,
     "show_context_summary_banner": "collapsed",
-    "user_avatar_image": null
+    "user_avatar_image": "C:\\Users\\User\\Composer\\storage\\assets\\user_avatar.png"
   },
   "scheduler": {
     "enabled": true,
@@ -655,7 +702,8 @@ Composer supports 5 distinct navigation layouts configurable in real-time:
       "navbar_edge_smoothness": "0px",
       "ui_edge_smoothness": "4px",
       "accent_glow": "false",
-      "accent_glow_brightness": "1.0"
+      "accent_glow_brightness": "1.0",
+      "nav_icon_only": "false"
     }
   }
 }
@@ -687,7 +735,7 @@ skill = "code_reviewer"
 prompt = "Synthesize weekly workspace file changes."
 output_path = "{user_storage_root}/documents/report-{date}.md"
 output_mode = "save_file" # "save_file" | "append_to_file" | "notify_only" | "append_to_chat"
-operation = "backup" # "backup" | "index" | "export" | "compress_memory"
+operation = "backup" # "backup" | "index" | "compress_memory"
 source_path = ""
 destination_path = "{user_storage_root}/storage_backup"
 
@@ -698,64 +746,110 @@ on_fail = true
 include_result_preview = true
 ```
 
+### 6.3 Memory Store Schema (`memory_store.json`)
+
+```json
+{
+  "nodes": [
+    {
+      "id": "mem_a1b2c3d4",
+      "scope": "global",
+      "context_id": "",
+      "content": "Prefers concise, functional TypeScript with explicit return types.",
+      "created_at": "2026-09-01T12:00:00Z",
+      "is_pinned": true
+    }
+  ]
+}
+```
+
+### 6.4 Custom Theme Preset Schema (`storage/users/<name>.json`)
+
+```json
+{
+  "name": "Crimson Cyber",
+  "colors": {
+    "nav_background": "#1a0d0d",
+    "text_color": "#ffe5e5",
+    "card_background": "#261212",
+    "border_accent": "#ff3d3d"
+  }
+}
+```
+
 ---
 
-## 7. Tauri IPC API & Rust Commands Matrix
+## 7. Tauri IPC API & Rust Commands Matrix (67 Registered Native Commands)
 
-| Domain | Command Name | Arguments | Return Type | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **System** | `greet` | `name: &str` | `String` | Connectivity test handshake |
-| **System** | `get_system_ram_usage` | *None* | `u8` | Returns current CPU RAM usage percentage |
-| **System** | `pick_directory` | *None* | `Option<String>` | Native OS folder picker dialog |
-| **System** | `pick_file` | *None* | `Option<String>` | Native OS file picker dialog |
-| **System** | `import_to_directory` | `source_path`, `dest_dir` | `Result<String, String>` | Copies external file or folder into workspace |
-| **Config** | `get_app_config` | *None* | `AppConfig` | Reads and resolves active config from disk |
-| **Config** | `save_app_config` | `config: AppConfig` | `Result<(), String>` | Persists configuration changes |
-| **Config** | `export_theme_toml` | `theme`, `export_path` | `Result<(), String>` | Exports active theme to external TOML |
-| **Config** | `import_theme_toml` | `import_path` | `Result<ThemeConfig, String>` | Imports theme preset from TOML file |
-| **Config** | `get_workspace_path` | *None* | `String` | Resolves current root workspace path |
-| **Models** | `detect_gpu_devices` | *None* | `Vec<GpuDevice>` | Probes NVIDIA/AMD GPU devices via CLI |
-| **Models** | `query_huggingface_models` | `query: String` | `Vec<ModelCard>` | Searches curated local GGUF catalog |
-| **Models** | `start_model_download` | `model_name`, `repo_id`, `filename` | `Result<(), String>` | Spawns streaming GGUF model download |
-| **Models** | `cancel_model_download` | `model_name` | `Result<(), String>` | Aborts active model download |
-| **Models** | `load_active_model` | `model_name` | `Result<(), String>` | Initializes `LlamaModel` into active memory |
-| **Models** | `unload_active_model` | *None* | `Result<(), String>` | Frees active model and releases VRAM |
-| **Models** | `get_loaded_model` | *None* | `Option<String>` | Returns name of currently loaded model |
-| **Models** | `run_chat_inference` | `prompt`, `max_tokens`, `temperature` | `Result<String, String>` | Executes token generation with streaming events |
-| **Voice** | `list_whisper_models` | *None* | `Vec<WhisperModelInfo>` | Returns available/downloaded Whisper models |
-| **Voice** | `download_whisper_model` | `model_name` | `Result<(), String>` | Downloads GGML Whisper model from HuggingFace |
-| **Voice** | `check_whisper_binary` | *None* | `bool` | Verifies existence of `whisper-cli.exe` |
-| **Voice** | `download_whisper_binary` | *None* | `Result<String, String>` | Downloads and extracts whisper binary ZIP |
-| **Voice** | `save_wav_audio` | `samples: Vec<f32>` | `Result<String, String>` | Encodes 16kHz PCM samples into WAV file |
-| **Voice** | `run_whisper_transcription`| `audio_path` | `Result<String, String>` | Executes CLI transcription and emits chunks |
-| **Memory** | `query_memories` | `scope`, `context_id`, `search_query` | `Vec<MemoryNode>` | Queries persistent memory store |
-| **Memory** | `add_memory_node` | `scope`, `context_id`, `content` | `Result<MemoryNode, String>` | Creates new memory node |
-| **Memory** | `toggle_memory_pin` | `id: String` | `Result<bool, String>` | Pins or unpins memory node |
-| **Memory** | `delete_memory_node` | `id: String` | `Result<(), String>` | Deletes memory node |
-| **Memory** | `trigger_memory_compression`| `scope`, `context_id` | `Result<String, String>` | Compresses unpinned nodes into summary |
-| **FileOps** | `list_directory_contents`| `dir_path: String` | `Result<Vec<FileEntry>, String>` | Lists files and subfolders for explorer |
-| **FileOps** | `list_all_workspace_files`| *None* | `Result<Vec<FileEntry>, String>` | Recursive file indexer for `@` mentions |
-| **FileOps** | `read_text_file` | `file_path` | `Result<String, String>` | Reads UTF-8 text file |
-| **FileOps** | `write_text_file` | `file_path`, `content` | `Result<(), String>` | Writes text file |
-| **FileOps** | `read_binary_file_base64` | `file_path` | `Result<String, String>` | Reads PDF or image into Base64 Data URL |
-| **FileOps** | `write_binary_file_base64`| `file_path`, `base64_content` | `Result<(), String>` | Decodes and saves binary Base64 data |
-| **FileOps** | `create_new_file` | `parent_dir`, `name` | `Result<String, String>` | Creates new empty file |
-| **FileOps** | `create_new_folder` | `parent_dir`, `name` | `Result<String, String>` | Creates new folder |
-| **FileOps** | `delete_file_or_dir` | `path: String` | `Result<(), String>` | Removes file or directory |
-| **FileOps** | `rename_file_or_dir` | `old_path`, `new_name` | `Result<String, String>` | Renames file or directory |
-| **Chat** | `get_conversations_list` | *None* | `Result<ChatListPayload, String>` | Retrieves all chats and project folders |
-| **Chat** | `save_conversation_session` | `session: ConversationSession` | `Result<(), String>` | Persists chat session |
-| **Chat** | `delete_conversation_session`| `id`, `project_id` | `Result<(), String>` | Deletes chat session |
-| **Chat** | `create_project_folder` | `name`, `default_skill` | `Result<ProjectMetadata, String>` | Creates new chat project folder |
-| **Chat** | `delete_project_folder` | `project_id`, `delete_all_chats` | `Result<(), String>` | Removes project folder |
-| **Skills** | `load_skills_list` | *None* | `Vec<SkillDetails>` | Loads all `.skill.toml` templates |
-| **Skills** | `save_skill_details` | `skill: SkillDetails` | `Result<(), String>` | Saves or updates skill template |
-| **Skills** | `delete_skill_details` | `name: String` | `Result<(), String>` | Deletes skill template |
-| **Scheduler** | `load_scheduler_tasks` | *None* | `Vec<ScheduledTask>` | Reads all active automation tasks |
-| **Scheduler** | `save_scheduler_task` | `task: ScheduledTask` | `Result<(), String>` | Updates or creates scheduled task |
-| **Scheduler** | `delete_scheduler_task` | `id: String` | `Result<(), String>` | Deletes scheduled task TOML |
-| **Scheduler** | `run_task_now` | `id: String` | `Result<(), String>` | Instantly executes scheduled task |
-| **Scheduler** | `get_task_run_logs` | `id: String` | `Result<String, String>` | Reads execution log for task |
+| # | Domain | Command Name | Arguments | Return Type | Description |
+| :- | :--- | :--- | :--- | :--- | :--- |
+| 1 | **System** | `greet` | `name: &str` | `String` | Connectivity test handshake |
+| 2 | **System** | `get_system_ram_usage` | *None* | `u8` | Returns current physical RAM usage percentage |
+| 3 | **System** | `pick_directory` | *None* | `Option<String>` | Native OS folder picker dialog |
+| 4 | **System** | `pick_file` | *None* | `Option<String>` | Native OS file picker dialog |
+| 5 | **System** | `import_to_directory` | `source_path: String`, `dest_dir: String` | `Result<String, String>` | Copies external file or folder into workspace |
+| 6 | **System** | `save_temp_audio` | `data: Vec<u8>` | `Result<String, String>` | Writes raw audio buffer to system temp file |
+| 7 | **Config** | `get_app_config` | *None* | `AppConfig` | Reads and resolves active configuration from disk |
+| 8 | **Config** | `save_app_config` | `config: AppConfig` | `Result<(), String>` | Persists configuration changes to `config.json` |
+| 9 | **Config** | `export_theme_toml` | `theme: ThemeConfig`, `export_path: String` | `Result<(), String>` | Exports active theme to external TOML file |
+| 10 | **Config** | `import_theme_toml` | `import_path: String` | `Result<ThemeConfig, String>` | Imports theme preset from external TOML file |
+| 11 | **Config** | `get_app_install_path` | *None* | `String` | Resolves absolute path of application root |
+| 12 | **Config** | `get_workspace_path` | *None* | `String` | Resolves current root workspace path |
+| 13 | **Models** | `detect_gpu_devices` | *None* | `Vec<GpuDevice>` | Probes NVIDIA/AMD GPU devices via CLI (`nvidia-smi`, `rocm-smi`) |
+| 14 | **Models** | `set_model_gpu_config` | `gpu_layers: i32`, `gpu_backend: String` | `Result<(), String>` | Updates GPU layer offload count and execution backend |
+| 15 | **Models** | `get_model_gpu_config` | *None* | `(i32, String)` | Reads active GPU layers count and backend name |
+| 16 | **Models** | `init_gpu_from_config` | *None* | `Result<(), String>` | Initializes GPU settings on app startup from config |
+| 17 | **Models** | `get_vram_recommendation` | `model_size_gb: f32` | `(i32, String, String)` | Calculates recommended layers and status hint for model |
+| 18 | **Models** | `check_vram_available` | `required_gb: f32` | `bool` | Verifies whether free GPU VRAM satisfies required threshold |
+| 19 | **Models** | `refresh_gpu_status` | *None* | `Vec<GpuDevice>` | Forces re-query of connected GPU devices and VRAM |
+| 20 | **Models** | `query_huggingface_models` | `query: String` | `Vec<ModelCard>` | Searches curated local GGUF catalog and filters by family/name |
+| 21 | **Models** | `start_model_download` | `model_name: String`, `repo_id: String`, `filename: String` | `Result<(), String>` | Spawns streaming GGUF model download with throttled progress events |
+| 22 | **Models** | `cancel_model_download` | `model_name: String` | `Result<(), String>` | Aborts active model download and cleans orphan files |
+| 23 | **Models** | `load_active_model` | `model_name: String` | `Result<(), String>` | Initializes `LlamaModel` into active memory with GPU layer offload |
+| 24 | **Models** | `unload_active_model` | *None* | `Result<(), String>` | Frees active model context and releases VRAM |
+| 25 | **Models** | `get_loaded_model` | *None* | `Option<String>` | Returns name of currently loaded GGUF model |
+| 26 | **Models** | `list_downloaded_models` | *None* | `Vec<String>` | Lists filenames of all downloaded `.gguf` weights on disk |
+| 27 | **Models** | `run_chat_inference` | `prompt: String`, `max_tokens: u32`, `temperature: f32` | `Result<String, String>` | Executes token generation with streaming `inference_token` events |
+| 28 | **Voice** | `list_whisper_models` | *None* | `Vec<WhisperModelInfo>` | Returns available and downloaded Whisper STT models |
+| 29 | **Voice** | `download_whisper_model` | `model_name: String` | `Result<(), String>` | Downloads GGML Whisper model from HuggingFace |
+| 30 | **Voice** | `cancel_whisper_download` | `model_name: String` | `Result<(), String>` | Aborts active Whisper model download |
+| 31 | **Voice** | `check_whisper_binary` | *None* | `bool` | Verifies existence of `whisper-cli.exe` engine binary |
+| 32 | **Voice** | `download_whisper_binary` | *None* | `Result<String, String>` | Downloads and extracts precompiled whisper CLI binary from GitHub releases |
+| 33 | **Voice** | `save_wav_audio` | `samples: Vec<f32>` | `Result<String, String>` | Encodes 16kHz f32 PCM samples into a standard 16-bit mono WAV file |
+| 34 | **Voice** | `run_whisper_transcription`| `audio_path: String` | `Result<String, String>` | Executes CLI transcription and streams real-time `whisper_chunk` events |
+| 35 | **Memory** | `query_memories` | `scope: String`, `context_id: String`, `search_query: String` | `Vec<MemoryNode>` | Queries persistent memory store with optional search filtering |
+| 36 | **Memory** | `add_memory_node` | `scope: String`, `context_id: String`, `content: String` | `Result<MemoryNode, String>` | Creates new memory node |
+| 37 | **Memory** | `toggle_memory_pin` | `id: String` | `Result<bool, String>` | Toggles pin state of memory node to protect against compression |
+| 38 | **Memory** | `delete_memory_node` | `id: String` | `Result<(), String>` | Deletes specified memory node |
+| 39 | **Memory** | `trigger_memory_compression`| `scope: String`, `context_id: String` | `Result<String, String>` | Compresses unpinned nodes into an archived summary node |
+| 40 | **FileOps** | `list_directory_contents`| `dir_path: String` | `Result<Vec<FileEntry>, String>` | Lists files and subfolders for explorer tree |
+| 41 | **FileOps** | `list_all_workspace_files`| *None* | `Result<Vec<FileEntry>, String>` | Recursive file indexer for `@` mentions and workspace search |
+| 42 | **FileOps** | `read_text_file` | `file_path: String` | `Result<String, String>` | Reads UTF-8 text file |
+| 43 | **FileOps** | `write_text_file` | `file_path: String`, `content: String` | `Result<(), String>` | Writes text content to file |
+| 44 | **FileOps** | `read_binary_file_base64` | `file_path: String` | `Result<String, String>` | Reads PDF, image, or binary file into Base64 Data URL |
+| 45 | **FileOps** | `write_binary_file_base64`| `file_path: String`, `base64_content: String` | `Result<(), String>` | Decodes Base64 data and writes binary file |
+| 46 | **FileOps** | `create_new_file` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates new empty file |
+| 47 | **FileOps** | `create_new_folder` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates new folder |
+| 48 | **FileOps** | `delete_file_or_dir` | `path: String` | `Result<(), String>` | Removes file or directory recursively |
+| 49 | **FileOps** | `rename_file_or_dir` | `old_path: String`, `new_name: String` | `Result<String, String>` | Renames file or directory |
+| 50 | **FileOps** | `open_in_file_manager` | `path: String` | `Result<(), String>` | Reveals file or folder in native OS file manager |
+| 51 | **Chat** | `get_conversations_list` | *None* | `Result<ChatListPayload, String>` | Retrieves all chat sessions and structured project folders |
+| 52 | **Chat** | `save_conversation_session` | `session: ConversationSession` | `Result<(), String>` | Persists chat session data |
+| 53 | **Chat** | `delete_conversation_session`| `id: String`, `project_id: Option<String>` | `Result<(), String>` | Deletes chat session from disk |
+| 54 | **Chat** | `create_project_folder` | `name: String`, `default_skill: Option<String>` | `Result<ProjectMetadata, String>` | Creates new chat project directory with `project.toml` |
+| 55 | **Chat** | `rename_project_folder` | `project_id: String`, `new_name: String` | `Result<ProjectMetadata, String>` | Renames chat project directory |
+| 56 | **Chat** | `delete_project_folder` | `project_id: String`, `delete_all_chats: bool` | `Result<(), String>` | Removes project directory |
+| 57 | **Chat** | `run_project_naming_inference` | `chat_id: String` | `Result<String, String>` | Executes local LLM inference to automatically generate project name |
+| 58 | **RAG** | `scan_and_index_document` | `file_path: String` | `Result<String, String>` | Extracts document chunks into inverted semantic search index |
+| 59 | **RAG** | `semantic_rag_search` | `query: String`, `top_k: usize` | `Result<Vec<String>, String>` | Performs keyword-weighted semantic search across indexed files |
+| 60 | **Skills** | `load_skills_list` | *None* | `Vec<SkillDetails>` | Loads all `.skill.toml` templates from disk |
+| 61 | **Skills** | `save_skill_details` | `skill: SkillDetails` | `Result<(), String>` | Saves or updates skill template |
+| 62 | **Skills** | `delete_skill_details` | `name: String` | `Result<(), String>` | Deletes skill template |
+| 63 | **Scheduler** | `load_scheduler_tasks` | *None* | `Vec<ScheduledTask>` | Reads all active automation tasks from `.task.toml` files |
+| 64 | **Scheduler** | `save_scheduler_task` | `task: ScheduledTask` | `Result<(), String>` | Updates or creates scheduled task |
+| 65 | **Scheduler** | `delete_scheduler_task` | `id: String` | `Result<(), String>` | Deletes scheduled task TOML |
+| 66 | **Scheduler** | `run_task_now` | `id: String` | `Result<(), String>` | Instantly triggers background task execution |
+| 67 | **Scheduler** | `get_task_run_logs` | `id: String` | `Result<String, String>` | Reads execution log for task from `logs/<id>.log` |
 
 ---
 
@@ -775,7 +869,7 @@ include_result_preview = true
 | `/` | Chat Input | Opens AI Skills autocomplete suggestion dropdown |
 | `@` | Chat Input | Opens Workspace Files autocomplete suggestion dropdown |
 | `Escape` | Chat Input | Closes autocomplete suggestion dropdown |
-| `Right-Click` | Custom Context | Spawns contextual action menus (Rename, Delete, New Item) |
+| `Right-Click` | Custom Context | Spawns contextual action menus (Rename, Delete, Duplicate, Reveal, New Item) |
 
 ---
 
@@ -789,6 +883,7 @@ flowchart TD
     E4[Corrupt / Invalid JSON/TOML Config] --> R4[Load create_default_config & Preserve Workspace]
     E5[Large PDF Base64 Memory Spike] --> R5[Chunked btoa Streaming 8KB Buffer Blocks]
     E6[Concurrent Scheduler Inferences] --> R6[Scheduler Mutex Guard Throttles to max_concurrent_inferences]
+    E7[Long Chat Context Overflow] --> R7[Trigger 11-step Continuation & Memory Summary Injection]
 ```
 
 ---

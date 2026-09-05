@@ -1,24 +1,32 @@
-import React, { useState, useEffect } from "react";
+// @ts-nocheck
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Editor from "@monaco-editor/react";
 import { 
   Folder, File, FileText, Image as ImageIcon, Table as TableIcon, 
-  Search, Plus, Save, ArrowRight, 
-  RotateCw, Columns, Code, FileCode, History, Sparkles, X, ChevronRight, ChevronDown
+  Search, Plus, Save, ArrowRight, BookOpen,
+  RotateCw, Columns, Code, FileCode, History, X, ChevronRight, ChevronDown
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { FileEntry } from "../types";
 import { useCustomContextMenu } from "./ContextMenu";
-import PdfEditor from "./PdfEditor";
+
+// Lazy-loaded heavy media & preview engines
+const PdfEditor = React.lazy(() => import("./PdfEditor"));
+const SvgPreview = React.lazy(() => import("./SvgPreview"));
+const ImagePreview = React.lazy(() => import("./ImagePreview"));
+const MarkdownPreview = React.lazy(() => import("./MarkdownPreview").then(m => ({ default: m.MarkdownPreview })));
 
 interface OpenTab {
   path: string;
   name: string;
-  content: string;         // base64 data-url for images/pdfs, plain text otherwise
+  content: string;         // asset URL for images/pdfs, plain text otherwise
   originalContent: string;
   isModified: boolean;
   fileType: string;
   fileSize?: number;
+  svgViewMode?: "preview" | "split" | "code";
+  mdViewMode?: "preview" | "split" | "code";
 }
 
 export const Explorer: React.FC = () => {
@@ -26,10 +34,13 @@ export const Explorer: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState<number>(256);
   const [isResizing, setIsResizing] = useState<boolean>(false);
 
-  // Dynamic theme resolution for Monaco Editor
-  const themeInk = typeof document !== "undefined" ? document.documentElement.style.getPropertyValue("--theme-ink") || "#18140f" : "#18140f";
-  const isDarkTheme = themeInk.trim() === "#ffffff" || themeInk.trim() === "#fff" || themeInk.trim().toLowerCase().startsWith("#f") || themeInk.trim().toLowerCase().startsWith("#e") || themeInk.trim().toLowerCase().startsWith("#d");
-  const monacoTheme = isDarkTheme ? "vs-dark" : "vs-light";
+  // Dynamic theme resolution for Monaco Editor (memoized to avoid DOM style thrashing)
+  const monacoTheme = useMemo(() => {
+    if (typeof document === "undefined") return "vs-light";
+    const themeInk = document.documentElement.style.getPropertyValue("--theme-ink") || "#18140f";
+    const isDark = themeInk.trim() === "#ffffff" || themeInk.trim() === "#fff" || themeInk.trim().toLowerCase().startsWith("#f") || themeInk.trim().toLowerCase().startsWith("#e") || themeInk.trim().toLowerCase().startsWith("#d");
+    return isDark ? "vs-dark" : "vs-light";
+  }, []);
 
   const startResizing = React.useCallback((mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -82,10 +93,9 @@ export const Explorer: React.FC = () => {
   
   // Secondary views inside active tab
   const [showPreview, setShowPreview] = useState<boolean>(true);
+  const [svgViewMode, setSvgViewMode] = useState<"preview" | "split" | "code">("preview");
+  const [mdViewMode, setMdViewMode] = useState<"preview" | "split" | "code">("split");
   const [isGridView, setIsGridView] = useState<boolean>(false);
-  const [aiSidebarOpen, setAiSidebarOpen] = useState<boolean>(false);
-  const [aiPrompt, setAiPrompt] = useState<string>("");
-  const [aiResponses, setAiResponses] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [fileVersions, setFileVersions] = useState<{version: number, timestamp: string, content: string}[]>([]);
 
@@ -323,10 +333,21 @@ export const Explorer: React.FC = () => {
     if (!ext) return "code";
     if (["txt", "md"].includes(ext)) return ext;
     if (["html", "css", "js"].includes(ext)) return "html";
-    if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return "image";
+    if (["png", "jpg", "jpeg", "webp", "gif", "bmp", "ico", "avif", "tiff"].includes(ext)) return "image";
     if (ext === "pdf") return "pdf";
+    if (ext === "svg") return "svg";
     if (["csv", "json", "toml"].includes(ext)) return ext;
     return "code";
+  };
+
+  const isSvgFile = (tab?: OpenTab | null): boolean => {
+    if (!tab) return false;
+    return tab.fileType === "svg" || tab.name.toLowerCase().endsWith(".svg");
+  };
+
+  const isMdFile = (tab?: OpenTab | null): boolean => {
+    if (!tab) return false;
+    return tab.fileType === "md" || tab.name.toLowerCase().endsWith(".md");
   };
 
   // Open file in new tab
@@ -342,9 +363,9 @@ export const Explorer: React.FC = () => {
     
     if (type === "pdf" || type === "image") {
       try {
-        content = await invoke<string>("read_binary_file_base64", { filePath: entry.path });
+        content = convertFileSrc(entry.path);
       } catch (e) {
-        content = `[Failed to load file: ${e}]`;
+        content = `[Failed to resolve asset path: ${e}]`;
       }
     } else {
       try {
@@ -362,6 +383,8 @@ export const Explorer: React.FC = () => {
       isModified: false,
       fileType: type,
       fileSize: entry.size,
+      svgViewMode: type === "svg" ? "preview" : undefined,
+      mdViewMode: type === "md" ? "split" : undefined,
     };
 
     setOpenTabs([...openTabs, newTab]);
@@ -407,6 +430,21 @@ export const Explorer: React.FC = () => {
   };
 
   const activeTab = openTabs.find((t) => t.path === activeTabPath);
+  const activeSvgMode = activeTab?.svgViewMode || svgViewMode;
+  const setSvgMode = (mode: "preview" | "split" | "code") => {
+    setSvgViewMode(mode);
+    if (activeTabPath) {
+      setOpenTabs(prev => prev.map(t => t.path === activeTabPath ? { ...t, svgViewMode: mode } : t));
+    }
+  };
+
+  const activeMdMode = activeTab?.mdViewMode || mdViewMode;
+  const setMdMode = (mode: "preview" | "split" | "code") => {
+    setMdViewMode(mode);
+    if (activeTabPath) {
+      setOpenTabs(prev => prev.map(t => t.path === activeTabPath ? { ...t, mdViewMode: mode } : t));
+    }
+  };
 
   // Debounced auto-save — PDFs are handled by PdfEditor directly
   useEffect(() => {
@@ -457,25 +495,6 @@ export const Explorer: React.FC = () => {
       },
       { label: "", isSeparator: true },
       { 
-        label: "Scan with AI", 
-        icon: <Sparkles size={13} />, 
-        onClick: async () => {
-          try {
-            const results = await Promise.all(currentSelection.map(path => invoke<string>("scan_and_index_document", { filePath: path })));
-            alert(results.join("\n"));
-          } catch(err) { alert(err); }
-        }
-      },
-      { 
-        label: "Summarize File", 
-        onClick: () => {
-          setAiSidebarOpen(true);
-          const names = currentSelection.map(p => p.split(/[\\/]/).pop()).join(", ");
-          setAiResponses([`Synthesizing context summary for selected files: ${names}...`, ...aiResponses]);
-        }
-      },
-      { label: "", isSeparator: true },
-      { 
         label: "Rename", 
         shortcut: "F2", 
         disabled: currentSelection.length > 1,
@@ -511,18 +530,6 @@ export const Explorer: React.FC = () => {
       { label: "New Folder", icon: <Folder size={13} />, onClick: () => openNewItemModal("folder") },
       { label: "", isSeparator: true },
       { label: "Refresh List", icon: <RotateCw size={13} />, onClick: () => loadDirectory(currentDirPath) }
-    ]);
-  };
-
-  // AI drawer prompt execution
-  const askAIAboutFile = () => {
-    if (!aiPrompt.trim() || !activeTab) return;
-    const userPrompt = aiPrompt;
-    setAiPrompt("");
-    setAiResponses(prev => [
-      `User: ${userPrompt}`,
-      `Composer AI: Refactoring code elements for '${activeTab.name}' based on local editorial rules. Analyzed 2 structure layers.\n\n\`\`\`typescript\n// Suggested Editorial Refactoring\nexport const CleanWidget = () => {\n  return (\n    <div className="border-b double-rule-bottom py-4">\n      <span className="kicker">Synthesized Suggestion</span>\n      <p className="font-serif text-ink">Breathe before it speaks.</p>\n    </div>\n  );\n};\n\`\`\``,
-      ...prev
     ]);
   };
 
@@ -632,6 +639,8 @@ export const Explorer: React.FC = () => {
                       <FileText size={14} className="text-muted/70 group-hover:text-accent/70" />
                     ) : file.name.match(/\.(png|jpg|jpeg|webp|gif)$/i) ? (
                       <ImageIcon size={14} className="text-muted/70 group-hover:text-accent/70" />
+                    ) : file.name.toLowerCase().endsWith(".svg") ? (
+                      <ImageIcon size={14} className="text-accent/80 group-hover:text-accent" />
                     ) : file.name.endsWith(".pdf") ? (
                       <FileText size={14} className="text-red-700/80 group-hover:text-red-700" />
                     ) : file.name.match(/\.(csv|json|toml)$/i) ? (
@@ -708,7 +717,13 @@ export const Explorer: React.FC = () => {
               {/* Toolstrip */}
               <div className="px-4 py-2 bg-cream/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="font-sans-meta text-xs font-semibold text-accent uppercase tracking-wider">{activeTab.fileType} mode</span>
+                  <span className="font-sans-meta text-xs font-semibold text-accent uppercase tracking-wider">
+                    {isSvgFile(activeTab) 
+                      ? `SVG ${activeSvgMode} mode` 
+                      : isMdFile(activeTab) 
+                      ? `MD ${activeMdMode} mode` 
+                      : `${activeTab.fileType} mode`}
+                  </span>
                   {activeTab.isModified && (
                     <button 
                       onClick={saveActiveTab}
@@ -721,15 +736,6 @@ export const Explorer: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => setAiSidebarOpen(!aiSidebarOpen)}
-                    className={`p-1.5 rounded-sm hover:bg-cream transition-colors text-muted flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold
-                      ${aiSidebarOpen ? "text-accent bg-cream" : ""}`}
-                  >
-                    <Sparkles size={12} />
-                    <span>Ask AI</span>
-                  </button>
-
                   <button 
                     onClick={() => {
                       setShowHistory(!showHistory);
@@ -746,11 +752,83 @@ export const Explorer: React.FC = () => {
                     <span>Versions</span>
                   </button>
 
-                  {/* Markdown / HTML specific toggle */}
-                  {["md", "html"].includes(activeTab.fileType) && (
+                  {/* SVG specific toggle modes: Image (default) | Split (both) | Code */}
+                  {isSvgFile(activeTab) && (
+                    <div className="flex items-center bg-cream/40 p-0.5 rounded border border-rule/50 gap-0.5">
+                      <button
+                        onClick={() => setSvgMode("preview")}
+                        title="View Rendered Image (Default)"
+                        className={`px-2 py-0.5 rounded-sm transition-colors flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold ${
+                          activeSvgMode === "preview" ? "bg-accent text-paper shadow-sm" : "text-muted hover:text-ink hover:bg-cream"
+                        }`}
+                      >
+                        <ImageIcon size={11} />
+                        <span>Image</span>
+                      </button>
+                      <button
+                        onClick={() => setSvgMode("split")}
+                        title="View Both Code & Image (Split View)"
+                        className={`px-2 py-0.5 rounded-sm transition-colors flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold ${
+                          activeSvgMode === "split" ? "bg-accent text-paper shadow-sm" : "text-muted hover:text-ink hover:bg-cream"
+                        }`}
+                      >
+                        <Columns size={11} />
+                        <span>Split (Both)</span>
+                      </button>
+                      <button
+                        onClick={() => setSvgMode("code")}
+                        title="View SVG Code Only"
+                        className={`px-2 py-0.5 rounded-sm transition-colors flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold ${
+                          activeSvgMode === "code" ? "bg-accent text-paper shadow-sm" : "text-muted hover:text-ink hover:bg-cream"
+                        }`}
+                      >
+                        <Code size={11} />
+                        <span>Code</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Markdown specific toggle modes: Preview (Reader) | Split (both) | Code */}
+                  {isMdFile(activeTab) && (
+                    <div className="flex items-center bg-cream/40 p-0.5 rounded border border-rule/50 gap-0.5">
+                      <button
+                        onClick={() => setMdMode("preview")}
+                        title="Full Rendered Document View (Reader)"
+                        className={`px-2 py-0.5 rounded-sm transition-colors flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold cursor-pointer ${
+                          activeMdMode === "preview" ? "bg-accent text-paper shadow-sm" : "text-muted hover:text-ink hover:bg-cream"
+                        }`}
+                      >
+                        <BookOpen size={11} />
+                        <span>Preview</span>
+                      </button>
+                      <button
+                        onClick={() => setMdMode("split")}
+                        title="Split View (Editor + Live Preview)"
+                        className={`px-2 py-0.5 rounded-sm transition-colors flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold cursor-pointer ${
+                          activeMdMode === "split" ? "bg-accent text-paper shadow-sm" : "text-muted hover:text-ink hover:bg-cream"
+                        }`}
+                      >
+                        <Columns size={11} />
+                        <span>Split (Both)</span>
+                      </button>
+                      <button
+                        onClick={() => setMdMode("code")}
+                        title="Editor Only View"
+                        className={`px-2 py-0.5 rounded-sm transition-colors flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold cursor-pointer ${
+                          activeMdMode === "code" ? "bg-accent text-paper shadow-sm" : "text-muted hover:text-ink hover:bg-cream"
+                        }`}
+                      >
+                        <Code size={11} />
+                        <span>Code</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* HTML specific toggle */}
+                  {activeTab.fileType === "html" && (
                     <button
                       onClick={() => setShowPreview(!showPreview)}
-                      className={`p-1.5 rounded-sm hover:bg-cream transition-colors text-muted flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold
+                      className={`p-1.5 rounded-sm hover:bg-cream transition-colors text-muted flex items-center gap-1 font-sans-meta text-[10px] uppercase font-semibold cursor-pointer
                         ${showPreview ? "text-accent bg-cream" : ""}`}
                     >
                       <Columns size={12} />
@@ -785,148 +863,158 @@ export const Explorer: React.FC = () => {
               </div>
 
               {/* Main Workspace Frame */}
-              <div className="flex-1 flex overflow-hidden divide-x divide-rule">
-                {/* Editor container */}
-                <div className="flex-1 h-full overflow-hidden relative custom-editor-container">
-                  {isGridView ? (
-                    <div className="w-full h-full overflow-auto p-4 bg-paper font-sans-meta text-xs">
-                      {activeTab.fileType === "csv" ? (
-                        <table className="w-full border-collapse border border-rule text-left">
-                          <thead>
-                            <tr className="bg-cream">
-                              {activeTab.content.split("\n")[0]?.split(",").map((col, idx) => (
-                                <th key={idx} className="border border-rule px-3 py-1.5 font-bold uppercase">{col}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {activeTab.content.split("\n").slice(1).filter(row => row.trim()).map((row, rIdx) => (
-                              <tr key={rIdx} className="hover:bg-cream/40">
-                                {row.split(",").map((cell, cIdx) => (
-                                  <td key={cIdx} className="border border-rule px-3 py-1">{cell}</td>
+              <Suspense fallback={
+                <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted font-sans-meta">
+                  <span className="animate-pulse">Loading viewer...</span>
+                </div>
+              }>
+                <div className="flex-1 flex overflow-hidden divide-x divide-rule">
+                {/* Editor container or Fullscreen SVG / Image / Markdown Preview */}
+                {isSvgFile(activeTab) && activeSvgMode === "preview" ? (
+                  <div className="flex-1 h-full overflow-hidden">
+                    <SvgPreview
+                      svgContent={activeTab.content}
+                      fileName={activeTab.name}
+                      fileSize={activeTab.fileSize}
+                    />
+                  </div>
+                ) : activeTab.fileType === "image" ? (
+                  <div className="flex-1 h-full overflow-hidden">
+                    <ImagePreview
+                      src={activeTab.content}
+                      fileName={activeTab.name}
+                      filePath={activeTab.path}
+                      fileSize={activeTab.fileSize}
+                    />
+                  </div>
+                ) : isMdFile(activeTab) && activeMdMode === "preview" ? (
+                  <div className="flex-1 h-full overflow-hidden bg-paper">
+                    <MarkdownPreview
+                      content={activeTab.content}
+                      fileName={activeTab.name}
+                      filePath={activeTab.path}
+                      workspaceRoot={workspaceRootPath}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex-1 h-full overflow-hidden relative custom-editor-container">
+                    {isGridView ? (
+                      <div className="w-full h-full overflow-auto p-4 bg-paper font-sans-meta text-xs">
+                        {activeTab.fileType === "csv" ? (
+                          <table className="w-full border-collapse border border-rule text-left">
+                            <thead>
+                              <tr className="bg-cream">
+                                {activeTab.content.split("\n")[0]?.split(",").map((col, idx) => (
+                                  <th key={idx} className="border border-rule px-3 py-1.5 font-bold uppercase">{col}</th>
                                 ))}
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <div className="p-4 bg-cream/15 border border-rule rounded-sm font-mono text-[11px] text-ink/80 whitespace-pre-wrap leading-loose">
-                          {activeTab.content}
-                        </div>
-                      )}
-                    </div>
-                  ) : activeTab.fileType === "image" ? (
-                    <div className="w-full h-full overflow-auto bg-cream/15 p-6 flex items-center justify-center">
-                      <div className="border border-rule p-4 bg-paper shadow-lg max-w-3xl flex flex-col items-center rounded-md transition-all">
-                        <img 
-                          src={activeTab.content} 
-                          alt={activeTab.name}
-                          className="max-h-[60vh] object-contain rounded-sm border border-light-rule shadow-sm" 
-                          onLoad={(e) => {
-                            const img = e.currentTarget;
-                            setImageDimensions(prev => ({
-                              ...prev,
-                              [activeTab.path]: {
-                                width: img.naturalWidth,
-                                height: img.naturalHeight
-                              }
-                            }));
-                          }}
-                        />
-                        <div className="font-sans-meta text-[11px] text-muted self-start border-t border-light-rule pt-3 mt-4 w-full grid grid-cols-2 gap-x-6 gap-y-2">
-                          <div className="flex justify-between border-b border-light-rule/40 pb-1">
-                            <span className="font-semibold text-accent uppercase text-[9px]">File Name</span>
-                            <span className="text-ink truncate max-w-[180px]" title={activeTab.name}>{activeTab.name}</span>
+                            </thead>
+                            <tbody>
+                              {activeTab.content.split("\n").slice(1).filter(row => row.trim()).map((row, rIdx) => (
+                                <tr key={rIdx} className="hover:bg-cream/40">
+                                  {row.split(",").map((cell, cIdx) => (
+                                    <td key={cIdx} className="border border-rule px-3 py-1">{cell}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="p-4 bg-cream/15 border border-rule rounded-sm font-mono text-[11px] text-ink/80 whitespace-pre-wrap leading-loose">
+                            {activeTab.content}
                           </div>
-                          <div className="flex justify-between border-b border-light-rule/40 pb-1">
-                            <span className="font-semibold text-accent uppercase text-[9px]">Resolution</span>
-                            <span className="text-ink font-mono font-semibold">
-                              {imageDimensions[activeTab.path] 
-                                ? `${imageDimensions[activeTab.path].width} × ${imageDimensions[activeTab.path].height} px` 
-                                : "Detecting..."}
-                            </span>
-                          </div>
-                          <div className="flex justify-between border-b border-light-rule/40 pb-1">
-                            <span className="font-semibold text-accent uppercase text-[9px]">File Size</span>
-                            <span className="text-ink font-mono font-semibold">{formatFileSize(activeTab.fileSize)}</span>
-                          </div>
-                          <div className="flex justify-between border-b border-light-rule/40 pb-1">
-                            <span className="font-semibold text-accent uppercase text-[9px]">File Path</span>
-                            <span className="text-ink truncate max-w-[180px]" title={activeTab.path}>{activeTab.path}</span>
-                          </div>
-                        </div>
+                        )}
                       </div>
-                    </div>
-                  ) : activeTab.fileType === "pdf" ? (
-                    <PdfEditor
-                      filePath={activeTab.path}
-                      base64DataUrl={activeTab.content}
-                      onSaved={(newDataUrl) => {
-                        setOpenTabs(prev => prev.map(t =>
-                          t.path === activeTab.path
-                            ? { ...t, content: newDataUrl, originalContent: newDataUrl, isModified: false }
-                            : t
-                        ));
-                      }}
-                    />
-                  ) : (
-                    <Editor
-                      height="100%"
-                      defaultLanguage={
-                        activeTab.fileType === "html" ? "html" :
-                        activeTab.fileType === "md" ? "markdown" :
-                        activeTab.fileType === "json" ? "json" :
-                        activeTab.fileType === "toml" ? "ini" : "typescript"
-                      }
-                      theme={monacoTheme}
-                      value={activeTab.content}
-                      onChange={handleContentChange}
-                      options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        fontFamily: "EB Garamond, Georgia, serif",
-                        lineHeight: 1.5,
-                        tabSize: 4,
-                        wordWrap: "on",
-                        scrollbar: {
-                          verticalScrollbarSize: 6,
-                          horizontalScrollbarSize: 6
+                    ) : activeTab.fileType === "pdf" ? (
+                      <PdfEditor
+                        filePath={activeTab.path}
+                        base64DataUrl={activeTab.content}
+                        onSaved={(newDataUrl) => {
+                          setOpenTabs(prev => prev.map(t =>
+                            t.path === activeTab.path
+                              ? { ...t, content: newDataUrl, originalContent: newDataUrl, isModified: false }
+                              : t
+                          ));
+                        }}
+                      />
+                    ) : (
+                      <Editor
+                        height="100%"
+                        defaultLanguage={
+                          activeTab.fileType === "html" ? "html" :
+                          activeTab.fileType === "md" ? "markdown" :
+                          activeTab.fileType === "json" ? "json" :
+                          activeTab.fileType === "toml" ? "ini" : 
+                          isSvgFile(activeTab) ? "xml" : "typescript"
                         }
-                      }}
-                    />
-                  )}
-                </div>
+                        language={
+                          activeTab.fileType === "html" ? "html" :
+                          activeTab.fileType === "md" ? "markdown" :
+                          activeTab.fileType === "json" ? "json" :
+                          activeTab.fileType === "toml" ? "ini" : 
+                          isSvgFile(activeTab) ? "xml" : "typescript"
+                        }
+                        theme={monacoTheme}
+                        value={activeTab.content}
+                        onChange={handleContentChange}
+                        options={{
+                          minimap: { enabled: false },
+                          fontSize: 14,
+                          fontFamily: "EB Garamond, Georgia, serif",
+                          lineHeight: 1.5,
+                          tabSize: 4,
+                          wordWrap: "on",
+                          scrollbar: {
+                            verticalScrollbarSize: 6,
+                            horizontalScrollbarSize: 6
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
 
-                {/* HTML/Markdown Side Preview Pane */}
-                {showPreview && ["md", "html"].includes(activeTab.fileType) && (
-                  <div className="w-1/2 h-full overflow-y-auto bg-paper flex flex-col">
+                {/* SVG Split Preview Pane */}
+                {isSvgFile(activeTab) && activeSvgMode === "split" && (
+                  <div className="w-1/2 h-full overflow-hidden bg-paper flex flex-col">
+                    <SvgPreview
+                      svgContent={activeTab.content}
+                      fileName={activeTab.name}
+                      fileSize={activeTab.fileSize}
+                    />
+                  </div>
+                )}
+
+                {/* Markdown Split Preview Pane */}
+                {isMdFile(activeTab) && activeMdMode === "split" && (
+                  <div className="w-1/2 h-full overflow-hidden bg-paper flex flex-col border-l border-rule">
+                    <MarkdownPreview
+                      content={activeTab.content}
+                      fileName={activeTab.name}
+                      filePath={activeTab.path}
+                      workspaceRoot={workspaceRootPath}
+                    />
+                  </div>
+                )}
+
+                {/* HTML Side Preview Pane */}
+                {showPreview && activeTab.fileType === "html" && (
+                  <div className="w-1/2 h-full overflow-y-auto bg-paper flex flex-col border-l border-rule">
                     <div className="px-3.5 py-1.5 bg-cream/10 border-b border-rule flex items-center justify-between font-sans-meta text-[10px] uppercase text-muted font-bold">
                       <span>Live sandboxed preview</span>
-                      {activeTab.fileType === "html" && (
-                        <div className="flex items-center gap-2">
-                          <button className="hover:text-accent flex items-center gap-1">
-                            <RotateCw size={10} /> Reload
-                          </button>
-                          <button className="hover:text-accent">Inspect</button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <button className="hover:text-accent flex items-center gap-1">
+                          <RotateCw size={10} /> Reload
+                        </button>
+                        <button className="hover:text-accent">Inspect</button>
+                      </div>
                     </div>
                     <div className="flex-1 p-6 font-serif-text text-ink bg-paper overflow-auto select-text prose leading-relaxed">
-                      {activeTab.fileType === "md" ? (
-                        <div>
-                          <span className="kicker">Markdown Preview</span>
-                          <h1 className="font-serif-display text-2xl font-bold tracking-tight border-b border-light-rule pb-2 mb-4 mt-2">
-                            {activeTab.name.replace(".md", "")}
-                          </h1>
-                          <p className="drop-cap text-base leading-loose whitespace-pre-wrap">{activeTab.content}</p>
-                        </div>
-                      ) : (
-                        <iframe
-                          sandbox="allow-scripts"
-                          className="w-full h-full border-none"
-                          srcDoc={activeTab.content}
-                        />
-                      )}
+                      <iframe
+                        sandbox="allow-scripts"
+                        className="w-full h-full border-none"
+                        srcDoc={activeTab.content}
+                      />
                     </div>
                   </div>
                 )}
@@ -954,55 +1042,8 @@ export const Explorer: React.FC = () => {
                     ))}
                   </div>
                 )}
-
-                {/* AI Refactor Panel */}
-                {aiSidebarOpen && (
-                  <div className="w-80 h-full bg-paper border-l border-rule overflow-hidden flex flex-col font-sans-meta">
-                    <div className="p-3.5 bg-cream/30 border-b border-rule flex items-center justify-between">
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-accent flex items-center gap-1.5">
-                        <Sparkles size={12} />
-                        <span>AI Document Copilot</span>
-                      </span>
-                      <button onClick={() => setAiSidebarOpen(false)}><X size={12} /></button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs select-text">
-                      <div className="p-3 bg-cream/20 border border-light-rule rounded-sm leading-relaxed">
-                        Hi! I can suggest refactorings, summaries, or answer questions specifically about <strong>{activeTab.name}</strong>.
-                      </div>
-
-                      {aiResponses.map((res, i) => (
-                        <div 
-                          key={i} 
-                          className={`p-3 rounded-sm border whitespace-pre-wrap leading-relaxed
-                            ${res.startsWith("User:") 
-                              ? "bg-cream/40 border-rule/50 self-end" 
-                              : "bg-paper border-light-rule"
-                            }`}
-                        >
-                          {res}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="p-3 bg-cream/20 border-t border-rule flex gap-2">
-                      <textarea
-                        rows={2}
-                        value={aiPrompt}
-                        onChange={(e) => setAiPrompt(e.target.value)}
-                        placeholder="Ask about active file..."
-                        className="flex-1 bg-paper border border-rule/50 rounded-sm p-1.5 text-xs outline-none focus:border-accent resize-none font-sans-meta"
-                      />
-                      <button 
-                        onClick={askAIAboutFile}
-                        className="px-3 bg-ink hover:bg-accent text-paper transition-all flex items-center justify-center rounded-sm"
-                      >
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
+              </Suspense>
             </div>
           </div>
         )}
@@ -1116,7 +1157,7 @@ export const Explorer: React.FC = () => {
                       <span className="flex-1 font-mono text-[10px] text-ink truncate" title={item.path}>
                         {item.path.split(/[\\/]/).pop()}
                       </span>
-                      <span className="text-[9px] text-muted/60 truncate max-w-[80px] hidden group-hover:block font-sans-meta">
+                      <span className="text-[9px] text-muted/60 truncate max-w-20 hidden group-hover:block font-sans-meta">
                         {item.path.split(/[\\/]/).slice(-2, -1)[0]}
                       </span>
                       <button

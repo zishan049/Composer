@@ -30,4 +30,25 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("@monaco-editor")) {
+            return "vendor-monaco";
+          }
+          if (id.includes("pdfjs-dist") || id.includes("pdf-lib") || id.includes("jspdf")) {
+            return "vendor-pdf";
+          }
+          if (id.includes("marked") || id.includes("dompurify")) {
+            return "vendor-markdown";
+          }
+          if (id.includes("lucide-react") || id.includes("framer-motion")) {
+            return "vendor-ui";
+          }
+        },
+      },
+    },
+  },
 }));

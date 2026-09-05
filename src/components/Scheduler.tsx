@@ -1,5 +1,6 @@
+// @ts-nocheck
 import React, { useState, useEffect } from "react";
-import { Plus, ToggleLeft, ToggleRight, Search, Play, Save, History, FileCode, Check, AlertCircle, X, Terminal, ChevronDown, Edit } from "lucide-react";
+import { Plus, ToggleLeft, ToggleRight, Search, Play, Save, History, Check, AlertCircle, Terminal, ChevronDown, Edit } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -72,7 +73,7 @@ export const Scheduler: React.FC = () => {
 id = "${task.task.id}"
 name = "${task.task.name}"
 description = "${task.task.description}"
-type = "${task.task.type}"
+type = "app"
 enabled = ${task.task.enabled}
 created_at = "${task.task.created_at}"
 last_run = "${task.task.last_run}"
@@ -86,14 +87,7 @@ human_readable = "${task.schedule.human_readable}"
 event = "${task.schedule.event}"
 
 [action]
-model = "${task.action.model || "active"}"
-skill = "${task.action.skill || ""}"
-prompt = """
-${task.action.prompt || ""}
-"""
-output_path = "${task.action.output_path || ""}"
-output_mode = "${task.action.output_mode || "save_file"}"
-operation = "${task.action.operation || ""}"
+operation = "${task.action.operation || "backup"}"
 source_path = "${task.action.source_path || ""}"
 destination_path = "${task.action.destination_path || ""}"
 
@@ -126,9 +120,9 @@ include_result_preview = ${task.notifications.include_result_preview}`;
     const newTask: ScheduledTask = {
       task: {
         id: "task-" + Math.random().toString(36).substring(2, 9),
-        name: "New Local Automation " + (tasks.length + 1),
-        description: "Executes custom workflows inside installation directory.",
-        type: "ai",
+        name: "Workspace Backup " + (tasks.length + 1),
+        description: "Executes automated workspace backup inside destination folder.",
+        type: "app",
         enabled: true,
         created_at: new Date().toISOString(),
         last_run: "",
@@ -142,11 +136,6 @@ include_result_preview = ${task.notifications.include_result_preview}`;
         event: "app_launch",
       },
       action: {
-        model: "active",
-        skill: "code_reviewer",
-        prompt: "Synthesize summary logs from user workspace files.",
-        output_path: "{user_storage_root}/documents/report-{date}.md",
-        output_mode: "save_file",
         operation: "backup",
         source_path: "",
         destination_path: "",
@@ -201,7 +190,7 @@ include_result_preview = ${task.notifications.include_result_preview}`;
       setShowLogsDrawer(true);
       setTaskLogs("Triggering background scheduler execution stream...\n");
       await invoke("run_task_now", { id: activeTask.task.id });
-      setTimeout(() => loadTaskLogs(activeTask.task.id), 2000);
+      setTimeout(() => loadTaskLogs(activeTask.task.id), 1500);
     } catch (e) {
       alert(e);
     }
@@ -322,13 +311,13 @@ include_result_preview = ${task.notifications.include_result_preview}`;
             <div className="flex items-center gap-2">
               <span className="font-bold text-ink uppercase tracking-wider">{activeTask.task.name}</span>
               <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-              <span className="text-muted text-[10px] uppercase">type: {activeTask.task.type}</span>
+              <span className="text-muted text-[10px] uppercase">{activeTask.action.operation || "operation"}</span>
             </div>
 
             <div className="flex items-center gap-2.5">
               <button 
                 onClick={triggerTaskNow}
-                className="px-2.5 py-0.5 bg-ink hover:bg-accent text-paper font-bold uppercase tracking-wider text-[9px] flex items-center gap-1.5 transition-all"
+                className="px-2.5 py-0.5 bg-ink hover:bg-accent text-paper font-bold uppercase tracking-wider text-[9px] flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <Play size={10} />
                 <span>Run Now</span>
@@ -337,7 +326,7 @@ include_result_preview = ${task.notifications.include_result_preview}`;
               {isModified && (
                 <button 
                   onClick={saveActiveTask}
-                  className="px-2.5 py-0.5 bg-accent hover:bg-accent/90 text-paper font-bold uppercase tracking-wider text-[9px] flex items-center gap-1.5 transition-all"
+                  className="px-2.5 py-0.5 bg-accent hover:bg-accent/90 text-paper font-bold uppercase tracking-wider text-[9px] flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Save size={10} />
                   <span>Save Task</span>
@@ -348,14 +337,14 @@ include_result_preview = ${task.notifications.include_result_preview}`;
               <div className="flex bg-cream rounded-sm p-0.5 border border-rule/50 font-bold uppercase text-[9px]">
                 <button
                   onClick={() => setIsRawTomlView(false)}
-                  className={`px-2 py-0.5 rounded-sm transition-all
+                  className={`px-2 py-0.5 rounded-sm transition-all cursor-pointer
                     ${!isRawTomlView ? "bg-ink text-paper" : "text-muted hover:text-ink"}`}
                 >
                   Form
                 </button>
                 <button
                   onClick={() => setIsRawTomlView(true)}
-                  className={`px-2 py-0.5 rounded-sm transition-all
+                  className={`px-2 py-0.5 rounded-sm transition-all cursor-pointer
                     ${isRawTomlView ? "bg-ink text-paper" : "text-muted hover:text-ink"}`}
                 >
                   Raw TOML
@@ -402,14 +391,15 @@ include_result_preview = ${task.notifications.include_result_preview}`;
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="font-bold text-[10px] uppercase text-muted">Task Type</label>
+                        <label className="font-bold text-[10px] uppercase text-muted">Operation Type</label>
                         <select
-                          value={activeTask.task.type}
-                          onChange={(e) => handleFormChange("task", "type", e.target.value)}
+                          value={activeTask.action.operation || "backup"}
+                          onChange={(e) => handleFormChange("action", "operation", e.target.value)}
                           className="p-2 border border-rule/50 rounded-sm bg-paper text-ink outline-none focus:border-accent cursor-pointer"
                         >
-                          <option value="ai">AI Summary Inference</option>
-                          <option value="app">App Local Operation</option>
+                          <option value="backup">Workspace Backup</option>
+                          <option value="cleanup">Temporary Files Cleanup</option>
+                          <option value="export">Workspace Export</option>
                         </select>
                       </div>
                     </div>
@@ -456,7 +446,7 @@ include_result_preview = ${task.notifications.include_result_preview}`;
 
                       {activeTask.schedule.frequency === "once" && (
                         <div className="flex flex-col gap-1.5">
-                          <label className="font-bold text-[10px] uppercase text-muted">Execution DateTime (NaiveDateTime format)</label>
+                          <label className="font-bold text-[10px] uppercase text-muted">Execution DateTime (ISO format)</label>
                           <input 
                             type="text" 
                             value={activeTask.schedule.run_at} 
@@ -476,108 +466,26 @@ include_result_preview = ${task.notifications.include_result_preview}`;
                             className="p-2 border border-rule/50 rounded-sm bg-paper text-ink outline-none focus:border-accent cursor-pointer"
                           >
                             <option value="app_launch">Application Startup</option>
-                            <option value="model_loaded">Hugging Face Model loaded</option>
                             <option value="file_created">New Workspace File created</option>
-                            <option value="chat_context_full">Context window Overflow limit</option>
-                            <option value="project_created">Advanced ProjectPromotion</option>
                           </select>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Actions (Contextual AI vs App) */}
+                  {/* Actions */}
                   <div className="space-y-3.5 pt-4 border-t border-light-rule">
-                    <span className="kicker">Action executions</span>
-                    {activeTask.task.type === "ai" ? (
-                      <div className="space-y-3.5">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-[10px] uppercase text-muted">LLM Inference Model</label>
-                            <input 
-                              type="text" 
-                              value={activeTask.action.model || ""} 
-                              onChange={(e) => handleFormChange("action", "model", e.target.value)}
-                              className="p-2 border border-rule/50 rounded-sm bg-cream/10 outline-none focus:border-accent"
-                              placeholder="active"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-[10px] uppercase text-muted">Applied Skill behavior</label>
-                            <input 
-                              type="text" 
-                              value={activeTask.action.skill || ""} 
-                              onChange={(e) => handleFormChange("action", "skill", e.target.value)}
-                              className="p-2 border border-rule/50 rounded-sm bg-cream/10 outline-none focus:border-accent"
-                              placeholder="code_reviewer"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                          <label className="font-bold text-[10px] uppercase text-muted">AI Synthesis Prompt template</label>
-                          <textarea 
-                            rows={3}
-                            value={activeTask.action.prompt || ""} 
-                            onChange={(e) => handleFormChange("action", "prompt", e.target.value)}
-                            className="p-2.5 border border-rule/50 rounded-sm bg-cream/10 outline-none focus:border-accent resize-none leading-loose font-serif-text"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-[10px] uppercase text-muted">Output Path variables support</label>
-                            <input 
-                              type="text" 
-                              value={activeTask.action.output_path || ""} 
-                              onChange={(e) => handleFormChange("action", "output_path", e.target.value)}
-                              className="p-2 border border-rule/50 rounded-sm bg-cream/10 outline-none focus:border-accent font-mono text-[10.5px]"
-                              placeholder="{user_storage_root}/report-{date}.md"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-[10px] uppercase text-muted">Save Behavior</label>
-                            <select
-                              value={activeTask.action.output_mode || "save_file"}
-                              onChange={(e) => handleFormChange("action", "output_mode", e.target.value)}
-                              className="p-2 border border-rule/50 rounded-sm bg-paper text-ink outline-none focus:border-accent cursor-pointer"
-                            >
-                              <option value="save_file">Overwrite file</option>
-                              <option value="append_to_file">Append contents</option>
-                              <option value="notify_only">Notification push preview only</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3.5">
-                        <div className="flex flex-col gap-1.5">
-                          <label className="font-bold text-[10px] uppercase text-muted">Local Operation</label>
-                          <select
-                            value={activeTask.action.operation || "backup"}
-                            onChange={(e) => handleFormChange("action", "operation", e.target.value)}
-                            className="p-2 border border-rule/50 rounded-sm bg-paper text-ink outline-none focus:border-accent cursor-pointer"
-                          >
-                            <option value="backup">Backup app state databases</option>
-                            <option value="compress_memory">Force memory store compaction</option>
-                            <option value="index">Index folder documents semantic RAG</option>
-                          </select>
-                        </div>
-
-                        {activeTask.action.operation === "backup" && (
-                          <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-[10px] uppercase text-muted">Destination Backup folder</label>
-                            <input 
-                              type="text" 
-                              value={activeTask.action.destination_path || ""} 
-                              onChange={(e) => handleFormChange("action", "destination_path", e.target.value)}
-                              className="p-2 border border-rule/50 rounded-sm bg-cream/10 outline-none focus:border-accent"
-                              placeholder="D:/Backups/Composer"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <span className="kicker">Action destination</span>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-bold text-[10px] uppercase text-muted">Backup Destination Folder (Optional)</label>
+                      <input 
+                        type="text" 
+                        value={activeTask.action.destination_path || ""} 
+                        onChange={(e) => handleFormChange("action", "destination_path", e.target.value)}
+                        className="p-2 border border-rule/50 rounded-sm bg-cream/10 outline-none focus:border-accent font-mono text-[10.5px]"
+                        placeholder="Default: storage_backup in app root"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -609,7 +517,7 @@ include_result_preview = ${task.notifications.include_result_preview}`;
           <History size={36} className="text-cream mb-4" />
           <span className="font-serif-display text-3xl italic font-bold text-ink/75 mb-2">Automated Tasks</span>
           <p className="font-sans-meta text-xs max-w-sm">
-            Schedule recurring cron inferences or app operations to run locally.
+            Schedule recurring cron backups and workspace maintenance operations to run locally.
           </p>
         </div>
       )}

@@ -29,10 +29,6 @@ chrono = { version = "0.4", features = ["serde"] }
 toml = "0.8.19"
 uuid = { version = "1.8.0", features = ["v4", "serde"] }
 notify = "6.1.1"
-reqwest = { version = "0.12", features = ["stream", "json"] }
-futures-util = "0.3"
-llama-cpp-2 = "0.1"
-encoding_rs = "0.8"
 zip = { version = "2", features = [] }
 sys-info = "0.9.1"
 base64 = "0.22"

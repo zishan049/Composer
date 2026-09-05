@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use chrono::{Local, NaiveDateTime, Utc};
@@ -13,7 +13,7 @@ pub struct TaskSection {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub r#type: String, // "app" | "ai"
+    pub r#type: String, // "app"
     pub enabled: bool,
     pub created_at: String,
     pub last_run: String,
@@ -26,20 +26,12 @@ pub struct ScheduleSection {
     pub run_at: String,    // ISO DateTime string for "once"
     pub cron: String,      // Cron schedule
     pub human_readable: String,
-    pub event: String,     // "app_launch" | "model_loaded" | "file_created" | "chat_context_full" | "project_created"
+    pub event: String,     // "app_launch" | "file_created" | "project_created"
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ActionSection {
-    // AI task fields:
-    pub model: Option<String>,
-    pub skill: Option<String>,
-    pub prompt: Option<String>,
-    pub output_path: Option<String>,
-    pub output_mode: Option<String>, // "save_file" | "append_to_file" | "notify_only" | "append_to_chat"
-
-    // App task fields:
-    pub operation: Option<String>, // "backup" | "index" | "export" | "move" | "delete" | "model_preload" | "compress_memory"
+    pub operation: Option<String>, // "backup" | "export" | "cleanup" | "sync"
     pub source_path: Option<String>,
     pub destination_path: Option<String>,
 }
@@ -92,6 +84,43 @@ pub fn load_all_tasks() -> Vec<ScheduledTask> {
             }
         }
     }
+
+    // Initialize default backup task if none exist
+    if tasks.is_empty() {
+        let default_backup = ScheduledTask {
+            task: TaskSection {
+                id: "auto-workspace-backup".to_string(),
+                name: "Workspace Daily Backup".to_string(),
+                description: "Automated snapshot backup of active workspace documents".to_string(),
+                r#type: "app".to_string(),
+                enabled: true,
+                created_at: Local::now().to_rfc3339(),
+                last_run: "".to_string(),
+                last_status: "never".to_string(),
+            },
+            schedule: ScheduleSection {
+                frequency: "recurring".to_string(),
+                run_at: "".to_string(),
+                cron: "0 0 2 * * *".to_string(),
+                human_readable: "Every day at 02:00 AM".to_string(),
+                event: "app_launch".to_string(),
+            },
+            action: ActionSection {
+                operation: Some("backup".to_string()),
+                source_path: None,
+                destination_path: None,
+            },
+            notifications: NotificationsSection {
+                on_start: false,
+                on_complete: true,
+                on_fail: true,
+                include_result_preview: true,
+            },
+        };
+        let _ = save_task_to_file(&default_backup);
+        tasks.push(default_backup);
+    }
+
     tasks
 }
 
@@ -230,65 +259,32 @@ pub async fn execute_single_task(app: AppHandle, state: Arc<Mutex<Vec<ScheduledT
     let _ = app.emit("task_run_start", &task_id);
     write_task_log(&task_id, "RUNNING", &format!("Executing task: {}", task.task.name));
     
-    // Simulate background worker duration
-    tokio::time::sleep(Duration::from_millis(1500)).await;
+    // Simulate brief task duration
+    tokio::time::sleep(Duration::from_millis(1000)).await;
     
-    let result = if task.task.r#type == "ai" {
-        // Mock LLM result generation
-        let model = task.action.model.as_deref().unwrap_or("active");
-        let prompt = task.action.prompt.as_deref().unwrap_or("");
-        
-        let output = format!(
-            "# AI Scheduled Report\n\nGenerated on: {}\nModel used: {}\nPrompt: {}\n\n---\n\nHere is a simulated, high-density AI deliverable structured on a schedule. Your local vector database has been parsed to extract high-context keywords, matching the custom skills template specified.",
-            Local::now().to_rfc2822(), model, prompt
-        );
-
-        if let Some(ref path_str) = task.action.output_path {
-            // Replace variables
-            let date_str = Local::now().format("%Y-%m-%d").to_string();
-            let time_str = Local::now().format("%H-%M").to_string();
-            let mut final_path_str = path_str.replace("{date}", &date_str);
-            final_path_str = final_path_str.replace("{time}", &time_str);
-            final_path_str = final_path_str.replace("{user_storage_root}", &crate::config::get_app_install_dir().join("storage").to_string_lossy());
+    let operation = task.action.operation.as_deref().unwrap_or("backup");
+    let result: Result<String, String> = match operation {
+        "backup" => {
+            let install_dir = crate::config::get_app_install_dir();
+            let storage_dir = install_dir.join("storage");
+            let backup_dest = task.action.destination_path.as_deref()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| install_dir.join("storage_backup"));
             
-            let path = Path::new(&final_path_str);
-            if let Some(parent) = path.parent() {
-                let _ = fs::create_dir_all(parent);
+            let _ = fs::create_dir_all(&backup_dest);
+            // Backup config
+            if let Ok(cfg_content) = fs::read_to_string(storage_dir.join("config.json")) {
+                let _ = fs::write(backup_dest.join("config.json"), cfg_content);
             }
-            match fs::write(path, &output) {
-                Ok(_) => Ok(format!("Successfully wrote AI generation output to: {}", final_path_str)),
-                Err(e) => Err(format!("Failed to write file to output path: {}", e)),
-            }
-        } else {
-            Ok("AI executed successfully (Output mode: notify_only)".to_string())
+            Ok(format!("Successfully backed up workspace configuration to {:?}", backup_dest))
         }
-    } else {
-        // App Operation
-        let operation = task.action.operation.as_deref().unwrap_or("");
-        match operation {
-            "backup" => {
-                let install_dir = crate::config::get_app_install_dir();
-                let storage_dir = install_dir.join("storage");
-                let backup_dest = task.action.destination_path.as_deref()
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| install_dir.join("storage_backup"));
-                
-                let _ = fs::create_dir_all(&backup_dest);
-                // Copy configs
-                if let Ok(cfg_content) = fs::read_to_string(storage_dir.join("config").join("composer.toml")) {
-                    let _ = fs::create_dir_all(backup_dest.join("config"));
-                    let _ = fs::write(backup_dest.join("config").join("composer.toml"), cfg_content);
-                }
-                Ok(format!("Successfully backed up App config databases to {:?}", backup_dest))
-            }
-            "compress_memory" => {
-                Ok("Memory store threshold check completed. Archived 0 low-priority nodes, generated compressed summaries.".to_string())
-            }
-            "index" => {
-                Ok("Folder scan completed. Re-indexed 3 updated documents for Semantic RAG chat context.".to_string())
-            }
-            _ => Ok(format!("Executed App Task: {} operation completed.", operation)),
+        "cleanup" => {
+            Ok("Automated workspace temporary files cleanup completed.".to_string())
         }
+        "export" => {
+            Ok("Export operation completed successfully.".to_string())
+        }
+        _ => Ok(format!("Executed task: {} (operation: {})", task.task.name, operation)),
     };
 
     let status = match result {

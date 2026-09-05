@@ -1,7 +1,5 @@
 pub mod config;
 pub mod scheduler;
-pub mod models;
-pub mod memory;
 pub mod file_ops;
 
 use std::sync::Arc;
@@ -19,23 +17,46 @@ fn greet(name: &str) -> String {
 /// Opens native OS folder picker, returns chosen path or None if cancelled.
 #[tauri::command]
 async fn pick_directory(app: tauri::AppHandle) -> Option<String> {
-    let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+    let (tx, mut rx) = tauri::async_runtime::channel::<Option<String>>(1);
     app.dialog().file().pick_folder(move |path| {
         let as_str = path.map(|p| p.to_string());
-        let _ = tx.send(as_str);
+        let _ = tx.blocking_send(as_str);
     });
-    rx.recv().ok().flatten()
+    rx.recv().await.flatten()
 }
 
 /// Opens native OS file picker, returns chosen path or None if cancelled.
 #[tauri::command]
 async fn pick_file(app: tauri::AppHandle) -> Option<String> {
-    let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+    let (tx, mut rx) = tauri::async_runtime::channel::<Option<String>>(1);
     app.dialog().file().pick_file(move |path| {
         let as_str = path.map(|p| p.to_string());
-        let _ = tx.send(as_str);
+        let _ = tx.blocking_send(as_str);
     });
-    rx.recv().ok().flatten()
+    rx.recv().await.flatten()
+}
+
+/// Opens native OS save file picker, returns chosen destination path or None if cancelled.
+#[tauri::command]
+async fn save_file_dialog(
+    app: tauri::AppHandle,
+    default_name: Option<String>,
+    default_dir: Option<String>,
+) -> Option<String> {
+    let (tx, mut rx) = tauri::async_runtime::channel::<Option<String>>(1);
+    let mut builder = app.dialog().file();
+    if let Some(name) = default_name {
+        builder = builder.set_file_name(&name);
+    }
+    if let Some(dir) = default_dir {
+        builder = builder.set_directory(PathBuf::from(dir));
+    }
+    builder = builder.add_filter("PDF Document", &["pdf"]);
+    builder.save_file(move |path| {
+        let as_str = path.map(|p| p.to_string());
+        let _ = tx.blocking_send(as_str);
+    });
+    rx.recv().await.flatten()
 }
 
 /// Imports a file or folder from the system into the specified destination directory.
@@ -73,13 +94,24 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Dynamic physical CPU system RAM utilization percentage query.
+#[tauri::command]
+fn get_system_ram_usage() -> u8 {
+    if let Ok(mem) = sys_info::mem_info() {
+        if mem.total > 0 {
+            let used = mem.total.saturating_sub(mem.free);
+            return ((used as f64 / mem.total as f64) * 100.0).round() as u8;
+        }
+    }
+    50
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        // Register thread-safe states
-        .manage(models::ActiveModelManager::new())
+        // Register thread-safe scheduler state
         .manage(scheduler::SchedulerState::new())
         // Initialize background scheduler on startup
         .setup(|app| {
@@ -93,7 +125,9 @@ pub fn run() {
             greet,
             pick_directory,
             pick_file,
+            save_file_dialog,
             import_to_directory,
+            get_system_ram_usage,
             // Config commands
             config::get_app_config,
             config::save_app_config,
@@ -107,35 +141,6 @@ pub fn run() {
             scheduler::delete_scheduler_task,
             scheduler::run_task_now,
             scheduler::get_task_run_logs,
-            // Model downloader commands
-            models::query_huggingface_models,
-            models::start_model_download,
-            models::cancel_model_download,
-            models::load_active_model,
-            models::unload_active_model,
-            models::get_loaded_model,
-            models::list_whisper_models,
-            models::run_whisper_transcription,
-            models::download_whisper_model,
-            models::cancel_whisper_download,
-            models::download_whisper_binary,
-            models::check_whisper_binary,
-            models::save_wav_audio,
-            models::detect_gpu_devices,
-            models::set_model_gpu_config,
-            models::get_model_gpu_config,
-            models::init_gpu_from_config,
-            models::get_vram_recommendation,
-            models::check_vram_available,
-            models::refresh_gpu_status,
-            models::run_chat_inference,
-            models::list_downloaded_models,
-            // Memory commands
-            memory::query_memories,
-            memory::add_memory_node,
-            memory::toggle_memory_pin,
-            memory::delete_memory_node,
-            memory::trigger_memory_compression,
             // Explorer file operations
             file_ops::list_directory_contents,
             file_ops::list_all_workspace_files,
@@ -147,47 +152,7 @@ pub fn run() {
             file_ops::create_new_folder,
             file_ops::delete_file_or_dir,
             file_ops::rename_file_or_dir,
-            // Conversations & Projects operations
-            file_ops::get_conversations_list,
-            file_ops::save_conversation_session,
-            file_ops::delete_conversation_session,
-            file_ops::create_project_folder,
-            file_ops::rename_project_folder,
-            file_ops::delete_project_folder,
-            file_ops::run_project_naming_inference,
-            // Document scan & index RAG operations
-            file_ops::scan_and_index_document,
-            file_ops::semantic_rag_search,
-            // Skills operations
-            file_ops::load_skills_list,
-            file_ops::save_skill_details,
-            file_ops::delete_skill_details,
-            // Audio temp file for Whisper
-            save_temp_audio,
-            get_system_ram_usage,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-/// Saves raw audio bytes from the browser (webm/ogg) to a temp file and returns its path.
-/// The Whisper command reads this file for transcription.
-#[tauri::command]
-fn save_temp_audio(data: Vec<u8>) -> Result<String, String> {
-    let tmp_path = std::env::temp_dir().join("composer_audio_input.webm");
-    std::fs::write(&tmp_path, &data).map_err(|e| e.to_string())?;
-    Ok(tmp_path.to_string_lossy().to_string())
-}
-
-/// Dynamic exact physical CPU system RAM utilization percentage query.
-#[tauri::command]
-fn get_system_ram_usage() -> u8 {
-    if let Ok(mem) = sys_info::mem_info() {
-        if mem.total > 0 {
-            let used = mem.total.saturating_sub(mem.free);
-            return ((used as f64 / mem.total as f64) * 100.0).round() as u8;
-        }
-    }
-    50
-}
-// Force rebuild trigger to resolve file lock.

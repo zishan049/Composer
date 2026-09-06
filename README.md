@@ -72,60 +72,71 @@ Most modern desktop productivity suites have become bloated Chromium wrappers re
 
 ## 🎛️ Studio Modules
 
-Composer brings together six specialized studios inside a single, cohesive workspace:
+Composer unifies seven specialized creator studios and an instant workspace launcher into a single, cohesive desktop experience:
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### 💻 1. Monaco Code Studio
+### 🏠 1. Home Dashboard & Quick Launcher
+* **System-Aware Greeting & Live Clock:** Automatically adapts greeting to current system hour with a live digital clock and date banner.
+* **Global Workspace Search (<kbd>Ctrl</kbd>+<kbd>K</kbd>):** Instant fuzzy search across all workspace files with keyboard traversal (<kbd>↑</kbd>/<kbd>↓</kbd>/<kbd>Enter</kbd>).
+* **Smart Recent Files Tracker:** Real-time path inspection (`inspect_paths`) flags missing or renamed files, with relative timestamps and one-click removal.
+* **Quick Action Triggers:** One-click shortcuts to open projects, create files/folders, or import assets.
+
+</td>
+<td width="50%" valign="top">
+
+### 💻 2. Monaco Code Studio
 * **VS Code Engine:** High-performance Monaco editor with syntax highlighting for 15+ programming languages.
 * **Pro Ergonomics:** Vim mode keybindings, auto-save interval engine, dirty-state change indicator (`•`), and multi-tab switcher.
 * **Luminance Sync:** Automatically syncs editor theme (`vs-dark` vs `vs-light`) to the active theme's `--theme-ink` brightness.
 
 </td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 
-### 📄 2. In-Place PDF Canvas Editor
+### 📄 3. In-Place PDF Canvas Editor
 * **Vector Text Replacement:** Edit text inside existing PDF documents without layout shift or cloud software.
 * **Canvas Coordinate Overlay:** High-precision text block alignment mapped via PDF.js viewport matrices.
 * **Stack-Safe Chunking:** Serializes multi-megabyte PDFs using 8KB binary chunks to prevent browser stack overflows.
 
 </td>
-</tr>
-<tr>
 <td width="50%" valign="top">
 
-### 📝 3. Markdown Print & Publish Studio
+### 📝 4. Markdown Print & Publish Studio
 * **Three-Way View:** Seamlessly toggle between **Preview**, **Split Mode** (Monaco + live renderer), and **Code**.
 * **Print Studio Modal:** Native A4, Letter, and Legal export with margins, headers/footers, TOC page, and drop cap styling.
 * **Local Asset Resolution:** Directly renders relative image paths (`![Chart](./diagram.png)`) through Tauri's zero-copy asset bridge.
 
 </td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 
-### 🔍 4. Interactive SVG Vector Inspector
+### 🔍 5. Interactive SVG Vector Inspector
 * **Live Inspection Canvas:** Smooth mousewheel zoom, drag-to-pan, and 5 backdrop presets (`Grid`, `Checkerboard`, `Paper`, etc.).
 * **Split XML Editor:** Live Monaco XML editor on the left, instant vector canvas update on the right.
 * **Resilient Parsing:** Real-time syntax error warnings that preserve the last valid render without crashing the view.
 
 </td>
-</tr>
-<tr>
 <td width="50%" valign="top">
 
-### 🖼️ 5. Image Studio & Pixel Eyedropper
+### 🖼️ 6. Image Studio & Pixel Eyedropper
 * **Nearest-Neighbor Scaling:** Switch from bicubic filtering to sharp nearest-neighbor interpolation for pixel art and icons.
 * **Real-time Canvas Eyedropper:** Sample exact pixel RGBA and HEX values directly from an off-screen HTML5 buffer.
 * **Full Viewport Suite:** 25%–400% zoom, 90° rotation, horizontal/vertical flipping, and comprehensive image metadata cards.
 
 </td>
-<td width="50%" valign="top">
+</tr>
+<tr>
+<td colspan="2" valign="top">
 
-### 🎨 6. Editorial Design System
-* **60+ Curated Palettes:** Dark and light themes including Nord Slate, Cyber Phosphor, Editorial Linen, and Catppuccin.
-* **6 Dynamic Layouts:** Left/Right fixed sidebars, ultra-slim icon pills, and Top/Bottom navigation bars.
-* **Customization Suite:** 3D rolling dice randomizer, atmospheric accent glow, custom border radius, and TOML export.
+### 🎨 7. Minimalist & Editorial Design System
+* **Modular CSS Architecture:** Clean separation of concerns with `tokens.css`, `shell.css`, `explorer.css`, `home.css`, `settings.css`, `dialogs.css`, and `components.css`.
+* **60+ Curated Palettes & 8 Font Pairings:** Dark and light themes (Nord Slate, Obsidian, Editorial Linen) with dynamic Google Fonts typography (Neo-Classical, Crisp Sans, Cyber Mono, etc.).
+* **6 Dynamic Layouts & Randomizer:** Left/Right fixed sidebars, ultra-slim icon pills, Top/Bottom navigation bars, and a 3D rolling dice theme randomizer.
 
 </td>
 </tr>
@@ -142,8 +153,9 @@ Composer couples an asynchronous **Rust native core** with a reactive **React 19
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1e2430', 'primaryTextColor': '#f8fafc', 'primaryBorderColor': '#b8440c', 'lineColor': '#b8440c', 'secondaryColor': '#0f172a', 'tertiaryColor': '#1e293b' }}}%%
 graph TB
-    subgraph Presentation ["Presentation Layer (React 19 • TypeScript 5.8 • Tailwind CSS v4 • Vite 7)"]
+    subgraph Presentation ["Presentation Layer (React 19 • TypeScript 5.8 • Tailwind CSS v4 • Modular CSS)"]
         UI["App Shell & Navigation Router (6 Layouts)"]
+        HOME["Home Dashboard & Quick Search (Ctrl+K)"]
         EXP["Explorer Workspace & Recursive Tree"]
         MONACO["Monaco Code Studio (15+ Languages, Vim Mode)"]
         MD["Markdown Publishing & Print Studio"]
@@ -154,13 +166,13 @@ graph TB
     end
 
     subgraph IPC ["Tauri 2.0 IPC Zero-Copy Bridge"]
-        INVOKE["22 Asynchronous Native Commands"]
+        INVOKE["25 Asynchronous Native Commands"]
         EVENTS["Tauri Real-Time Event Bus"]
     end
 
     subgraph Core ["Native Backend Core (Rust 2021 • Tokio Async Runtime)"]
         CONF["config.rs — Configuration & Theme TOML Engine"]
-        FOPS["file_ops.rs — Fast Directory Walker & Chunked Base64 I/O"]
+        FOPS["file_ops.rs — Directory Walker, inspect_paths & Chunked Base64 I/O"]
     end
 
     subgraph Storage ["Local Encrypted / Flat Filesystem"]
@@ -170,6 +182,7 @@ graph TB
     end
 
     UI --> INVOKE
+    HOME --> INVOKE
     EXP --> INVOKE
     MONACO --> INVOKE
     MD --> INVOKE
@@ -328,8 +341,9 @@ Composer stores all runtime state in clean, transparent JSON files under your lo
 
 | Shortcut | Scope | Action |
 | :--- | :--- | :--- |
+| <kbd>Ctrl</kbd> + <kbd>K</kbd> / <kbd>Cmd</kbd> + <kbd>K</kbd> | Global | Focus & reveal Home workspace quick search input |
 | <kbd>Ctrl</kbd> + <kbd>S</kbd> / <kbd>Cmd</kbd> + <kbd>S</kbd> | Monaco Code Studio | Save active document buffer to disk |
-| <kbd>Ctrl</kbd> + <kbd>F</kbd> / <kbd>Cmd</kbd> + <kbd>F</kbd> | Explorer | Focus workspace file search input |
+| <kbd>Ctrl</kbd> + <kbd>F</kbd> / <kbd>Cmd</kbd> + <kbd>F</kbd> | Explorer / Home | Focus file search in Explorer (or Home search if on Home) |
 | <kbd>F5</kbd> / <kbd>Ctrl</kbd> + <kbd>R</kbd> | Global | Reload application webview window |
 | <kbd>F11</kbd> | Global | Toggle borderless fullscreen mode |
 | <kbd>Mouse 4</kbd> / <kbd>Mouse 5</kbd> | Navigation Router | Step backward / forward across navigation views |
@@ -347,17 +361,31 @@ Composer stores all runtime state in clean, transparent JSON files under your lo
 Composer/
 ├── 📁 public/                 # Static web assets & application icons
 ├── 📁 src/                    # Frontend presentation layer (React 19 + TypeScript 5.8)
-│   ├── 📁 assets/             # Brand logos, fonts & theme styling assets
+│   ├── 📁 assets/             # Brand logos & static vector assets
 │   ├── 📁 components/         # Core studio modules & navigation views
 │   │   ├── 📄 ContextMenu.tsx     # Custom native-like context action menu
 │   │   ├── 📄 Explorer.tsx        # Multi-tab workspace tree & file browser
+│   │   ├── 📄 Home.tsx            # Home dashboard, quick launcher & live clock
 │   │   ├── 📄 ImagePreview.tsx    # Raster image inspector & canvas eyedropper
+│   │   ├── 📄 MarkdownFileIcon.tsx# Specialized SVG filetype icon for Markdown
 │   │   ├── 📄 MarkdownPreview.tsx # Markdown publishing & print studio
 │   │   ├── 📄 PdfEditor.tsx       # In-place visual PDF text replacement canvas
 │   │   ├── 📄 Settings.tsx        # 60+ palette engine, typography & layout settings
+│   │   ├── 📄 SvgFileIcon.tsx     # Specialized SVG filetype icon for vectors
 │   │   └── 📄 SvgPreview.tsx      # Interactive SVG vector code & canvas inspector
+│   ├── 📁 styles/             # Modular CSS architecture
+│   │   ├── 📄 components.css      # Reusable atomic UI buttons & controls
+│   │   ├── 📄 dialogs.css         # Modal overlays, rename & import dialogs
+│   │   ├── 📄 explorer.css        # Workspace tree, tab bars & dirty indicators
+│   │   ├── 📄 home.css            # Home greeting, search & quick action cards
+│   │   ├── 📄 settings.css        # Settings panels, theme grid & 3D dice
+│   │   ├── 📄 shell.css           # Window frame, titlebar & 6 navigation layouts
+│   │   └── 📄 tokens.css          # Semantic design tokens & color variables
+│   ├── 📁 utils/              # Client utility engines
+│   │   ├── 📄 fonts.ts            # Dynamic Google Fonts loader & 8 typography presets
+│   │   └── 📄 recentFiles.ts      # LocalStorage recent files tracker & time formatter
 │   ├── 📄 App.tsx             # Root desktop shell & 6-layout navigation router
-│   ├── 📄 index.css           # Tailwind CSS v4 design tokens & CSS variables
+│   ├── 📄 index.css           # Tailwind CSS v4 @theme bridge & base styles
 │   ├── 📄 main.tsx            # React application bootstrap entrypoint
 │   └── 📄 types.ts            # TypeScript data models and IPC definitions
 ├── 📁 src-tauri/              # Native backend core (Rust 2021 + Tauri 2.0)
@@ -365,12 +393,12 @@ Composer/
 │   ├── 📁 icons/              # Multi-resolution desktop application icons
 │   ├── 📁 src/                # Rust backend modules
 │   │   ├── 📄 config.rs       # App configuration loader, watcher & theme TOML I/O
-│   │   ├── 📄 file_ops.rs     # Directory tree walker & base64 binary streaming
-│   │   ├── 📄 lib.rs          # Tauri command dispatcher (22 commands) & lifecycle
+│   │   ├── 📄 file_ops.rs     # Directory tree walker, inspect_paths & base64 I/O
+│   │   ├── 📄 lib.rs          # Tauri command dispatcher (25 commands) & lifecycle
 │   │   └── 📄 main.rs         # Native binary desktop entrypoint
 │   ├── 📄 Cargo.toml          # Rust dependencies & compiler optimization flags
 │   └── 📄 tauri.conf.json     # Tauri 2.0 window configuration & security settings
-├── 📄 PRD.md                  # Comprehensive Product Requirements Document (PRD v2.0.0)
+├── 📄 PRD.md                  # Comprehensive Product Requirements Document (PRD v2.1.0)
 ├── 📄 package.json            # Node.js dependencies & scripts manifest
 ├── 📄 tsconfig.json           # TypeScript compilation configuration
 └── 📄 vite.config.ts          # Vite bundler configuration & worker aliases
@@ -392,6 +420,11 @@ Composer/
   - [x] Interactive SVG vector inspector with live XML Monaco split view
   - [x] Image inspector suite with nearest-neighbor scaling and canvas pixel eyedropper
   - [x] 60+ curated color palettes, 3D rolling dice randomizer, and 6 dynamic navigation layouts
+  - [x] Home Dashboard with dynamic time-aware greeting, live clock, and quick actions
+  - [x] Global fuzzy search overlay (<kbd>Ctrl</kbd>+<kbd>K</kbd>) across workspace files
+  - [x] Smart recent files registry with real-time `inspect_paths` path existence validation
+  - [x] Modular CSS architecture with semantic tokens and high-contrast B&W defaults
+  - [x] 8 typography presets with dynamic Google Fonts runtime injection
 <br/>
 
 **Bespoke aesthetics, uncompromising speed, and complete privacy for creators and developers.**

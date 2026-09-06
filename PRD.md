@@ -1,24 +1,25 @@
 # Product Requirements Document (PRD): Composer Desktop
 
-**Document Version:** 2.0.0  
+**Document Version:** 2.1.0  
 **Product Name:** Composer  
 **Product Category:** Local-First Desktop Creator Studio & Developer Workbench  
 **Target Platform:** Desktop (Windows, macOS, Linux)  
-**Tech Stack:** Tauri 2.0 + Rust 2021 + React 19 + TypeScript 5.8 + Vite 7 + Tailwind CSS v4 + Monaco Editor + PDF.js + pdf-lib  
+**Tech Stack:** Tauri 2.0 + Rust 2021 + React 19.1 + TypeScript 5.8 + Vite 7.0 + Tailwind CSS v4.3 + Monaco Editor + PDF.js + pdf-lib  
 
 ---
 
 ## 1. Executive Summary & Product Vision
 
 ### 1.1 Vision Statement
-**Composer** is an offline-first, local-native desktop creator studio and developer workbench that unifies VS Code-grade code editing, long-form Markdown publishing with a native print/PDF engine, in-place visual PDF text replacement, high-precision SVG vector inspection, and an advanced pixel-level image inspector with an eyedropper—all wrapped within an exquisite, highly customizable editorial design system.
+**Composer** is an offline-first, local-native desktop creator studio and developer workbench that unifies VS Code-grade code editing, long-form Markdown publishing with a native print/PDF engine, in-place visual PDF text replacement, high-precision SVG vector inspection, an advanced pixel-level image inspector with an eyedropper, and an instant-access Home Dashboard with global fuzzy search—all wrapped within an exquisite, highly customizable editorial and minimalist design system.
 
 ### 1.2 Core Value Propositions
 * **100% Local, Offline & Private:** Zero cloud dependencies, zero external network requests, and zero telemetry. All documents, configurations, and media assets remain strictly contained within the user’s local storage.
 * **Instantaneous Performance & Micro Footprint:** Cold application startup in under 350ms, idle memory footprint under 80 MB RAM, zero native C++ compilation friction, and silky 60 FPS slider interactions.
+* **Home Dashboard & Instant Project Launcher:** Dynamic greeting, live local system clock, instant workspace file search (<kbd>Ctrl</kbd>+<kbd>K</kbd>), smart recent files with real-time missing-file detection (`inspect_paths`), and one-click quick action dispatchers.
 * **Unified Creator Workbench:** Eliminates the need to switch between fragmented single-purpose applications by seamlessly integrating code editing, Markdown authoring, visual PDF editing, vector graphics analysis, and raster image inspection into a multi-tab workspace.
 * **Zero Idle Bloat & Daemon-Free:** Pure local execution without background cron tickers, polling loops, or idle CPU wakeups, ensuring maximal laptop battery longevity and workstation responsiveness.
-* **Bespoke Editorial Aesthetics:** A warm typography engine paired with high-contrast dark themes, 60+ curated palettes, a 3D rolling dice theme randomizer, typewriter-animated color controls, dynamic atmospheric accent glow, edge smoothness adjustments, and 6 interchangeable navigation layouts.
+* **Bespoke Editorial & Minimalist Aesthetics:** A warm typography engine paired with high-contrast dark and light themes, 60+ curated palettes, modular CSS architecture (`tokens.css`, `shell.css`, `explorer.css`, `home.css`, etc.), a 3D rolling dice theme randomizer, typewriter-animated color controls, dynamic atmospheric accent glow, edge smoothness adjustments, and 6 interchangeable navigation layouts.
 
 ---
 
@@ -31,7 +32,7 @@ mindmap
       Fast Local Code & Script Editing
       Multi-Language Syntax Highlighting
       Monaco Workspace with Vim Mode
-      Automated Task & Backup Cron Jobs
+      Local File History & Version Rollbacks
     Technical Writers & Researchers
       Long-form Markdown Publishing
       Interactive Table of Contents
@@ -50,14 +51,14 @@ mindmap
 ```
 
 ### 2.1 Target Personas
-1. **The Software Engineer & Power User:** Demands a swift, distraction-free code editor for quick workspace edits, configuration updates, and automated local cron jobs (e.g., periodic workspace backups and project exports) without launching heavy IDEs.
+1. **The Software Engineer & Power User:** Demands a swift, distraction-free code editor for quick workspace edits, configuration updates, and seamless local file history management without launching heavy IDEs.
 2. **The Technical Writer & Researcher:** Requires an elegant, distraction-free authoring environment with drop-cap styling, GitHub-style callouts, real-time word/reading metrics, and a full-featured print studio to generate publication-grade PDF documents.
 3. **The Designer & Front-End Developer:** Needs to rapidly inspect SVG elements and paths, preview raster images with zoom/pan and pixel color sampling, and make quick text fixes directly inside existing PDF layouts without expensive, subscription-based PDF editors.
 4. **The Privacy-Conscious Minimalist:** Rejects cloud lock-in, telemetry, and background tracking; values software that operates entirely offline on open, transparent file formats (JSON, TOML, Markdown).
 
 ### 2.2 Key Problems Solved
-* **Subscription Fatigue & Cloud Lock-in:** Replaces recurring subscriptions for PDF editors, Markdown publishers, and automation utilities with a permanent, standalone native desktop binary.
-* **Fragmented Creative Toolchain:** Consolidates code editing, document authoring, PDF modification, vector graphics inspection, and cron scheduling into one cohesive workspace.
+* **Subscription Fatigue & Cloud Lock-in:** Replaces recurring subscriptions for PDF editors, Markdown publishers, and single-purpose utilities with a permanent, standalone native desktop binary.
+* **Fragmented Creative Toolchain:** Consolidates code editing, document authoring, PDF modification, vector graphics inspection, and project launching into one cohesive workspace.
 * **Web Wrapper Resource Bloat:** Bypasses heavy Chromium-wrapped web apps by pairing Tauri 2.0 with a high-performance native Rust core, consuming less than 80 MB of RAM at idle.
 * **Rigid UI Styling:** Overcomes dull, static developer tool interfaces through an adaptable editorial design system offering 60+ palettes, custom font pairings, and 6 dynamic layout structures.
 
@@ -66,12 +67,13 @@ mindmap
 ## 3. System Architecture & High-Level Design
 
 ### 3.1 Architecture Overview
-Composer is built upon a hybrid desktop architecture: a high-performance **Rust 2021** core managed by **Tauri v2** and **Tokio**, and a declarative presentation layer crafted with **React 19**, **TypeScript 5.8**, **Vite 7**, and **Tailwind CSS v4**.
+Composer is built upon a hybrid desktop architecture: a high-performance **Rust 2021** core managed by **Tauri v2** and **Tokio**, and a declarative presentation layer crafted with **React 19**, **TypeScript 5.8**, **Vite 7**, and **Tailwind CSS v4** with a modular CSS architecture.
 
 ```mermaid
 graph TB
     subgraph Frontend ["Frontend Presentation Layer (React 19 + TypeScript + Vite 7)"]
         UI[App Shell, Custom Titlebar & Navigation Engine]
+        HOME[Home Dashboard & Quick Launcher]
         EXP[Explorer & Multi-Tab Workspace]
         MONACO[Monaco Code Studio]
         MD[Markdown Publishing & Print Studio]
@@ -83,7 +85,7 @@ graph TB
     end
 
     subgraph IPC ["Tauri 2.0 Native IPC Bridge"]
-        INVOKE[Tauri Command Invocation (22 Registered Commands)]
+        INVOKE[Tauri Command Invocation (25 Registered Commands)]
         EVENTS[Asynchronous Event Bus (config_updated)]
     end
 
@@ -100,6 +102,7 @@ graph TB
     end
 
     UI --> INVOKE
+    HOME --> INVOKE
     EXP --> INVOKE
     MONACO --> INVOKE
     MD --> INVOKE
@@ -124,20 +127,18 @@ graph TB
 
 | Layer | Technology | Version | Purpose / Role |
 | :--- | :--- | :--- | :--- |
-| **Desktop Shell** | Tauri | v2.0 | Native OS windowing, file dialogs, system menus, secure IPC bridge |
+| **Desktop Shell** | Tauri | v2.x | Native OS windowing, file dialogs, system menus, secure IPC bridge |
 | **Backend Core** | Rust | 2021 Edition | High-performance filesystem I/O, base64 transcoding, hardware memory polling |
-| **Async Runtime** | Tokio | v1.0 | Multi-threaded async background executor, ticker loops, time management |
-| **Cron Parser** | `cron` crate | v0.12.1 | Standard 5-field and 6-field cron schedule parsing and next-execution calculation |
-| **Filesystem Watcher** | `notify` crate | v6.1.1 | Native OS filesystem change notification for live hot-reloading of task definitions |
+| **Async Runtime** | Tokio | v1.x | Multi-threaded async background executor, ticker loops, time management |
 | **System Info** | `sys-info` crate | v0.9.1 | Real-time physical system RAM utilization telemetry |
 | **UI Framework** | React | v19.1.0 | Declarative component hierarchy and fast DOM rendering |
-| **Language & Build** | TypeScript + Vite | v5.8 / v7.0 | Strict type safety and instantaneous Hot Module Replacement (HMR) |
+| **Language & Build** | TypeScript + Vite | v5.8.3 / v7.0.4 | Strict type safety and instantaneous Hot Module Replacement (HMR) |
 | **Code Editor** | Monaco Editor | v4.7.0 (`@monaco-editor/react`) | VS Code-grade code editor, syntax highlighting, diffs, vim bindings |
-| **Markdown Engine** | Marked + DOMPurify | v14.0 / v3.2 | High-speed CommonMark/GFM parser and strict HTML sanitization |
-| **PDF Rendering** | PDF.js (`pdfjs-dist`) | v6.0 | PDF page canvas rendering and text item matrix coordinate extraction |
-| **PDF Manipulation** | `pdf-lib` | v1.17 | User-space non-destructive vector text modification and byte compiling |
-| **Styling System** | Tailwind CSS | v4.3 | Dynamic CSS variable tokens, glassmorphism, responsive navigation layouts |
-| **Icons & Motion** | Lucide React + Framer Motion | v1.16 / v12.4 | Modern iconography and fluid interface micro-animations |
+| **Markdown Engine** | Marked + DOMPurify | v14.0.0 / v3.2.4 | High-speed CommonMark/GFM parser and strict HTML sanitization |
+| **PDF Rendering** | PDF.js (`pdfjs-dist`) | v6.0.227 | PDF page canvas rendering and text item matrix coordinate extraction |
+| **PDF Manipulation** | `pdf-lib` + `jspdf` | v1.17.1 / v4.2.1 | User-space non-destructive vector text modification and byte compiling |
+| **Styling System** | Tailwind CSS v4 + Modular CSS | v4.3.0 | CSS-first `@theme` design tokens, modular stylesheets (`tokens`, `shell`, `home`, etc.) |
+| **Icons & Motion** | Lucide React + Framer Motion | v1.16.0 / v12.40.0 | Modern iconography and fluid interface micro-animations |
 
 ---
 
@@ -145,7 +146,68 @@ graph TB
 
 ---
 
-### 4.1 Module 1: File Explorer & Workspace Studio
+### 4.1 Module 1: Home Dashboard & Workspace Launcher
+
+```mermaid
+flowchart TD
+    HOME[Home Dashboard Entrypoint] --> GREET[Dynamic System Greeting & Live Clock]
+    HOME --> SEARCH[Global File Search Overlay - Ctrl+K]
+    HOME --> RECENTS[Smart Recent Files Registry]
+    HOME --> ACTIONS[Quick Action Dispatchers]
+    HOME --> STUDIOS[Studio Quick Jump Cards]
+
+    SEARCH --> INDEX[Indexed Workspace Files]
+    SEARCH --> NAV_EXP1[Open Selected Document in Explorer]
+
+    RECENTS --> CHECK{inspect_paths Validation}
+    CHECK -- Exists --> LOAD_REC[Open in Active Studio]
+    CHECK -- Missing --> BADGE[Flag Missing / Moved Path]
+
+    ACTIONS --> ACT_PROJ[Open Project - pick_directory]
+    ACTIONS --> ACT_FILE[New File - Dispatched to Explorer]
+    ACTIONS --> ACT_FOLD[New Folder - Dispatched to Explorer]
+    ACTIONS --> ACT_IMP[Import Files - pick_files]
+
+    STUDIOS --> S_CODE[Monaco Code Studio]
+    STUDIOS --> S_MD[Markdown Publish Studio]
+    STUDIOS --> S_PDF[In-Place PDF Editor]
+    STUDIOS --> S_SVG[SVG Vector Inspector]
+    STUDIOS --> S_IMG[Raster Image Studio]
+```
+
+#### 4.1.1 Capabilities & Functional Rules
+1. **Dynamic Time & System Greeting Engine:**
+   * Contextually greets user based on the active local system hour:
+     * `05:00` – `11:59`: "Good Morning,"
+     * `12:00` – `16:59`: "Good Afternoon,"
+     * `17:00` – `04:59`: "Good Evening,"
+   * Real-time ticking system clock with hour, minute, and AM/PM format paired with localized date display (e.g., "Sun, Sep 7").
+2. **Global Workspace Quick Search (<kbd>Ctrl</kbd> + <kbd>K</kbd> / <kbd>Cmd</kbd> + <kbd>K</kbd>):**
+   * Instant search overlay accessible across the workspace with dedicated keyboard accelerator.
+   * Auto-focuses search bar and performs real-time substring and fuzzy matching over all indexed workspace files.
+   * Full keyboard navigation support: <kbd>↑</kbd> and <kbd>↓</kbd> to traverse results, <kbd>Enter</kbd> to open chosen document in Explorer, and <kbd>Escape</kbd> to dismiss.
+   * Displays distinct filetype iconography and relative folder path metadata for every search candidate.
+3. **Smart Recent Files Registry (`src/utils/recentFiles.ts`):**
+   * Persists opened and edited files to LocalStorage (`composer_recent_files`), capped at 20 entries.
+   * Formats relative timestamps dynamically ("Just now", "Xm ago", "Xh ago", "Xd ago").
+   * **Real-time Path Verification (`inspect_paths` IPC):** Upon mounting and on update events, queries the native Rust backend to verify that recent files still exist on the local disk. Gracefully handles deleted or renamed external files with fallback safety.
+   * Per-item removal button to clean obsolete entries without affecting underlying files.
+4. **Quick Action Dispatchers:**
+   * **Open Project:** Launches native OS directory picker (`pick_directory`) and re-anchors the active workspace root.
+   * **New File:** Switches to Explorer view and dispatches `composer:home-action` with `{ detail: "file" }` to launch the creation modal.
+   * **New Folder:** Switches to Explorer and dispatches `{ detail: "folder" }`.
+   * **Import Files:** Launches native OS multi-file picker (`pick_files`) and imports assets into the root workspace folder.
+5. **Studio Quick Jump Hub:**
+   * Prominent visual cards leading directly into specialized creator studios:
+     * **Monaco Code:** Code editing, configuration management, and multi-language syntax.
+     * **Markdown Publishing:** Long-form prose authoring, live TOC, and print/PDF export.
+     * **In-Place PDF Canvas:** Non-destructive vector text editing.
+     * **SVG Vector Inspector:** XML code, canvas inspection, and path metrics.
+     * **Image Studio:** Pixel eyedropper, nearest-neighbor scaling, and aspect ratio inspection.
+
+---
+
+### 4.2 Module 2: File Explorer & Workspace Studio
 
 ```mermaid
 stateDiagram-v2
@@ -163,7 +225,7 @@ stateDiagram-v2
     SaveFile --> DisplayFiles: Clear Dirty State Indicator
 ```
 
-#### 4.1.1 Capabilities & Functional Rules
+#### 4.2.1 Capabilities & Functional Rules
 1. **Directory Tree & File Walker:**
    * Resizable sidebar with an interactive col-resize handle bounded between 160px and 600px.
    * Collapsible directory trees with recursive file navigation.
@@ -185,9 +247,9 @@ stateDiagram-v2
 
 ---
 
-### 4.2 Module 2: VS Code-Grade Monaco Code Studio
+### 4.3 Module 3: VS Code-Grade Monaco Code Studio
 
-#### 4.2.1 Capabilities & Functional Rules
+#### 4.3.1 Capabilities & Functional Rules
 1. **Dynamic Theme Resolution:**
    * Automatically derives Monaco theme (`vs-dark` vs. `vs-light`) from active CSS theme luminance (`--theme-ink`), maintaining seamless visual parity with the app shell.
 2. **Language Syntax Support:**
@@ -202,7 +264,7 @@ stateDiagram-v2
 
 ---
 
-### 4.3 Module 3: Markdown Publishing & Print Studio
+### 4.4 Module 4: Markdown Publishing & Print Studio
 
 ```mermaid
 flowchart TD
@@ -226,7 +288,7 @@ flowchart TD
     CONFIG --> OS_PRINT[window.print Native Print & PDF Generator]
 ```
 
-#### 4.3.1 Authoring & Layout Capabilities
+#### 4.4.1 Authoring & Layout Capabilities
 1. **Three-Way View Switcher:**
    * **Preview Mode:** Dedicated full-window editorial reader view.
    * **Split Mode:** Side-by-side synchronized editing with Monaco on the left and real-time rendered preview on the right.
@@ -259,7 +321,7 @@ flowchart TD
 
 ---
 
-### 4.4 Module 4: In-Place Visual PDF Canvas & Vector Text Editor
+### 4.5 Module 5: In-Place Visual PDF Canvas & Vector Text Editor
 
 ```mermaid
 sequenceDiagram
@@ -297,7 +359,7 @@ sequenceDiagram
     View-->>User: Display saved confirmation & clear dirty highlights
 ```
 
-#### 4.4.1 Functional Rules & Engineering Details
+#### 4.5.1 Functional Rules & Engineering Details
 1. **Zero-Layout-Shift Overlay Mapping:**
    * Text positions are calculated from PDF.js matrix transforms `[a, b, c, d, e, f]` and viewport scales.
    * Interactive textareas remain completely transparent until clicked, preserving the underlying PDF's native font rendering and graphic layout.
@@ -312,9 +374,9 @@ sequenceDiagram
 
 ---
 
-### 4.5 Module 5: Interactive SVG Vector Inspector & Studio
+### 4.6 Module 6: Interactive SVG Vector Inspector & Studio
 
-#### 4.5.1 Capabilities & Functional Rules
+#### 4.6.1 Capabilities & Functional Rules
 1. **Three-Way View Switcher:**
    * **Preview Mode:** Dedicated vector inspection canvas with zoom and pan.
    * **Split Mode:** Side-by-side editing with Monaco XML/SVG editor on the left and live vector canvas on the right.
@@ -335,7 +397,7 @@ sequenceDiagram
 
 ---
 
-### 4.6 Module 6: Advanced Image Inspector Suite
+### 4.7 Module 7: Advanced Image Inspector Suite
 
 ```mermaid
 graph LR
@@ -360,7 +422,7 @@ graph LR
     Controls --> Modes --> Analysis
 ```
 
-#### 4.6.1 Capabilities & Functional Rules
+#### 4.7.1 Capabilities & Functional Rules
 1. **Viewport & Geometric Transforms:**
    * Fluid zoom controls with quick presets (25%, 50%, 100%, 200%, 400%, and Auto-Fit).
    * Interactive drag-and-drop viewport panning with boundary protection.
@@ -379,13 +441,22 @@ graph LR
    * One-click "Copy Image" to system clipboard as a PNG blob.
    * One-click "Download Image" to local disk.
 
-
 ---
 
-### 4.8 Module 8: Editorial Design System & Aesthetic Multi-Layout Engine
+### 4.8 Module 8: Minimalist Design System, Theming & Typography Engine
 
-#### 4.8.1 Design System Tokens & Dynamic CSS Engine
-Composer uses dynamic CSS custom properties applied directly to `document.documentElement.style`, enabling instant theme switching across the entire workspace with zero page reload:
+#### 4.8.1 Modular CSS Architecture (`src/styles/`)
+Composer maintains a clean, maintainable modular CSS architecture layered over Tailwind CSS v4 `@theme` and dynamic CSS custom properties:
+* **`tokens.css`:** Base design tokens, CSS variables, high-contrast B&W defaults, dark/light surface tokens, and glow effects.
+* **`shell.css`:** Desktop window shell, draggable titlebar, window control buttons, and 6 interchangeable navigation layouts.
+* **`explorer.css`:** Workspace tree sidebar, directory rows, multi-tab bar, dirty indicators (`•`), context menus, and toolbar buttons.
+* **`settings.css`:** Configuration panels, 60+ theme grid cards, 3D dice randomizer animation, and layout selector pills.
+* **`home.css`:** Home Dashboard layout, live clock typography, global search bar, recent files grid, and studio quick cards.
+* **`dialogs.css`:** Modals, file/folder creation dialogs, item renaming inputs, and confirmation popovers.
+* **`components.css`:** Reusable atomic primitives, buttons, badges, custom scrollbars, and input controls.
+
+#### 4.8.2 Design System Tokens & Dynamic CSS Engine
+Composer applies dynamic CSS custom properties directly to `document.documentElement.style`, enabling instant theme switching across the entire workspace with zero page reload:
 
 | Token | Light Default | Dark Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -526,7 +597,7 @@ Composer supports 6 interchangeable navigation layouts selectable in real-time f
 
 ---
 
-## 7. Tauri IPC API & Rust Commands Matrix (22 Registered Commands)
+## 7. Tauri IPC API & Rust Commands Matrix (25 Registered Commands)
 
 Every command listed below is strictly implemented in `src-tauri/src/lib.rs` and actively callable by the frontend via `@tauri-apps/api/core::invoke`:
 
@@ -556,7 +627,7 @@ Every command listed below is strictly implemented in `src-tauri/src/lib.rs` and
 | 22 | **FileOps** | `create_new_folder` | `parent_dir: String`, `name: String` | `Result<String, String>` | Creates a new directory inside the specified parent folder |
 | 23 | **FileOps** | `delete_file_or_dir` | `path: String` | `Result<(), String>` | Recursively deletes file or folder from the filesystem |
 | 24 | **FileOps** | `rename_file_or_dir` | `old_path: String`, `new_name: String` | `Result<String, String>` | Renames file or directory in place |
-| 25 | **FileOps** | `inspect_paths` | `paths: Vec<String>` | `Vec<FileEntry>` | Inspects external paths and returns FileEntry metadata (is_dir, size) for drag-drop imports |
+| 25 | **FileOps** | `inspect_paths` | `paths: Vec<String>` | `Vec<FileEntry>` | Inspects external paths and returns FileEntry metadata (is_dir, size) for drag-drop imports and existence checks |
 
 ---
 
@@ -566,8 +637,9 @@ Every command listed below is strictly implemented in `src-tauri/src/lib.rs` and
 
 | Key / Event | Context | Action Performed |
 | :--- | :--- | :--- |
+| <kbd>Ctrl</kbd> + <kbd>K</kbd> / <kbd>Cmd</kbd> + <kbd>K</kbd> | Global | Focuses and selects the Home workspace quick search input |
 | <kbd>Ctrl</kbd> + <kbd>S</kbd> / <kbd>Cmd</kbd> + <kbd>S</kbd> | Monaco Editor | Saves currently active document buffer to disk |
-| <kbd>Ctrl</kbd> + <kbd>F</kbd> / <kbd>Cmd</kbd> + <kbd>F</kbd> | Explorer | Focuses and selects the workspace file search input |
+| <kbd>Ctrl</kbd> + <kbd>F</kbd> / <kbd>Cmd</kbd> + <kbd>F</kbd> | Explorer / Home | Focuses workspace file filter input in Explorer or quick search in Home |
 | <kbd>F5</kbd> / <kbd>Ctrl</kbd> + <kbd>R</kbd> | Global | Reloads application webview and restarts UI state |
 | <kbd>F11</kbd> | Global | Toggles borderless fullscreen window mode |
 | <kbd>Mouse 4</kbd> (Side Button) | Global | Navigates to previous page in the main navigation menu |
@@ -584,6 +656,7 @@ flowchart TD
     E1[Invalid SVG XML Syntax] --> R1[Display Non-Blocking Warning Badge & Retain Previous Valid Render]
     E2[Large PDF Memory Overflow] --> R2[Chunked 8KB Base64 Streaming to Avoid Call-Stack Limits]
     E3[Corrupt or Missing config.json] --> R3[Load In-Memory create_default_config & Create Directory]
+    E4[Missing Recent File on Disk] --> R4[inspect_paths Identifies Missing Paths & Avoids Hard Crash]
     E5[Deep Workspace Directory Tree] --> R5[Bound list_all_workspace_files Depth to 5 & Skip Heavy Dirs]
 ```
 
@@ -602,6 +675,8 @@ gantt
     Markdown Publishing & Print Studio          :done,    2026-08-21, 2026-09-01
     SVG & Image Inspection Studio               :done,    2026-09-02, 2026-09-04
     Editorial Typography & 60-Palette Engine    :done,    2026-09-05, 2026-09-06
+    Home Dashboard & Workspace Launcher         :done,    2026-09-06, 2026-09-07
+    Modular CSS Architecture & Design System    :done,    2026-09-06, 2026-09-07
     section Phase 2: Enhanced Studio
     Git Branch & Visual Diff Viewer             :active,  2026-09-10, 2026-10-15
     Split-Pane Editor (Vertical & Horizontal)   :         2026-10-16, 2026-11-01
@@ -614,3 +689,4 @@ gantt
   * Introduce native local Git status tracking in the Explorer sidebar alongside a Monaco side-by-side visual diff viewer for code and Markdown documents.
 * **Milestone 2: Multi-Pane Split Editor**
   * Support arbitrary vertical and horizontal tab pane splitting, allowing simultaneous editing of code, Markdown preview, and PDF viewing side by side.
+

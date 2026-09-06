@@ -11,8 +11,8 @@ import { useCustomContextMenu } from "./ContextMenu";
 // ─────────────────────────────────────────────────────────────
 
 const DEFAULT_THEME = {
-  theme_preset: "light",
-  accent_color: "#b8440c",
+  theme_preset: "dark",
+  accent_color: "#FFFFFF",
   background_override: "",
   font_family_ui: "Inter",
   font_size_ui: 14,
@@ -23,24 +23,24 @@ const DEFAULT_THEME = {
   nav_show_app_label: true,
   nav_show_status_bar: true,
   nav_separator_line: true,
-  nav_separator_color: "#c9bfab",
+  nav_separator_color: "rgba(255,255,255,0.08)",
   nav_glass_effect: false,
   ui_overrides: {
-    nav_background: "#141310",
-    content_background: "#141310",
-    card_background: "#1B1814",
-    card_border: "rgba(255,255,255,0.08)",
-    text_color: "#F3EFE8",
-    border_accent: "#E5B45F",
+    nav_background: "#000000",
+    content_background: "#000000",
+    card_background: "#0F0F0F",
+    card_border: "rgba(255,255,255,0.12)",
+    text_color: "#FFFFFF",
+    border_accent: "#FFFFFF",
     navbar_edge_smoothness: "4px",
   }
 };
 
 const PRESETS: Record<string, string[]> = {
-  nav_background: ["#f6f2ea", "#faf6ee", "#f4efe6", "#e8e4d9", "#ffffff", "#2b2621", "#1a1612", "#141310"],
-  text_color:     ["#18140f", "#2c251e", "#3d332a", "#121e15", "#2a3d45", "#f6f2ea", "#ede8dc", "#F3EFE8"],
-  card_background:["#ede8dc", "#e4decb", "#dcd6c5", "#e5dfd0", "#fbfaf7", "#3b342c", "#28231d", "#1B1814"],
-  border_accent:  ["#b8440c", "#8c2d19", "#1a5f49", "#245d82", "#6f3c89", "#E5B45F", "#4e6151", "#2e4057"],
+  nav_background: ["#000000", "#0A0A0A", "#121212", "#18181B", "#F4F4F5", "#FAFAFA", "#FFFFFF"],
+  text_color:     ["#FFFFFF", "#F4F4F5", "#E4E4E7", "#A1A1AA", "#71717A", "#27272A", "#000000"],
+  card_background:["#0F0F0F", "#171717", "#27272A", "#E4E4E7", "#F4F4F5", "#FAFAFA", "#FFFFFF"],
+  border_accent:  ["#FFFFFF", "#E4E4E7", "#A1A1AA", "#71717A", "#3F3F46", "#18181B", "#000000"],
 };
 
 const FONT_PRESETS = [
@@ -155,9 +155,9 @@ export const Settings: React.FC = () => {
       { nav_background: "#fff0f3", text_color: "#350018", card_background: "#ffe0e8", card_border: "#ffc5d4", border_accent: "#e0125e" },
       { nav_background: "#f8f6f0", text_color: "#2a2210", card_background: "#eee9d8", card_border: "#ddd3bc", border_accent: "#7a6540" },
     ];
-    const EXCLUDED_BACKGROUNDS = new Set(["#f6f2ea", "#181410", "#141310"]);
+    const EXCLUDED_BACKGROUNDS = new Set(["#f6f2ea", "#181410", "#141310", "#000000", "#0e1117"]);
     customPresets.forEach(p => { if (p.colors?.nav_background) EXCLUDED_BACKGROUNDS.add(p.colors.nav_background.toLowerCase()); });
-    const currentPaper = (config.theme.ui_overrides.nav_background || "#141310").toLowerCase();
+    const currentPaper = (config.theme.ui_overrides.nav_background || "#000000").toLowerCase();
     EXCLUDED_BACKGROUNDS.add(currentPaper);
     const available = RANDOM_PALETTES.filter(p => !EXCLUDED_BACKGROUNDS.has(p.nav_background.toLowerCase()));
     const pool = available.length > 0 ? available : RANDOM_PALETTES.filter(p => p.nav_background.toLowerCase() !== currentPaper);
@@ -202,10 +202,24 @@ export const Settings: React.FC = () => {
     if (!config) return;
     setSelectedPresetName(presetName);
     let targetColors: Record<string, string> = {};
-    if (presetName === "system_default_light") {
-      targetColors = { nav_background: "#f6f2ea", content_background: "#f6f2ea", card_background: "#ede8dc", card_border: "#c9bfab", text_color: "#18140f", border_accent: "#b8440c" };
-    } else if (presetName === "system_default_dark") {
-      targetColors = { nav_background: "#141310", content_background: "#141310", card_background: "#1B1814", card_border: "rgba(255,255,255,0.08)", text_color: "#F3EFE8", border_accent: "#E5B45F" };
+    if (presetName === "system_default_bw") {
+      targetColors = {
+        nav_background: "#000000",
+        content_background: "#000000",
+        card_background: "#0F0F0F",
+        card_border: "rgba(255,255,255,0.12)",
+        text_color: "#FFFFFF",
+        border_accent: "#FFFFFF",
+      };
+    } else if (presetName === "system_default_wb") {
+      targetColors = {
+        nav_background: "#FFFFFF",
+        content_background: "#FFFFFF",
+        card_background: "#F4F4F5",
+        card_border: "rgba(0,0,0,0.12)",
+        text_color: "#000000",
+        border_accent: "#000000",
+      };
     } else {
       const preset = customPresets.find(p => p.name === presetName);
       if (preset) targetColors = preset.colors;
@@ -219,10 +233,11 @@ export const Settings: React.FC = () => {
   useEffect(() => {
     if (!config) return;
     const ov = config.theme.ui_overrides || {};
-    const isLight = ov.nav_background === "#f6f2ea" && ov.text_color === "#18140f" && ov.card_background === "#ede8dc" && ov.card_border === "#c9bfab" && ov.border_accent === "#b8440c";
-    if (isLight) { setSelectedPresetName("system_default_light"); return; }
-    const isDark = ov.nav_background === "#141310" && ov.border_accent === "#E5B45F";
-    if (isDark) { setSelectedPresetName("system_default_dark"); return; }
+    const bg = (ov.nav_background || "#000000").trim().toLowerCase();
+    const isWb = bg === "#ffffff" || bg === "#fafafa" || bg === "#f4f4f5" || ov.text_color === "#000000";
+    if (isWb) { setSelectedPresetName("system_default_wb"); return; }
+    const isBw = (bg === "#000000" || bg === "#0a0a0a") || ov.text_color === "#FFFFFF" || ov.border_accent === "#FFFFFF";
+    if (isBw) { setSelectedPresetName("system_default_bw"); return; }
     const matchedCustom = customPresets.find(p =>
       p.colors?.nav_background?.toLowerCase() === ov.nav_background?.toLowerCase() &&
       p.colors?.text_color?.toLowerCase() === ov.text_color?.toLowerCase() &&
@@ -246,11 +261,24 @@ export const Settings: React.FC = () => {
 
   const applyTheme = (overrides: Record<string, string>, fontFamily?: string) => {
     const r = document.documentElement;
-    const paperColor  = overrides.nav_background || "#141310";
-    const inkColor    = overrides.text_color || "#F3EFE8";
-    const creamColor  = overrides.card_background || "#1B1814";
-    const ruleColor   = overrides.card_border || "rgba(255,255,255,0.08)";
-    const accentColor = overrides.border_accent || "#E5B45F";
+    const paperColor  = overrides.nav_background || "#000000";
+    const inkColor    = overrides.text_color || "#FFFFFF";
+    const creamColor  = overrides.card_background || "#0F0F0F";
+    const ruleColor   = overrides.card_border || "rgba(255,255,255,0.10)";
+    const accentColor = overrides.border_accent || "#FFFFFF";
+
+    const isLight = (paperColor === "#FFFFFF" || paperColor === "#ffffff" || paperColor === "#FAFAFA" || paperColor === "#fafafa" || paperColor.toLowerCase().startsWith("#f") || inkColor === "#000000");
+
+    const textSec = isLight ? "#27272A" : "#D4D4D8";
+    const textMut = isLight ? "#52525B" : "#A1A1AA";
+    const textFnt = isLight ? "#71717A" : "#71717A";
+    const elevatedBg = isLight ? "#E4E4E7" : (creamColor === "#0F0F0F" ? "#171717" : creamColor);
+    const borderSubtle = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.07)";
+    const borderDefault = isLight ? "rgba(0, 0, 0, 0.14)" : "rgba(255, 255, 255, 0.12)";
+    const borderStrong = isLight ? "rgba(0, 0, 0, 0.24)" : "rgba(255, 255, 255, 0.20)";
+    const accentSoft = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.10)";
+    const navHoverBg = isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.05)";
+    const navActiveBg = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.10)";
 
     r.style.setProperty("--theme-paper",  paperColor);
     r.style.setProperty("--theme-ink",    inkColor);
@@ -260,15 +288,20 @@ export const Settings: React.FC = () => {
     r.style.setProperty("--bg-app",              paperColor);
     r.style.setProperty("--bg-sidebar",          paperColor);
     r.style.setProperty("--bg-surface",          creamColor);
-    r.style.setProperty("--bg-surface-elevated", creamColor);
+    r.style.setProperty("--bg-surface-elevated", elevatedBg);
+    r.style.setProperty("--bg-titlebar",         paperColor);
     r.style.setProperty("--text-primary",        inkColor);
+    r.style.setProperty("--text-secondary",      textSec);
+    r.style.setProperty("--text-muted",          textMut);
+    r.style.setProperty("--theme-muted",         textMut);
+    r.style.setProperty("--text-faint",          textFnt);
     r.style.setProperty("--accent",              accentColor);
-
-    const lightRuleColor = ruleColor.startsWith("#") && ruleColor.length === 7 ? `${ruleColor}3a` : ruleColor;
-    r.style.setProperty("--theme-light-rule", lightRuleColor);
-    const mutedColor = inkColor.startsWith("#") && inkColor.length === 7 ? `${inkColor}90` : "#8a7f6e";
-    r.style.setProperty("--theme-muted", mutedColor);
-    r.style.setProperty("--text-muted", mutedColor);
+    r.style.setProperty("--border-subtle",       borderSubtle);
+    r.style.setProperty("--border-default",      borderDefault);
+    r.style.setProperty("--border-strong",       borderStrong);
+    r.style.setProperty("--accent-soft",         accentSoft);
+    r.style.setProperty("--sidebar-nav-hover-bg", navHoverBg);
+    r.style.setProperty("--sidebar-nav-active-bg", navActiveBg);
 
     const glowEnabled = overrides.accent_glow === "true";
     const brightness = parseFloat(overrides.accent_glow_brightness || "1.0");
@@ -620,8 +653,8 @@ export const Settings: React.FC = () => {
                   className="stt-select"
                   style={{ flex: 1 }}
                 >
-                  <option value="system_default_light">Default Light (Editorial)</option>
-                  <option value="system_default_dark">Default Dark (Midnight)</option>
+                  <option value="system_default_bw">Minimalist B&W (Dark)</option>
+                  <option value="system_default_wb">Minimalist W&B (Light)</option>
                   {customPresets.map(p => (
                     <option key={p.name} value={p.name}>Preset: {p.name}</option>
                   ))}
@@ -755,10 +788,10 @@ export const Settings: React.FC = () => {
                     const payload = {
                       name: themeName,
                       colors: {
-                        nav_background:  config.theme.ui_overrides.nav_background  || "#141310",
-                        text_color:      config.theme.ui_overrides.text_color      || "#F3EFE8",
-                        card_background: config.theme.ui_overrides.card_background || "#1B1814",
-                        border_accent:   config.theme.ui_overrides.border_accent   || "#E5B45F",
+                        nav_background:  config.theme.ui_overrides.nav_background  || "#000000",
+                        text_color:      config.theme.ui_overrides.text_color      || "#FFFFFF",
+                        card_background: config.theme.ui_overrides.card_background || "#0F0F0F",
+                        border_accent:   config.theme.ui_overrides.border_accent   || "#FFFFFF",
                       }
                     };
                     await invoke("write_text_file", { filePath, content: JSON.stringify(payload, null, 2) });

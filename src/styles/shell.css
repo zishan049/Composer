@@ -73,14 +73,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   background: transparent;
   border: none;
   cursor: pointer;
   transition: background-color var(--duration-fast), color var(--duration-fast);
 }
 .c2-winbtn:hover {
-  background-color: rgba(255, 255, 255, 0.07);
+  background-color: rgba(128, 128, 128, 0.14);
   color: var(--text-primary);
 }
 .c2-winbtn.c2-winbtn--close:hover {
@@ -428,7 +428,7 @@
   width: 32px;
   height: 28px;
   border-radius: 999px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
@@ -442,14 +442,14 @@
 }
 
 .c2-pill-item:hover {
-  background-color: rgba(255, 255, 255, 0.07);
+  background-color: var(--sidebar-nav-hover-bg);
   border-color: var(--border-subtle);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .c2-pill-item.active {
   background-color: var(--accent-soft);
-  border-color: rgba(229, 180, 95, 0.30);
+  border-color: var(--border-strong);
   color: var(--accent);
 }
 

@@ -11,22 +11,88 @@ pub struct FileEntry {
 }
 
 // -------------------------------------------------------------
+// NATIVE WORKSPACE SANDBOXING & BOUNDARY VALIDATION
+// -------------------------------------------------------------
+
+/// Validates that a target path is strictly located within the active workspace root.
+/// Uses canonicalized paths to protect against `..` traversal, symlink escapes, and absolute path escapes.
+pub fn validate_path_in_workspace(target_path: &Path, workspace_root: &Path) -> Result<PathBuf, String> {
+    // 1. Canonicalize workspace root
+    let canonical_root = workspace_root
+        .canonicalize()
+        .map_err(|e| format!("Invalid workspace root '{}': {}", workspace_root.display(), e))?;
+
+    // 2. If target path exists on disk, canonicalize it directly and check prefix
+    if target_path.exists() {
+        let canonical_target = target_path
+            .canonicalize()
+            .map_err(|e| format!("Invalid path '{}': {}", target_path.display(), e))?;
+
+        if !canonical_target.starts_with(&canonical_root) {
+            return Err(format!(
+                "Security violation: path '{}' escapes active workspace '{}'",
+                target_path.display(),
+                canonical_root.display()
+            ));
+        }
+
+        return Ok(canonical_target);
+    }
+
+    // 3. If target path does not exist yet (e.g. creating new file/folder or writing new file):
+    // Walk up the path hierarchy to find the closest existing ancestor directory.
+    let mut ancestor = target_path.to_path_buf();
+    let mut non_existent_parts = Vec::new();
+
+    while !ancestor.exists() {
+        if let Some(file_name) = ancestor.file_name() {
+            let name_str = file_name.to_string_lossy();
+            if name_str == ".." || name_str == "." {
+                return Err("Security violation: path traversal components are prohibited".to_string());
+            }
+            non_existent_parts.push(file_name.to_os_string());
+        }
+        if let Some(parent) = ancestor.parent() {
+            ancestor = parent.to_path_buf();
+        } else {
+            return Err(format!("Invalid path '{}': no valid root found", target_path.display()));
+        }
+    }
+
+    // Canonicalize the existing ancestor directory
+    let canonical_ancestor = ancestor
+        .canonicalize()
+        .map_err(|e| format!("Failed to canonicalize ancestor '{}': {}", ancestor.display(), e))?;
+
+    // Ensure the ancestor is inside the workspace
+    if !canonical_ancestor.starts_with(&canonical_root) {
+        return Err(format!(
+            "Security violation: target parent '{}' escapes active workspace '{}'",
+            canonical_ancestor.display(),
+            canonical_root.display()
+        ));
+    }
+
+    // Reconstruct the path from canonical ancestor + non-existent parts (reversed)
+    non_existent_parts.reverse();
+    let mut validated_path = canonical_ancestor;
+    for part in non_existent_parts {
+        validated_path.push(part);
+    }
+
+    Ok(validated_path)
+}
+
+// -------------------------------------------------------------
 // EXPLORER PATH UTILITIES & OPERATIONS
 // -------------------------------------------------------------
 #[tauri::command]
 pub fn list_directory_contents(dir_path: String) -> Result<Vec<FileEntry>, String> {
-    let target_path = if dir_path.is_empty() {
-        // Use the user-configured workspace root from config
-        let cfg = crate::config::load_config();
-        if !cfg.storage.workspace_path.is_empty() {
-            PathBuf::from(&cfg.storage.workspace_path)
-        } else if !cfg.storage.root_path.is_empty() {
-            PathBuf::from(&cfg.storage.root_path)
-        } else {
-            crate::config::get_app_install_dir().join("storage")
-        }
+    let workspace_root = crate::config::get_active_workspace_path();
+    let target_path = if dir_path.trim().is_empty() {
+        workspace_root.clone()
     } else {
-        PathBuf::from(&dir_path)
+        validate_path_in_workspace(Path::new(&dir_path), &workspace_root)?
     };
 
     if !target_path.exists() {
@@ -62,14 +128,7 @@ pub fn list_directory_contents(dir_path: String) -> Result<Vec<FileEntry>, Strin
 
 #[tauri::command]
 pub fn list_all_workspace_files() -> Result<Vec<FileEntry>, String> {
-    let cfg = crate::config::load_config();
-    let root_path = if !cfg.storage.workspace_path.is_empty() {
-        PathBuf::from(&cfg.storage.workspace_path)
-    } else if !cfg.storage.root_path.is_empty() {
-        PathBuf::from(&cfg.storage.root_path)
-    } else {
-        crate::config::get_app_install_dir().join("storage")
-    };
+    let root_path = crate::config::get_active_workspace_path();
 
     if !root_path.exists() {
         return Ok(Vec::new());
@@ -90,7 +149,7 @@ pub fn list_all_workspace_files() -> Result<Vec<FileEntry>, String> {
                     || name == "node_modules" 
                     || name == "target" 
                     || name == "dist" 
-                    || name == "build"
+                    || name == "build" 
                     || name == ".git"
                 {
                     continue;
@@ -130,85 +189,130 @@ pub fn list_all_workspace_files() -> Result<Vec<FileEntry>, String> {
 
 #[tauri::command]
 pub fn read_text_file(file_path: String) -> Result<String, String> {
-    let path = Path::new(&file_path);
-    if !path.exists() {
+    let workspace_root = crate::config::get_active_workspace_path();
+    let validated = validate_path_in_workspace(Path::new(&file_path), &workspace_root)?;
+    if !validated.exists() {
         return Err("File does not exist".to_string());
     }
-    fs::read_to_string(path).map_err(|e| e.to_string())
+    fs::read_to_string(validated).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn write_text_file(file_path: String, content: String) -> Result<(), String> {
-    let path = Path::new(&file_path);
-    if let Some(parent) = path.parent() {
+    let workspace_root = crate::config::get_active_workspace_path();
+    let validated = validate_path_in_workspace(Path::new(&file_path), &workspace_root)?;
+    if let Some(parent) = validated.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    fs::write(path, content).map_err(|e| e.to_string())?;
+    fs::write(validated, content).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn create_new_file(parent_dir: String, name: String) -> Result<String, String> {
-    let path = PathBuf::from(parent_dir).join(name);
-    if path.exists() {
+    if name.contains('/') || name.contains('\\') || name == ".." || name == "." || name.trim().is_empty() {
+        return Err("Invalid file name: path separators and traversal are prohibited".to_string());
+    }
+    let workspace_root = crate::config::get_active_workspace_path();
+    let parent = if parent_dir.trim().is_empty() {
+        workspace_root.clone()
+    } else {
+        validate_path_in_workspace(Path::new(&parent_dir), &workspace_root)?
+    };
+    let target = parent.join(&name);
+    let validated = validate_path_in_workspace(&target, &workspace_root)?;
+    if validated.exists() {
         return Err("File already exists".to_string());
     }
-    fs::write(&path, "").map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().to_string())
+    fs::write(&validated, "").map_err(|e| e.to_string())?;
+    Ok(validated.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 pub fn create_new_folder(parent_dir: String, name: String) -> Result<String, String> {
-    let path = PathBuf::from(parent_dir).join(name);
-    if path.exists() {
+    if name.contains('/') || name.contains('\\') || name == ".." || name == "." || name.trim().is_empty() {
+        return Err("Invalid folder name: path separators and traversal are prohibited".to_string());
+    }
+    let workspace_root = crate::config::get_active_workspace_path();
+    let parent = if parent_dir.trim().is_empty() {
+        workspace_root.clone()
+    } else {
+        validate_path_in_workspace(Path::new(&parent_dir), &workspace_root)?
+    };
+    let target = parent.join(&name);
+    let validated = validate_path_in_workspace(&target, &workspace_root)?;
+    if validated.exists() {
         return Err("Folder already exists".to_string());
     }
-    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().to_string())
+    fs::create_dir_all(&validated).map_err(|e| e.to_string())?;
+    Ok(validated.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 pub fn delete_file_or_dir(path: String) -> Result<(), String> {
-    let target = Path::new(&path);
-    if !target.exists() {
+    let workspace_root = crate::config::get_active_workspace_path();
+    let canonical_root = workspace_root
+        .canonicalize()
+        .map_err(|e| format!("Invalid workspace root: {}", e))?;
+    let validated = validate_path_in_workspace(Path::new(&path), &workspace_root)?;
+    if !validated.exists() {
         return Err("Target does not exist".to_string());
     }
-    if target.is_dir() {
-        fs::remove_dir_all(target).map_err(|e| e.to_string())?;
+    if validated == canonical_root {
+        return Err("Security violation: cannot delete the workspace root directory".to_string());
+    }
+    if validated.is_dir() {
+        fs::remove_dir_all(validated).map_err(|e| e.to_string())?;
     } else {
-        fs::remove_file(target).map_err(|e| e.to_string())?;
+        fs::remove_file(validated).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
 
 #[tauri::command]
 pub fn rename_file_or_dir(old_path: String, new_name: String) -> Result<String, String> {
-    let old = Path::new(&old_path);
-    if !old.exists() {
+    if new_name.contains('/') || new_name.contains('\\') || new_name == ".." || new_name == "." || new_name.trim().is_empty() {
+        return Err("Invalid new name: path separators and traversal are prohibited".to_string());
+    }
+    let workspace_root = crate::config::get_active_workspace_path();
+    let canonical_root = workspace_root
+        .canonicalize()
+        .map_err(|e| format!("Invalid workspace root: {}", e))?;
+    let old_validated = validate_path_in_workspace(Path::new(&old_path), &workspace_root)?;
+    if !old_validated.exists() {
         return Err("Source file does not exist".to_string());
     }
-    let parent = old.parent().unwrap_or_else(|| Path::new(""));
-    let new_path = parent.join(new_name);
-    fs::rename(old, &new_path).map_err(|e| e.to_string())?;
-    Ok(new_path.to_string_lossy().to_string())
+    if old_validated == canonical_root {
+        return Err("Security violation: cannot rename the workspace root directory".to_string());
+    }
+    let parent = old_validated.parent().ok_or_else(|| "Source has no parent directory".to_string())?;
+    let new_target = parent.join(&new_name);
+    let new_validated = validate_path_in_workspace(&new_target, &workspace_root)?;
+    if new_validated.exists() {
+        return Err(format!("'{}' already exists", new_name));
+    }
+    fs::rename(old_validated, &new_validated).map_err(|e| e.to_string())?;
+    Ok(new_validated.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 pub fn read_binary_file_base64(file_path: String) -> Result<String, String> {
     use base64::Engine;
-    let path = Path::new(&file_path);
-    if !path.exists() {
+    let workspace_root = crate::config::get_active_workspace_path();
+    let validated = validate_path_in_workspace(Path::new(&file_path), &workspace_root)?;
+    if !validated.exists() {
         return Err("File does not exist".to_string());
     }
-    let bytes = fs::read(path).map_err(|e| e.to_string())?;
+    let bytes = fs::read(validated).map_err(|e| e.to_string())?;
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
 #[tauri::command]
 pub fn write_binary_file_base64(file_path: String, base64_content: String) -> Result<(), String> {
     use base64::Engine;
-    let path = Path::new(&file_path);
-    if let Some(parent) = path.parent() {
+    let workspace_root = crate::config::get_active_workspace_path();
+    let validated = validate_path_in_workspace(Path::new(&file_path), &workspace_root)?;
+    if let Some(parent) = validated.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     
@@ -222,7 +326,7 @@ pub fn write_binary_file_base64(file_path: String, base64_content: String) -> Re
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(clean_b64.trim())
         .map_err(|e| format!("Base64 decode error: {}", e))?;
-    fs::write(path, bytes).map_err(|e| e.to_string())?;
+    fs::write(validated, bytes).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -246,4 +350,49 @@ pub fn inspect_paths(paths: Vec<String>) -> Vec<FileEntry> {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_path_inside_workspace() {
+        let ws = std::env::temp_dir().join("composer_test_sandbox");
+        let _ = fs::create_dir_all(&ws);
+        let test_file = ws.join("sample.txt");
+        let _ = fs::write(&test_file, "hello");
+
+        let validated = validate_path_in_workspace(&test_file, &ws);
+        assert!(validated.is_ok());
+
+        // Clean up
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn test_traversal_path_rejected() {
+        let ws = std::env::temp_dir().join("composer_test_sandbox_trav");
+        let _ = fs::create_dir_all(&ws);
+        let evil = ws.join("..").join("outside.txt");
+
+        let validated = validate_path_in_workspace(&evil, &ws);
+        assert!(validated.is_err());
+
+        // Clean up
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn test_absolute_outside_path_rejected() {
+        let ws = std::env::temp_dir().join("composer_test_sandbox_abs");
+        let _ = fs::create_dir_all(&ws);
+        let outside = std::env::temp_dir().join("some_other_dir_outside_ws");
+
+        let validated = validate_path_in_workspace(&outside, &ws);
+        assert!(validated.is_err());
+
+        // Clean up
+        let _ = fs::remove_dir_all(&ws);
+    }
 }

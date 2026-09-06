@@ -1,44 +1,44 @@
 /* ============================================================
    COMPOSER 2.0 — DESIGN TOKENS
-   Dark Warm Fluent + Soft Glass + Champagne/Gold Accent
+   Black / White Minimalist (OLED Pitch Black + Monochrome Zinc)
    ============================================================ */
 
 :root {
   /* ── Application Backgrounds ─────────────────────────────── */
-  --bg-app:              #141310;
-  --bg-sidebar:          #171511;
-  --bg-surface:          #1B1814;
-  --bg-surface-elevated: #211D18;
-  --bg-titlebar:         #111009;
+  --bg-app:              #000000;
+  --bg-sidebar:          #000000;
+  --bg-surface:          #0F0F0F;
+  --bg-surface-elevated: #171717;
+  --bg-titlebar:         #000000;
 
   /* ── Borders ─────────────────────────────────────────────── */
-  --border-subtle:  rgba(255, 255, 255, 0.05);
-  --border-default: rgba(255, 255, 255, 0.08);
-  --border-strong:  rgba(255, 255, 255, 0.13);
+  --border-subtle:  rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-strong:  rgba(255, 255, 255, 0.20);
 
   /* ── Text ────────────────────────────────────────────────── */
-  --text-primary:   #F3EFE8;
-  --text-secondary: #B0A79B;
-  --text-muted:     #71685E;
-  --text-faint:     #4A4038;
+  --text-primary:   #FFFFFF;
+  --text-secondary: #D4D4D8;
+  --text-muted:     #A1A1AA;
+  --text-faint:     #71717A;
 
-  /* ── Accent (Champagne / Warm Gold) ─────────────────────── */
-  --accent:         #E5B45F;
-  --accent-hover:   #F0C984;
-  --accent-dim:     #C49A42;
-  --accent-soft:    rgba(229, 180, 95, 0.12);
-  --accent-softer:  rgba(229, 180, 95, 0.07);
+  /* ── Accent (Pure Minimalist Monochrome White) ───────────── */
+  --accent:         #FFFFFF;
+  --accent-hover:   #E4E4E7;
+  --accent-dim:     #A1A1AA;
+  --accent-soft:    rgba(255, 255, 255, 0.10);
+  --accent-softer:  rgba(255, 255, 255, 0.05);
 
   /* ── Sidebar specific ────────────────────────────────────── */
   --sidebar-width:      136px;
-  --sidebar-nav-active-bg:   rgba(229, 180, 95, 0.10);
+  --sidebar-nav-active-bg:   rgba(255, 255, 255, 0.10);
   --sidebar-nav-active-border: var(--accent);
-  --sidebar-nav-hover-bg:    rgba(255, 255, 255, 0.04);
+  --sidebar-nav-hover-bg:    rgba(255, 255, 255, 0.05);
 
   /* ── Surfaces / Panels ───────────────────────────────────── */
-  --surface-card:   rgba(30, 26, 20, 0.95);
-  --surface-glass:  rgba(27, 24, 20, 0.80);
-  --surface-overlay: rgba(0, 0, 0, 0.65);
+  --surface-card:   rgba(15, 15, 15, 0.95);
+  --surface-glass:  rgba(10, 10, 10, 0.85);
+  --surface-overlay: rgba(0, 0, 0, 0.75);
 
   /* ── Radius ──────────────────────────────────────────────── */
   --radius-sm:  4px;
@@ -46,25 +46,25 @@
   --radius-lg:  12px;
   --radius-xl:  16px;
 
-  /* ── Shadows (Atmospheric Multi-Layered Soft Diffusion) ──── */
+  /* ── Shadows (Atmospheric Multi-Layered Soft Diffusion - Pitch Black) ──── */
   --shadow-sm:
-    0 1px 3px rgba(0, 0, 0, 0.18),
-    0 4px 12px -1px rgba(0, 0, 0, 0.22);
+    0 1px 3px rgba(0, 0, 0, 0.40),
+    0 4px 12px -1px rgba(0, 0, 0, 0.50);
   --shadow-md:
-    0 2px 6px -1px rgba(0, 0, 0, 0.18),
-    0 8px 24px -3px rgba(0, 0, 0, 0.28),
-    0 20px 48px -6px rgba(0, 0, 0, 0.35);
+    0 2px 6px -1px rgba(0, 0, 0, 0.40),
+    0 8px 24px -3px rgba(0, 0, 0, 0.60),
+    0 20px 48px -6px rgba(0, 0, 0, 0.70);
   --shadow-lg:
-    0 2px 8px -1px rgba(0, 0, 0, 0.15),
-    0 10px 24px -3px rgba(0, 0, 0, 0.22),
-    0 24px 56px -6px rgba(0, 0, 0, 0.32),
-    0 40px 96px -12px rgba(0, 0, 0, 0.42);
+    0 2px 8px -1px rgba(0, 0, 0, 0.40),
+    0 10px 24px -3px rgba(0, 0, 0, 0.60),
+    0 24px 56px -6px rgba(0, 0, 0, 0.70),
+    0 40px 96px -12px rgba(0, 0, 0, 0.80);
   --shadow-dialog:
-    0 4px 16px -2px rgba(0, 0, 0, 0.25),
-    0 16px 40px -6px rgba(0, 0, 0, 0.38),
-    0 36px 80px -10px rgba(0, 0, 0, 0.48),
-    0 64px 140px -18px rgba(0, 0, 0, 0.58),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
+    0 4px 16px -2px rgba(0, 0, 0, 0.50),
+    0 16px 40px -6px rgba(0, 0, 0, 0.70),
+    0 36px 80px -10px rgba(0, 0, 0, 0.80),
+    0 64px 140px -18px rgba(0, 0, 0, 0.90),
+    0 0 0 1px rgba(255, 255, 255, 0.10);
 
   /* ── Typography ──────────────────────────────────────────── */
   --font-ui:      "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -84,8 +84,8 @@
   --theme-cream:      var(--bg-surface);
   --theme-muted:      var(--text-muted);
   --theme-accent:     var(--accent);
-  --theme-rule:       rgba(255, 255, 255, 0.08);
-  --theme-light-rule: rgba(255, 255, 255, 0.05);
+  --theme-rule:       rgba(255, 255, 255, 0.10);
+  --theme-light-rule: rgba(255, 255, 255, 0.06);
   --theme-accent-glow:      none;
   --theme-accent-text-glow: none;
   --theme-font-text:    var(--font-ui);
@@ -95,54 +95,54 @@
   --ui-edge-smoothness:     var(--radius-sm);
 }
 
-/* ── Light mode token overrides ─────────────────────────────── */
+/* ── Brand New Minimalist White/Black Light Mode ─────────────── */
 .theme-light {
-  --bg-app:              #F5F1EB;
-  --bg-sidebar:          #EEE9E1;
-  --bg-surface:          #E8E2D8;
-  --bg-surface-elevated: #DED8CC;
-  --bg-titlebar:         #E0D9CE;
+  --bg-app:              #FFFFFF;
+  --bg-sidebar:          #FAFAFA;
+  --bg-surface:          #F4F4F5;
+  --bg-surface-elevated: #E4E4E7;
+  --bg-titlebar:         #FFFFFF;
 
   --border-subtle:  rgba(0, 0, 0, 0.06);
-  --border-default: rgba(0, 0, 0, 0.09);
-  --border-strong:  rgba(0, 0, 0, 0.14);
+  --border-default: rgba(0, 0, 0, 0.12);
+  --border-strong:  rgba(0, 0, 0, 0.22);
 
-  --text-primary:   #1A1510;
-  --text-secondary: #5C5248;
-  --text-muted:     #8A7F6E;
-  --text-faint:     #B8AFA4;
+  --text-primary:   #000000;
+  --text-secondary: #27272A;
+  --text-muted:     #52525B;
+  --text-faint:     #71717A;
 
-  --accent:         #C47A20;
-  --accent-hover:   #D98A28;
-  --accent-dim:     #A06318;
-  --accent-soft:    rgba(196, 122, 32, 0.10);
-  --accent-softer:  rgba(196, 122, 32, 0.06);
+  --accent:         #000000;
+  --accent-hover:   #27272A;
+  --accent-dim:     #52525B;
+  --accent-soft:    rgba(0, 0, 0, 0.08);
+  --accent-softer:  rgba(0, 0, 0, 0.04);
 
-  --sidebar-nav-active-bg:     rgba(196, 122, 32, 0.10);
+  --sidebar-nav-active-bg:     rgba(0, 0, 0, 0.07);
+  --sidebar-nav-active-border: #000000;
   --sidebar-nav-hover-bg:      rgba(0, 0, 0, 0.04);
 
-  --surface-glass:  rgba(240, 234, 225, 0.85);
+  --surface-card:   rgba(244, 244, 245, 0.95);
+  --surface-glass:  rgba(255, 255, 255, 0.85);
   --surface-overlay: rgba(0, 0, 0, 0.40);
 
-  /* ── Shadows (Atmospheric Multi-Layered Soft Diffusion - Warm Light) ── */
+  /* Shadows (Minimalist Soft Diffusion - Light Mode) */
   --shadow-sm:
-    0 1px 3px rgba(26, 21, 16, 0.04),
-    0 4px 12px -2px rgba(26, 21, 16, 0.06);
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 4px 12px -1px rgba(0, 0, 0, 0.08);
   --shadow-md:
-    0 2px 6px -1px rgba(26, 21, 16, 0.04),
-    0 8px 20px -3px rgba(26, 21, 16, 0.07),
-    0 18px 40px -6px rgba(26, 21, 16, 0.06);
+    0 2px 6px -1px rgba(0, 0, 0, 0.06),
+    0 8px 24px -3px rgba(0, 0, 0, 0.10),
+    0 20px 48px -6px rgba(0, 0, 0, 0.08);
   --shadow-lg:
-    0 3px 8px -1px rgba(26, 21, 16, 0.04),
-    0 10px 24px -3px rgba(26, 21, 16, 0.07),
-    0 24px 56px -6px rgba(26, 21, 16, 0.08),
-    0 40px 88px -12px rgba(26, 21, 16, 0.06);
+    0 2px 8px -1px rgba(0, 0, 0, 0.06),
+    0 10px 24px -3px rgba(0, 0, 0, 0.10),
+    0 24px 56px -6px rgba(0, 0, 0, 0.12);
   --shadow-dialog:
-    0 8px 24px -4px rgba(26, 21, 16, 0.06),
-    0 20px 48px -6px rgba(26, 21, 16, 0.08),
-    0 40px 96px -12px rgba(26, 21, 16, 0.10),
-    0 64px 140px -18px rgba(26, 21, 16, 0.12),
-    0 0 0 1px rgba(0, 0, 0, 0.07);
+    0 4px 16px -2px rgba(0, 0, 0, 0.10),
+    0 16px 40px -6px rgba(0, 0, 0, 0.14),
+    0 36px 80px -10px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 0, 0, 0.10);
 
   /* Map to legacy theme vars */
   --theme-paper:  var(--bg-app);
@@ -150,6 +150,7 @@
   --theme-cream:  var(--bg-surface);
   --theme-muted:  var(--text-muted);
   --theme-accent: var(--accent);
-  --theme-rule:   rgba(0, 0, 0, 0.09);
-  --theme-light-rule: rgba(0, 0, 0, 0.05);
+  --theme-rule:   rgba(0, 0, 0, 0.12);
+  --theme-light-rule: rgba(0, 0, 0, 0.06);
 }
+

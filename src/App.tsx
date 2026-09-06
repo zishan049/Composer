@@ -69,11 +69,11 @@ function App() {
     const ov   = cfg.theme.ui_overrides ?? {};
 
     // Map user-customized colors to CSS variables
-    const paperColor  = ov.nav_background     || "#141310";
-    const inkColor    = ov.text_color         || "#F3EFE8";
-    const creamColor  = ov.card_background    || "#1B1814";
-    const ruleColor   = ov.card_border        || "rgba(255,255,255,0.08)";
-    const accentColor = ov.border_accent      || "#E5B45F";
+    const paperColor  = ov.nav_background     || "#000000";
+    const inkColor    = ov.text_color         || "#FFFFFF";
+    const creamColor  = ov.card_background    || "#0F0F0F";
+    const ruleColor   = ov.card_border        || "rgba(255,255,255,0.10)";
+    const accentColor = ov.border_accent      || "#FFFFFF";
 
     root.style.setProperty("--theme-paper",  paperColor);
     root.style.setProperty("--theme-ink",    inkColor);
@@ -85,7 +85,31 @@ function App() {
     root.style.setProperty("--bg-app",              paperColor);
     root.style.setProperty("--bg-sidebar",          paperColor);
     root.style.setProperty("--bg-surface",          creamColor);
-    root.style.setProperty("--bg-surface-elevated", creamColor);
+    const isLight = (paperColor === "#FFFFFF" || paperColor === "#ffffff" || paperColor === "#FAFAFA" || paperColor === "#fafafa" || paperColor.toLowerCase().startsWith("#f") || inkColor === "#000000");
+
+    const textSec = isLight ? "#27272A" : "#D4D4D8";
+    const textMut = isLight ? "#52525B" : "#A1A1AA";
+    const textFnt = isLight ? "#71717A" : "#71717A";
+    const elevatedBg = isLight ? "#E4E4E7" : (creamColor === "#0F0F0F" ? "#171717" : creamColor);
+    const borderSubtle = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.07)";
+    const borderDefault = isLight ? "rgba(0, 0, 0, 0.14)" : "rgba(255, 255, 255, 0.12)";
+    const borderStrong = isLight ? "rgba(0, 0, 0, 0.24)" : "rgba(255, 255, 255, 0.20)";
+    const accentSoft = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.10)";
+    const navHoverBg = isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.05)";
+    const navActiveBg = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.10)";
+
+    root.style.setProperty("--bg-surface-elevated", elevatedBg);
+    root.style.setProperty("--text-secondary",      textSec);
+    root.style.setProperty("--text-muted",          textMut);
+    root.style.setProperty("--theme-muted",         textMut);
+    root.style.setProperty("--text-faint",          textFnt);
+    root.style.setProperty("--border-subtle",       borderSubtle);
+    root.style.setProperty("--border-default",      borderDefault);
+    root.style.setProperty("--border-strong",       borderStrong);
+    root.style.setProperty("--accent-soft",         accentSoft);
+    root.style.setProperty("--sidebar-nav-hover-bg", navHoverBg);
+    root.style.setProperty("--sidebar-nav-active-bg", navActiveBg);
+    root.style.setProperty("--bg-titlebar",         paperColor);
     root.style.setProperty("--text-primary",        inkColor);
     root.style.setProperty("--accent",              accentColor);
 
@@ -94,16 +118,10 @@ function App() {
       : ruleColor;
     root.style.setProperty("--theme-light-rule", lightRuleColor);
 
-    const mutedColor = inkColor.startsWith("#") && inkColor.length === 7
-      ? `${inkColor}90`
-      : "#71685E";
-    root.style.setProperty("--theme-muted", mutedColor);
-    root.style.setProperty("--text-muted",  mutedColor);
-
     // Glow
     const glowOn     = ov.accent_glow === "true";
     const brightness = parseFloat(ov.accent_glow_brightness || "1.0");
-    const accentClr  = ov.border_accent || "#E5B45F";
+    const accentClr  = ov.border_accent || "#FFFFFF";
     const borderGlowRadius = Math.round(10 * brightness);
     const textGlowRadius   = Math.round(5  * brightness);
     const baseAlpha        = Math.min(1.0, brightness);
@@ -144,10 +162,10 @@ function App() {
 
   // ── Toggle dark / light ─────────────────────
   const isDarkMode = (() => {
-    const ink = config?.theme?.ui_overrides?.text_color ?? "#F3EFE8";
-    const inkLower = ink.trim().toLowerCase();
-    // Light mode if the text color is dark (i.e. dark ink on light paper)
-    return !(inkLower === "#18140f" || inkLower === "#1a1510" || inkLower.startsWith("#1") || inkLower.startsWith("#2") || inkLower.startsWith("#3"));
+    const bg = (config?.theme?.ui_overrides?.nav_background ?? "#000000").trim().toLowerCase();
+    if (bg === "#ffffff" || bg === "#fafafa" || bg === "#f4f4f5" || bg === "#f5f1eb" || bg === "#f6f2ea") return false;
+    const ink = (config?.theme?.ui_overrides?.text_color ?? "#FFFFFF").trim().toLowerCase();
+    return !(ink === "#000000" || ink === "#18140f" || ink === "#1a1510" || ink.startsWith("#0") || ink.startsWith("#1") || ink.startsWith("#2") || ink.startsWith("#3"));
   })();
 
   const toggleThemeMode = async () => {
@@ -155,21 +173,21 @@ function App() {
     const nextOv = isDarkMode
       ? {
           ...config.theme.ui_overrides,
-          nav_background:     "#F5F1EB",
-          content_background: "#F5F1EB",
-          card_background:    "#E8E2D8",
-          card_border:        "#D4CEC6",
-          text_color:         "#1A1510",
-          border_accent:      "#C47A20",
+          nav_background:     "#FFFFFF",
+          content_background: "#FFFFFF",
+          card_background:    "#F4F4F5",
+          card_border:        "rgba(0, 0, 0, 0.12)",
+          text_color:         "#000000",
+          border_accent:      "#000000",
         }
       : {
           ...config.theme.ui_overrides,
-          nav_background:     "#141310",
-          content_background: "#141310",
-          card_background:    "#1B1814",
-          card_border:        "rgba(255,255,255,0.08)",
-          text_color:         "#F3EFE8",
-          border_accent:      "#E5B45F",
+          nav_background:     "#000000",
+          content_background: "#000000",
+          card_background:    "#0F0F0F",
+          card_border:        "rgba(255, 255, 255, 0.12)",
+          text_color:         "#FFFFFF",
+          border_accent:      "#FFFFFF",
         };
 
     const nextConfig = { ...config, theme: { ...config.theme, ui_overrides: nextOv } };
@@ -197,7 +215,6 @@ function App() {
         loadConfig();
       }
     });
-    const taskUnsub   = listen("task_status_changed",  () => {});
     const layoutUnsub = listen<string>("nav_layout_changed", e => setNavLayout(e.payload));
 
     // RAM polling every 2s
@@ -211,7 +228,6 @@ function App() {
     return () => {
       document.removeEventListener("contextmenu", noCtx);
       configUnsub.then(fn  => fn());
-      taskUnsub.then(fn    => fn());
       layoutUnsub.then(fn  => fn());
       clearInterval(ramTimer);
     };

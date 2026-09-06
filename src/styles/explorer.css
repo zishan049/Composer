@@ -112,7 +112,20 @@
   color: var(--text-primary);
   caret-color: var(--accent);
 }
-.exp-search-input::placeholder { color: var(--text-faint); }
+.exp-search-input:focus,
+.exp-search-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+.exp-search-input::placeholder {
+  color: var(--text-faint);
+  transition: opacity 0.15s ease;
+}
+.exp-search-input:focus::placeholder {
+  opacity: 0;
+  color: transparent;
+}
 
 /* File list scroll area */
 .exp-tree-list {
@@ -179,7 +192,7 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .exp-tree-item.selected .exp-tree-icon,
@@ -303,15 +316,17 @@
 }
 
 .exp-empty-brand {
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--bg-surface-elevated);
+  color: var(--text-faint);
+  opacity: 0.35;
 }
 
 .exp-empty-hint {
-  font-size: 12px;
-  color: var(--text-faint);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
   max-width: 280px;
   line-height: 1.6;
 }

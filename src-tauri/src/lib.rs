@@ -79,6 +79,7 @@ async fn save_file_dialog(
 }
 
 /// Imports a file or folder from the system into the specified destination directory.
+/// Explicit external source path is preserved, but destination is strictly validated within the active workspace.
 #[tauri::command]
 fn import_to_directory(source_path: String, dest_dir: String) -> Result<String, String> {
     let src = Path::new(&source_path);
@@ -86,17 +87,27 @@ fn import_to_directory(source_path: String, dest_dir: String) -> Result<String, 
         return Err(format!("Source does not exist: {}", source_path));
     }
     let name = src.file_name().ok_or("Invalid source name")?;
-    let dest = PathBuf::from(dest_dir).join(name);
-    if dest.exists() {
+    
+    // Validate destination is strictly within active workspace
+    let workspace_root = config::get_active_workspace_path();
+    let validated_dest_dir = if dest_dir.trim().is_empty() {
+        workspace_root.clone()
+    } else {
+        file_ops::validate_path_in_workspace(Path::new(&dest_dir), &workspace_root)?
+    };
+
+    let dest = validated_dest_dir.join(name);
+    let validated_dest = file_ops::validate_path_in_workspace(&dest, &workspace_root)?;
+    if validated_dest.exists() {
         return Err(format!("'{}' already exists in workspace", name.to_string_lossy()));
     }
 
     if src.is_dir() {
-        copy_dir_all(src, &dest)?;
+        copy_dir_all(src, &validated_dest)?;
     } else {
-        std::fs::copy(src, &dest).map_err(|e| e.to_string())?;
+        std::fs::copy(src, &validated_dest).map_err(|e| e.to_string())?;
     }
-    Ok(dest.to_string_lossy().to_string())
+    Ok(validated_dest.to_string_lossy().to_string())
 }
 
 fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {

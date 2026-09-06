@@ -394,16 +394,6 @@ Composer/
   - [x] 60+ curated color palettes, 3D rolling dice randomizer, and 6 dynamic navigation layouts
 <br/>
 
----
-
-## 📄 License & Integrity
-
-This project is licensed under the **[MIT License](LICENSE)** — feel free to inspect, fork, modify, and build upon Composer.
-
-<div align="center">
-
-<br/>
-
 **Bespoke aesthetics, uncompromising speed, and complete privacy for creators and developers.**
 
 <sub>Crafted with precision using Tauri 2.0, Rust, React 19, Vite, and Tailwind CSS v4</sub>

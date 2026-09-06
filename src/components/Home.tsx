@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   FileText, FileCode, Folder, Image as ImageIcon, Table as TableIcon,
   Search, Plus, FolderPlus, Upload, FolderOpen,
-  X, Clock, Sparkles, File as FileIcon
+  X, Clock, File as FileIcon
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileEntry, RecentFile } from "../types";
@@ -188,10 +188,7 @@ export const Home: React.FC<HomeProps> = ({
 
         {/* ── Hero / Greeting ───────────────────────────────────── */}
         <div className="home-hero">
-          <span className="home-greeting">
-            <Sparkles size={13} style={{ color: "var(--accent)" }} />
-            {greeting}
-          </span>
+          <span className="home-greeting">{greeting}</span>
           <h1 className="home-heading">Let's create something.</h1>
           <p className="home-description">
             Manage your files and workspace — all in one place.

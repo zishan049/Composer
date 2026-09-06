@@ -92,6 +92,7 @@
 }
 
 .home-heading {
+  font-family: var(--font-display, var(--font-ui));
   font-size: 40px;
   font-weight: 700;
   color: var(--text-primary);
@@ -368,6 +369,7 @@
 }
 
 .home-recent-title {
+  font-family: var(--font-display, var(--font-ui));
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);

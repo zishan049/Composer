@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
 import { AppConfig } from "../types";
 import { useCustomContextMenu } from "./ContextMenu";
+import { FONT_PRESETS, getFontPreset, applyTypographyToRoot } from "../utils/fonts";
 
 // ─────────────────────────────────────────────────────────────
 // Constants (identical to original)
@@ -42,17 +43,6 @@ const PRESETS: Record<string, string[]> = {
   card_background:["#0F0F0F", "#171717", "#27272A", "#E4E4E7", "#F4F4F5", "#FAFAFA", "#FFFFFF"],
   border_accent:  ["#FFFFFF", "#E4E4E7", "#A1A1AA", "#71717A", "#3F3F46", "#18181B", "#000000"],
 };
-
-const FONT_PRESETS = [
-  { id: "editorial",    label: "Neo-Classical",      desc: "EB Garamond + Playfair (Elegant Editorial)",      text: '"EB Garamond", Georgia, serif',       display: '"Playfair Display", Georgia, serif', sans: '"Inter", system-ui, sans-serif' },
-  { id: "modern_sans",  label: "Crisp Sans",          desc: "Unified Inter (Clean & Tech-focused)",             text: '"Inter", system-ui, sans-serif',      display: '"Inter", system-ui, sans-serif',     sans: '"Inter", system-ui, sans-serif' },
-  { id: "monospace",    label: "Cyber Mono",          desc: "Unified JetBrains Mono (Terminal Aesthetic)",      text: '"JetBrains Mono", monospace',         display: '"JetBrains Mono", monospace',        sans: '"JetBrains Mono", monospace' },
-  { id: "retro_serif",  label: "Warm Retro",          desc: "Georgia + Courier New (Vintage Press)",            text: 'Georgia, serif',                     display: '"Courier New", Courier, monospace', sans: 'Georgia, serif' },
-  { id: "outfit",       label: "Geometric Sans",      desc: "Unified Outfit (Friendly Modern Sans)",            text: '"Outfit", sans-serif',                display: '"Outfit", sans-serif',               sans: '"Outfit", sans-serif' },
-  { id: "spacemono",    label: "Space Monospace",     desc: "Space Mono (Futuristic Dashboard Numerals)",       text: '"Space Mono", monospace',             display: '"Space Mono", monospace',            sans: '"Space Mono", monospace' },
-  { id: "firacode",     label: "Fira Code Monospace", desc: "Fira Code (Tabular Programmer Numerals)",          text: '"Fira Code", monospace',              display: '"Fira Code", monospace',             sans: '"Fira Code", monospace' },
-  { id: "lexend",       label: "Data Geometric",      desc: "Lexend (Engineered Readable Math & Digits)",       text: '"Lexend", sans-serif',                display: '"Lexend", sans-serif',               sans: '"Lexend", sans-serif' },
-];
 
 // ─────────────────────────────────────────────────────────────
 // Animated Hex Input (identical to original — preserved)
@@ -316,12 +306,17 @@ export const Settings: React.FC = () => {
     r.style.setProperty("--theme-accent-glow",      glowEnabled ? `0 0 ${borderGlowRadius}px ${borderGlowColor}` : "none");
     r.style.setProperty("--theme-accent-text-glow", glowEnabled ? `0 0 ${textGlowRadius}px ${textGlowColor}` : "none");
 
-    const font = FONT_PRESETS.find(f => f.id === (fontFamily || "modern_sans")) || FONT_PRESETS[1];
-    r.style.setProperty("--theme-font-text",    font.text);
-    r.style.setProperty("--theme-font-display", font.display);
-    r.style.setProperty("--theme-font-sans",    font.sans);
-    r.style.setProperty("--navbar-edge-smoothness", overrides.navbar_edge_smoothness || "4px");
-    r.style.setProperty("--ui-edge-smoothness",     overrides.ui_edge_smoothness     || "4px");
+    // Typography System
+    applyTypographyToRoot(r, fontFamily);
+    // Smoothness / Border Radius
+    const navSmooth = overrides.navbar_edge_smoothness !== undefined && overrides.navbar_edge_smoothness !== ""
+      ? overrides.navbar_edge_smoothness
+      : "4px";
+    const uiSmooth = overrides.ui_edge_smoothness !== undefined && overrides.ui_edge_smoothness !== ""
+      ? overrides.ui_edge_smoothness
+      : "4px";
+    r.style.setProperty("--navbar-edge-smoothness", navSmooth);
+    r.style.setProperty("--ui-edge-smoothness",     uiSmooth);
   };
 
   useEffect(() => {
@@ -355,7 +350,7 @@ export const Settings: React.FC = () => {
     setConfig(next);
     await invoke("save_app_config", { config: next });
     applyTheme(next.theme.ui_overrides, next.theme.font_family_ui);
-    await emit("config_updated", null);
+    await emit("config_updated", next);
   };
 
   const patchOverride = async (key: string, val: string) => {
@@ -730,7 +725,7 @@ export const Settings: React.FC = () => {
               <div className="stt-field" style={{ paddingTop: "8px", borderTop: "1px solid var(--border-subtle)" }}>
                 <span className="stt-label">Typography System</span>
                 <select
-                  value={config.theme.font_family_ui}
+                  value={getFontPreset(config.theme.font_family_ui).id}
                   onChange={e => {
                     const font = e.target.value;
                     const next = { ...config, theme: { ...config.theme, font_family_ui: font } };

@@ -92,13 +92,26 @@ button:hover .nav-icon-settings {
   border: 1px solid var(--border-default);
 }
 
-/* ── Dynamic border radius (legacy Settings slider) ─────────── */
-/* Only applies to non-app-navbar elements for the user's preference */
+/* ── Dynamic border radius (Settings sliders) ────────────────── */
+/* General UI elements (buttons, inputs, selects) */
 button:not(.c2-titlebar *):not(.c2-sidebar *):not(.c2-topnav *):not(.c2-pillbar *):not(.ctx-menu *),
 input:not(.c2-sidebar *),
 textarea,
 select:not(.c2-sidebar *) {
   border-radius: var(--ui-edge-smoothness, var(--radius-sm));
+}
+
+/* Navbar elements */
+.c2-sidebar button,
+.c2-sidebar .c2-nav-item,
+.c2-sidebar .c2-theme-toggle,
+.c2-sidebar .c2-workspace-status,
+.c2-topnav button,
+.c2-topnav .c2-topnav-pill,
+.c2-topnav-pill-group,
+.c2-pillbar,
+.c2-pill-item {
+  border-radius: var(--navbar-edge-smoothness, var(--radius-sm));
 }
 
 /* ── Print isolation (keep from original) ───────────────────── */

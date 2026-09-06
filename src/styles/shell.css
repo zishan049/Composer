@@ -49,6 +49,7 @@
 }
 
 .c2-titlebar-brand-text {
+  font-family: var(--font-display, var(--font-ui));
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -136,6 +137,7 @@
 }
 
 .c2-sidebar-brand-text {
+  font-family: var(--font-display, var(--font-ui));
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -170,7 +172,7 @@
   align-items: center;
   gap: 9px;
   padding: 7px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--navbar-edge-smoothness, var(--radius-md));
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
@@ -205,7 +207,7 @@
   width: 2px;
   height: 60%;
   background-color: var(--accent);
-  border-radius: 0 2px 2px 0;
+  border-radius: 0 var(--navbar-edge-smoothness, 2px) var(--navbar-edge-smoothness, 2px) 0;
 }
 
 .c2-nav-item-icon {
@@ -246,7 +248,7 @@
   align-items: center;
   gap: 9px;
   padding: 7px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--navbar-edge-smoothness, var(--radius-md));
   font-size: 11px;
   color: var(--text-muted);
   width: 100%;
@@ -297,7 +299,7 @@
   align-items: center;
   gap: 9px;
   padding: 7px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--navbar-edge-smoothness, var(--radius-md));
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
@@ -352,7 +354,7 @@
   align-items: center;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--navbar-edge-smoothness, var(--radius-md));
   padding: 3px;
   gap: 2px;
 }
@@ -362,7 +364,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  border-radius: calc(var(--radius-md) - 2px);
+  border-radius: var(--navbar-edge-smoothness, calc(var(--radius-md) - 2px));
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
@@ -400,7 +402,7 @@
   /* Glass surface */
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-strong);
-  border-radius: 18px;
+  border-radius: calc(var(--navbar-edge-smoothness, 18px) + 4px);
   box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04) inset;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -427,7 +429,7 @@
   justify-content: center;
   width: 32px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--navbar-edge-smoothness, 999px);
   color: var(--text-secondary);
   background: transparent;
   border: 1px solid transparent;

@@ -44,7 +44,7 @@
   html, body {
     background-color: var(--bg-app, #000000);
     color: var(--text-primary, #FFFFFF);
-    font-family: var(--font-ui, "Inter", "Segoe UI", system-ui, sans-serif);
+    font-family: var(--font-ui);
     font-size: 13px;
     line-height: 1.5;
     overflow-x: hidden;
@@ -52,8 +52,12 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display, var(--font-ui));
+  }
+
   input, textarea, select, button {
-    font-family: var(--font-ui, "Inter", system-ui, sans-serif);
+    font-family: var(--font-ui);
   }
 
   select option {

@@ -8,6 +8,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "./types";
+import { applyTypographyToRoot } from "./utils/fonts";
 
 // Page Components (Code-split with React.lazy for instant startup)
 const Home     = React.lazy(() => import("./components/Home").then(m => ({ default: m.Home })));
@@ -18,22 +19,6 @@ const Settings = React.lazy(() => import("./components/Settings").then(m => ({ d
 // Valid Pages
 // ─────────────────────────────────────────────
 const VALID_PAGES = ["Home", "Explorer", "Settings"];
-
-// ─────────────────────────────────────────────
-// Font presets (must match Settings.tsx)
-// ─────────────────────────────────────────────
-const FONT_PRESETS = [
-  { id: "editorial",    text: '"Inter", sans-serif',        display: '"Inter", sans-serif',         sans: '"Inter", sans-serif' },
-  { id: "neo_classical",text: '"Inter", sans-serif',        display: '"Inter", sans-serif',         sans: '"Inter", sans-serif' },
-  { id: "inter",        text: '"Inter", sans-serif',        display: '"Inter", sans-serif',         sans: '"Inter", sans-serif' },
-  { id: "modern_sans",  text: '"Inter", sans-serif',        display: '"Inter", sans-serif',         sans: '"Inter", sans-serif' },
-  { id: "monospace",    text: '"JetBrains Mono", monospace',display: '"JetBrains Mono", monospace', sans: '"JetBrains Mono", monospace' },
-  { id: "retro_serif",  text: '"Georgia", serif',           display: '"Georgia", serif',             sans: '"Georgia", serif' },
-  { id: "outfit",       text: '"Outfit", sans-serif',       display: '"Outfit", sans-serif',         sans: '"Outfit", sans-serif' },
-  { id: "spacemono",    text: '"Space Mono", monospace',    display: '"Space Mono", monospace',      sans: '"Space Mono", monospace' },
-  { id: "firacode",     text: '"Fira Code", monospace',     display: '"Fira Code", monospace',       sans: '"Fira Code", monospace' },
-  { id: "lexend",       text: '"Lexend", sans-serif',       display: '"Lexend", sans-serif',         sans: '"Lexend", sans-serif' },
-];
 
 // ─────────────────────────────────────────────
 // Navigation definition (Home, Explorer, Settings)
@@ -132,14 +117,18 @@ function App() {
     root.style.setProperty("--theme-accent-glow",      glowOn ? `0 0 ${borderGlowRadius}px ${borderGlowColor}` : "none");
     root.style.setProperty("--theme-accent-text-glow", glowOn ? `0 0 ${textGlowRadius}px ${textGlowColor}` : "none");
 
-    // Font
-    const font = FONT_PRESETS.find(f => f.id === (cfg.theme.font_family_ui || "inter")) || FONT_PRESETS[2];
-    root.style.setProperty("--theme-font-text",    font.text);
-    root.style.setProperty("--theme-font-display", font.display);
-    root.style.setProperty("--theme-font-sans",    font.sans);
+    // Typography System
+    applyTypographyToRoot(root, cfg.theme.font_family_ui);
 
-    root.style.setProperty("--navbar-edge-smoothness", ov.navbar_edge_smoothness || "4px");
-    root.style.setProperty("--ui-edge-smoothness",     ov.ui_edge_smoothness     || "4px");
+    // Smoothness / Border Radius
+    const navSmooth = ov.navbar_edge_smoothness !== undefined && ov.navbar_edge_smoothness !== ""
+      ? ov.navbar_edge_smoothness
+      : "4px";
+    const uiSmooth = ov.ui_edge_smoothness !== undefined && ov.ui_edge_smoothness !== ""
+      ? ov.ui_edge_smoothness
+      : "4px";
+    root.style.setProperty("--navbar-edge-smoothness", navSmooth);
+    root.style.setProperty("--ui-edge-smoothness",     uiSmooth);
   };
 
   // ── Load config on boot ─────────────────────

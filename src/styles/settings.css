@@ -24,6 +24,7 @@
 }
 
 .stt-page-title {
+  font-family: var(--font-display, var(--font-ui));
   font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);

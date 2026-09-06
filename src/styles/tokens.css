@@ -67,8 +67,10 @@
     0 0 0 1px rgba(255, 255, 255, 0.10);
 
   /* ── Typography ──────────────────────────────────────────── */
-  --font-ui:      "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono:    "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --font-ui:      var(--theme-font-text, "Inter", "Segoe UI", system-ui, -apple-system, sans-serif);
+  --font-display: var(--theme-font-display, var(--font-ui));
+  --font-sans:    var(--theme-font-sans, "Inter", "Segoe UI", system-ui, -apple-system, sans-serif);
+  --font-mono:    var(--theme-font-mono, "JetBrains Mono", "Cascadia Code", Consolas, monospace);
 
   /* ── Animation ───────────────────────────────────────────── */
   --duration-fast:   100ms;
@@ -88,9 +90,9 @@
   --theme-light-rule: rgba(255, 255, 255, 0.06);
   --theme-accent-glow:      none;
   --theme-accent-text-glow: none;
-  --theme-font-text:    var(--font-ui);
-  --theme-font-display: var(--font-ui);
-  --theme-font-sans:    var(--font-ui);
+  --theme-font-text:    "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --theme-font-display: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --theme-font-sans:    "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --navbar-edge-smoothness: var(--radius-sm);
   --ui-edge-smoothness:     var(--radius-sm);
 }

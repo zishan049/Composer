@@ -65,6 +65,7 @@
 }
 
 .dlg-title {
+  font-family: var(--font-display, var(--font-ui));
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);

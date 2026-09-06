@@ -392,14 +392,6 @@ Composer/
   - [x] Interactive SVG vector inspector with live XML Monaco split view
   - [x] Image inspector suite with nearest-neighbor scaling and canvas pixel eyedropper
   - [x] 60+ curated color palettes, 3D rolling dice randomizer, and 6 dynamic navigation layouts
-- [ ] **v1.1 — Developer Workflow Enhancements**
-  - [ ] Inline Git status indicators in Explorer file tree (`modified`, `untracked`, `deleted`)
-  - [ ] Side-by-side Monaco diff viewer for file history snapshots
-  - [ ] Multi-pane horizontal and vertical editor splitting
-- [ ] **v2.0 — Extended Ecosystem**
-  - [ ] Encrypted local workspace backup archives
-  - [ ] Zero-cloud local peer-to-peer workspace sync over LAN
-
 <br/>
 
 ---

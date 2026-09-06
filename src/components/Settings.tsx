@@ -467,6 +467,7 @@ export const Settings: React.FC = () => {
                     onChange={e => saveConfig({ ...config, general: { ...config.general, launch_page: e.target.value } })}
                     className="stt-select"
                   >
+                    <option value="Home">Home</option>
                     <option value="Explorer">Explorer</option>
                     <option value="Settings">Settings</option>
                   </select>

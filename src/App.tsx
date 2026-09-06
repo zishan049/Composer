@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  Folder, Settings as SettingsIcon,
+  House, Folder, Settings as SettingsIcon,
   RefreshCw, Sun, Moon, Minus, Square, X,
   HardDrive
 } from "lucide-react";
@@ -10,8 +10,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "./types";
 
 // Page Components (Code-split with React.lazy for instant startup)
+const Home     = React.lazy(() => import("./components/Home").then(m => ({ default: m.Home })));
 const Explorer = React.lazy(() => import("./components/Explorer").then(m => ({ default: m.Explorer })));
 const Settings = React.lazy(() => import("./components/Settings").then(m => ({ default: m.Settings })));
+
+// ─────────────────────────────────────────────
+// Valid Pages
+// ─────────────────────────────────────────────
+const VALID_PAGES = ["Home", "Explorer", "Settings"];
 
 // ─────────────────────────────────────────────
 // Font presets (must match Settings.tsx)
@@ -30,18 +36,19 @@ const FONT_PRESETS = [
 ];
 
 // ─────────────────────────────────────────────
-// Navigation definition  (AI / Scheduler removed)
+// Navigation definition (Home, Explorer, Settings)
 // ─────────────────────────────────────────────
 const NAV_ITEMS = [
-  { name: "Explorer", label: "Explorer", icon: <Folder     size={14} className="nav-icon-explorer"  /> },
-  { name: "Settings", label: "Settings", icon: <SettingsIcon size={14} className="nav-icon-settings"/> },
+  { name: "Home",     label: "Home",     icon: <House        size={14} className="nav-icon-home"     /> },
+  { name: "Explorer", label: "Explorer", icon: <Folder       size={14} className="nav-icon-explorer" /> },
+  { name: "Settings", label: "Settings", icon: <SettingsIcon size={14} className="nav-icon-settings" /> },
 ];
 
 // ─────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────
 function App() {
-  const [activePage,  setActivePage]  = useState<string>("Explorer");
+  const [activePage,  setActivePage]  = useState<string>("Home");
   const [config,      setConfig]      = useState<AppConfig | null>(null);
   const [navLayout,   setNavLayout]   = useState<string>("sidebar");
   const [sysRamUsage, setSysRamUsage] = useState<number>(0);
@@ -124,9 +131,8 @@ function App() {
       setConfig(cfg);
       setNavLayout(cfg.theme.nav_layout || "sidebar");
       setActivePage(prev => {
-        if (prev === "Explorer" && cfg.general.launch_page) {
-          // Scheduler was removed — fall back to Explorer if config references it
-          return cfg.general.launch_page === "Scheduler" ? "Explorer" : cfg.general.launch_page;
+        if (prev === "Home" && cfg.general.launch_page) {
+          return VALID_PAGES.includes(cfg.general.launch_page) ? cfg.general.launch_page : "Home";
         }
         return prev;
       });
@@ -228,11 +234,26 @@ function App() {
         }).catch(() => {});
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        if (target?.closest(".monaco-editor")) return;
+        e.preventDefault();
+        if (activePage !== "Home") {
+          setActivePage("Home");
+        }
+        setTimeout(() => {
+          const input = document.getElementById("home-search-input");
+          if (input) { input.focus(); (input as HTMLInputElement).select(); }
+        }, 50);
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         if (target?.closest(".monaco-editor")) return;
         e.preventDefault();
         if (activePage === "Explorer") {
           const input = document.getElementById("explorer-search-input");
+          if (input) { input.focus(); (input as HTMLInputElement).select(); }
+        } else if (activePage === "Home") {
+          const input = document.getElementById("home-search-input");
           if (input) { input.focus(); (input as HTMLInputElement).select(); }
         }
       }
@@ -263,6 +284,56 @@ function App() {
     };
   }, [activePage]);
 
+  // ── Home Action Handlers ───────────────────────
+  const handleOpenRecentFile = (path: string, name: string) => {
+    setActivePage("Explorer");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("composer:open-file", { detail: { path, name } }));
+    }, 40);
+  };
+
+  const handleNewFile = () => {
+    setActivePage("Explorer");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "file" }));
+    }, 40);
+  };
+
+  const handleNewFolder = () => {
+    setActivePage("Explorer");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "folder" }));
+    }, 40);
+  };
+
+  const handleImport = () => {
+    setActivePage("Explorer");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "import-file" }));
+    }, 40);
+  };
+
+  const handleOpenProject = async () => {
+    try {
+      const chosen: string | null = await invoke("pick_directory");
+      if (chosen) {
+        const cfg: AppConfig = await invoke("get_app_config");
+        const nextConfig: AppConfig = {
+          ...cfg,
+          storage: {
+            ...cfg.storage,
+            workspace_path: chosen,
+          },
+        };
+        await invoke("save_app_config", { config: nextConfig });
+        await emit("config_updated", nextConfig);
+        setActivePage("Explorer");
+      }
+    } catch (err) {
+      console.error("Failed to select workspace directory:", err);
+    }
+  };
+
   // ── Helpers ──────────────────────────────────
   const iconOnly = config?.theme?.ui_overrides?.nav_icon_only === "true";
 
@@ -275,6 +346,16 @@ function App() {
         </div>
       }
     >
+      <div className={`h-full w-full ${activePage === "Home" ? "block" : "hidden"}`}>
+        <Home
+          onNavigate={(page) => setActivePage(page)}
+          onOpenRecentFile={handleOpenRecentFile}
+          onNewFile={handleNewFile}
+          onNewFolder={handleNewFolder}
+          onImport={handleImport}
+          onOpenProject={handleOpenProject}
+        />
+      </div>
       <div className={`h-full w-full ${activePage === "Explorer" ? "block" : "hidden"}`}>
         <Explorer />
       </div>

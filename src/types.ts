@@ -63,3 +63,9 @@ export interface FileEntry {
   is_dir: boolean;
   size: number;
 }
+
+export interface RecentFile {
+  path: string;
+  filename: string;
+  lastOpened: number;
+}

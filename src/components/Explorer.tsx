@@ -12,6 +12,9 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { FileEntry } from "../types";
 import { useCustomContextMenu } from "./ContextMenu";
+import { trackRecentFile } from "../utils/recentFiles";
+import { SvgFileIcon } from "./SvgFileIcon";
+import { MarkdownFileIcon } from "./MarkdownFileIcon";
 
 // Lazy-loaded heavy media & preview engines
 const PdfEditor    = React.lazy(() => import("./PdfEditor"));
@@ -432,6 +435,7 @@ export const Explorer: React.FC = () => {
   };
 
   const openFile = async (entry: FileEntry) => {
+    trackRecentFile(entry.path, entry.name);
     const existing = openTabs.find(t => t.path === entry.path);
     if (existing) { setActiveTabPath(entry.path); return; }
 
@@ -451,9 +455,37 @@ export const Explorer: React.FC = () => {
       svgViewMode: type === "svg" ? "preview" : undefined,
       mdViewMode:  type === "md"  ? "split"   : undefined,
     };
-    setOpenTabs([...openTabs, newTab]);
+    setOpenTabs(prev => [...prev, newTab]);
     setActiveTabPath(entry.path);
   };
+
+  // Listen for file-open and quick-action events dispatched from Home or elsewhere
+  useEffect(() => {
+    const handleOpenFile = async (e: any) => {
+      const { path, name, is_dir } = e.detail || {};
+      if (!path) return;
+      if (is_dir) {
+        loadDirectory(path);
+      } else {
+        const fileName = name || path.split(/[\\\/]/).pop() || "file";
+        await openFile({ name: fileName, path, is_dir: false, size: 0 });
+      }
+    };
+
+    const handleHomeAction = (e: any) => {
+      const action = e.detail;
+      if (action === "file" || action === "folder" || action === "import-file" || action === "import-folder") {
+        openNewItemModal(action);
+      }
+    };
+
+    window.addEventListener("composer:open-file", handleOpenFile);
+    window.addEventListener("composer:home-action", handleHomeAction);
+    return () => {
+      window.removeEventListener("composer:open-file", handleOpenFile);
+      window.removeEventListener("composer:home-action", handleHomeAction);
+    };
+  }, [openTabs, currentDirPath]);
 
   const closeTab = (path: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -572,11 +604,13 @@ export const Explorer: React.FC = () => {
   const getFileIcon = (file: FileEntry, isSelected: boolean) => {
     const iconColor = isSelected ? "var(--accent)" : "var(--text-muted)";
     const iconProps = { size: 13, style: { color: iconColor, flexShrink: 0 } };
-    if (file.is_dir)                                          return <Folder      {...iconProps} />;
-    if (file.name.endsWith(".md") || file.name.endsWith(".txt")) return <FileText {...iconProps} />;
-    if (file.name.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i))  return <ImageIcon   {...iconProps} />;
-    if (file.name.endsWith(".pdf"))                           return <FileText    {...{ ...iconProps, style: { color: "#F87171", flexShrink: 0 } }} />;
-    if (file.name.match(/\.(csv|json|toml)$/i))              return <TableIcon   {...iconProps} />;
+    if (file.is_dir)                                                      return <Folder           {...iconProps} />;
+    if (file.name.toLowerCase().endsWith(".svg"))                         return <SvgFileIcon      {...iconProps} />;
+    if (file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown")) return <MarkdownFileIcon {...iconProps} />;
+    if (file.name.toLowerCase().endsWith(".txt"))                        return <FileText         {...iconProps} />;
+    if (file.name.match(/\.(png|jpg|jpeg|webp|gif)$/i))                   return <ImageIcon        {...iconProps} />;
+    if (file.name.endsWith(".pdf"))                                       return <FileText         {...{ ...iconProps, style: { color: "#F87171", flexShrink: 0 } }} />;
+    if (file.name.match(/\.(csv|json|toml)$/i))                          return <TableIcon        {...iconProps} />;
     return <FileCode {...iconProps} />;
   };
 
@@ -786,7 +820,7 @@ export const Explorer: React.FC = () => {
                           className={`exp-mode-btn ${activeSvgMode === mode ? "active" : ""}`}
                           title={mode}
                         >
-                          {mode === "preview" ? <ImageIcon size={10} /> : mode === "split" ? <Columns size={10} /> : <Code size={10} />}
+                          {mode === "preview" ? <SvgFileIcon size={10} /> : mode === "split" ? <Columns size={10} /> : <Code size={10} />}
                           <span style={{ textTransform: "capitalize" }}>{mode}</span>
                         </button>
                       ))}

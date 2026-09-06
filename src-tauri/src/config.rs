@@ -92,7 +92,7 @@ pub fn create_default_config(storage_root: &Path) -> AppConfig {
             app_name: "Composer".to_string(),
             language: "en".to_string(),
             date_format: "YYYY-MM-DD".to_string(),
-            launch_page: "Explorer".to_string(),
+            launch_page: "Home".to_string(),
             auto_update: false,
         },
         storage: StorageConfig {

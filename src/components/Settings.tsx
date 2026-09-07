@@ -15,7 +15,7 @@ const DEFAULT_THEME = {
   theme_preset: "dark",
   accent_color: "#FFFFFF",
   background_override: "",
-  font_family_ui: "Inter",
+  font_family_ui: "modern_sans",
   font_size_ui: 14,
   compact_mode: false,
   reduce_motion: false,

@@ -105,8 +105,13 @@ export const Home: React.FC<HomeProps> = ({
     let isCancelled = false;
     const loadFiles = async () => {
       try {
-        const all: FileEntry[] = await invoke("list_all_workspace_files");
-        if (!isCancelled) setWorkspaceFiles(all);
+        // Fast path: read from Cache/workspace_index.json (instant, no disk walk)
+        const cached: FileEntry[] = await invoke("get_cached_workspace_index");
+        if (!isCancelled) setWorkspaceFiles(cached);
+
+        // Background refresh: walk the real filesystem and update the cache
+        const fresh: FileEntry[] = await invoke("list_all_workspace_files");
+        if (!isCancelled) setWorkspaceFiles(fresh);
       } catch {
         try {
           const root: FileEntry[] = await invoke("list_directory_contents", { dirPath: "" });

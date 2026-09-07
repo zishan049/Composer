@@ -7,6 +7,7 @@ export interface GeneralConfig {
   date_format: string;
   launch_page: string;
   auto_update: boolean;
+  onboarding_completed: boolean;
 }
 
 export interface StorageConfig {

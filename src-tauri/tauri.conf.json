@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Composer",
+  "mainBinaryName": "composer",
   "version": "0.1.0",
-  "identifier": "com.zisha.tauri-app",
+  "identifier": "com.zisha.composer",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -36,6 +37,11 @@
     "targets": "all",
     "icon": [
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "./nsis/hooks.nsh"
+      }
+    }
   }
 }

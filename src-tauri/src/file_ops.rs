@@ -143,14 +143,15 @@ pub fn list_all_workspace_files() -> Result<Vec<FileEntry>, String> {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let name = entry.file_name().to_string_lossy().to_string();
-                
-                // Skip common heavy and hidden directories
-                if name.starts_with('.') 
-                    || name == "node_modules" 
-                    || name == "target" 
-                    || name == "dist" 
-                    || name == "build" 
+
+                // Skip common heavy, hidden, and system directories (Cache is internal)
+                if name.starts_with('.')
+                    || name == "node_modules"
+                    || name == "target"
+                    || name == "dist"
+                    || name == "build"
                     || name == ".git"
+                    || name == "Cache"   // Composer system cache — do not index
                 {
                     continue;
                 }
@@ -181,10 +182,34 @@ pub fn list_all_workspace_files() -> Result<Vec<FileEntry>, String> {
         }
     }
 
-    // Sort alphabetically: files first, then directories (or just alphabetical relative paths)
+    // Sort alphabetically
     result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
+    // Write index to Cache for fast subsequent reads
+    let cache_dir = crate::config::get_cache_dir();
+    let index_path = cache_dir.join("workspace_index.json");
+    if let Ok(json) = serde_json::to_string_pretty(&result) {
+        let _ = fs::write(&index_path, &json);
+    }
+
     Ok(result)
+}
+
+/// Returns the cached workspace index from `Cache/workspace_index.json`.
+/// Falls back to a live directory walk when no cache is present.
+#[tauri::command]
+pub fn get_cached_workspace_index() -> Result<Vec<FileEntry>, String> {
+    let cache_dir = crate::config::get_cache_dir();
+    let index_path = cache_dir.join("workspace_index.json");
+    if index_path.exists() {
+        if let Ok(content) = fs::read_to_string(&index_path) {
+            if let Ok(entries) = serde_json::from_str::<Vec<FileEntry>>(&content) {
+                return Ok(entries);
+            }
+        }
+    }
+    // Cache miss — fall back to live walk
+    list_all_workspace_files()
 }
 
 #[tauri::command]

@@ -9,6 +9,7 @@ import { listen, emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "./types";
 import { applyTypographyToRoot } from "./utils/fonts";
+import { Onboarding } from "./components/Onboarding";
 
 // Page Components (Code-split with React.lazy for instant startup)
 const Home     = React.lazy(() => import("./components/Home").then(m => ({ default: m.Home })));
@@ -41,12 +42,10 @@ function App() {
   type LoadingPhase = "loading" | "reveal-app" | "done";
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("loading");
 
-  // ── Snappy Launch Sequence ──────────────────
-  useEffect(() => {
-    const timer1 = setTimeout(() => setLoadingPhase("reveal-app"), 200);
-    const timer2 = setTimeout(() => setLoadingPhase("done"), 380);
-    return () => { clearTimeout(timer1); clearTimeout(timer2); };
-  }, []);
+  // null = not yet determined, true = show onboarding, false = skip
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [installPath, setInstallPath] = useState<string>("");
+  const [cachePath,   setCachePath]   = useState<string>("");
 
   // ── Apply theme from config ─────────────────
   const applyTheme = (cfg: AppConfig) => {
@@ -134,8 +133,12 @@ function App() {
   // ── Load config on boot ─────────────────────
   const loadConfig = async () => {
     try {
-      const cfg: AppConfig = await invoke("get_app_config");
+      const cfg       = await invoke<AppConfig>("get_app_config");
+      const iPath     = await invoke<string>("get_app_install_path");
+      const cPath     = await invoke<string>("get_cache_path");
       setConfig(cfg);
+      setInstallPath(iPath);
+      setCachePath(cPath);
       setNavLayout(cfg.theme.nav_layout || "sidebar");
       setActivePage(prev => {
         if (prev === "Home" && cfg.general.launch_page) {
@@ -144,9 +147,35 @@ function App() {
         return prev;
       });
       applyTheme(cfg);
+
+      // ── Onboarding guard (must happen BEFORE reveal-app) ──
+      if (!cfg.general.onboarding_completed) {
+        setShowOnboarding(true);
+        // Reveal the onboarding screen (still over app shell)
+        setTimeout(() => setLoadingPhase("reveal-app"), 80);
+        setTimeout(() => setLoadingPhase("done"), 260);
+      } else {
+        setShowOnboarding(false);
+        setTimeout(() => setLoadingPhase("reveal-app"), 200);
+        setTimeout(() => setLoadingPhase("done"), 380);
+      }
     } catch (err) {
       console.error("loadConfig error:", err);
+      // On error fall through to app with no onboarding
+      setShowOnboarding(false);
+      setTimeout(() => setLoadingPhase("reveal-app"), 200);
+      setTimeout(() => setLoadingPhase("done"), 380);
     }
+  };
+
+  // ── Called when user finishes onboarding ────
+  const handleOnboardingComplete = (updatedConfig: AppConfig) => {
+    setConfig(updatedConfig);
+    applyTheme(updatedConfig);
+    setNavLayout(updatedConfig.theme.nav_layout || "sidebar");
+    setShowOnboarding(false);
+    // Notify Explorer (and any other listeners) that the workspace path changed
+    emit("config_updated");
   };
 
   // ── Toggle dark / light ─────────────────────
@@ -696,6 +725,16 @@ function App() {
         </div>
 
       </div>
+
+      {/* Onboarding overlay — rendered after loading phase clears */}
+      {showOnboarding === true && loadingPhase === "done" && config && (
+        <Onboarding
+          config={config}
+          installPath={installPath}
+          cachePath={cachePath}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
 
       {/* Loading Overlay */}
       {loadingPhase !== "done" && (

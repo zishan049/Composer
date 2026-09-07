@@ -9,6 +9,10 @@ pub struct GeneralConfig {
     pub date_format: String,
     pub launch_page: String,
     pub auto_update: bool,
+    /// Set to true after the user completes the first-launch onboarding wizard.
+    /// Uses serde(default) so existing configs without this field read as false.
+    #[serde(default)]
+    pub onboarding_completed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -76,7 +80,7 @@ pub fn resolve_storage_path(path: &str) -> PathBuf {
     }
 }
 
-pub fn create_default_config(storage_root: &Path) -> AppConfig {
+pub fn create_default_config(_storage_root: &Path) -> AppConfig {
     let mut ui_overrides = std::collections::HashMap::new();
     
     // Set default Black/White Minimalist colors in the hashmap as default UI overrides
@@ -94,9 +98,10 @@ pub fn create_default_config(storage_root: &Path) -> AppConfig {
             date_format: "YYYY-MM-DD".to_string(),
             launch_page: "Home".to_string(),
             auto_update: false,
+            onboarding_completed: false,
         },
         storage: StorageConfig {
-            root_path: storage_root.to_string_lossy().to_string(),
+            root_path: get_app_install_dir().to_string_lossy().to_string(),
             workspace_path: "".to_string(),
         },
         editor: EditorConfig {
@@ -113,7 +118,7 @@ pub fn create_default_config(storage_root: &Path) -> AppConfig {
             theme_preset: "dark".to_string(), // Minimalist B&W default
             accent_color: "#FFFFFF".to_string(),
             background_override: "".to_string(),
-            font_family_ui: "Inter".to_string(),
+            font_family_ui: "modern_sans".to_string(),
             font_size_ui: 14,
             compact_mode: false,
             reduce_motion: false,
@@ -166,11 +171,12 @@ pub fn get_os_config_dir() -> PathBuf {
     get_app_install_dir().join("storage")
 }
 
-/// Canonical configuration file location in the OS-standard directory.
+/// Canonical configuration file location: <exe_dir>/config.json
+/// This ensures the config always lives right beside the installed executable.
 pub fn get_canonical_config_path() -> PathBuf {
-    let os_dir = get_os_config_dir();
-    let _ = fs::create_dir_all(&os_dir);
-    os_dir.join("config.json")
+    let dir = get_app_install_dir();
+    let _ = fs::create_dir_all(&dir);
+    dir.join("config.json")
 }
 
 /// Backward compatibility alias for existing code.
@@ -260,6 +266,14 @@ fn finalize_loaded_config(mut config: AppConfig) -> AppConfig {
     // Ensure workspace subdirectories exist
     let _ = get_active_workspace_path_internal(&config);
 
+    // Ensure required storage sub-directories exist in root_path
+    let root_str = config.storage.root_path.trim().to_string();
+    if !root_str.is_empty() {
+        ensure_storage_dirs(&PathBuf::from(&root_str));
+    } else {
+        ensure_storage_dirs(&get_app_install_dir());
+    }
+
     config
 }
 
@@ -308,6 +322,10 @@ pub fn save_config(config: &AppConfig) -> Result<(), String> {
             let _ = fs::create_dir_all(&custom_root);
             let _ = fs::write(custom_path, &content);
         }
+        // Always (re-)create required storage sub-directories when root changes
+        ensure_storage_dirs(&custom_root);
+    } else {
+        ensure_storage_dirs(&get_app_install_dir());
     }
     Ok(())
 }
@@ -347,13 +365,49 @@ pub fn get_app_install_path() -> String {
     if !cfg.storage.root_path.is_empty() {
         cfg.storage.root_path
     } else {
-        get_os_config_dir().to_string_lossy().to_string()
+        get_app_install_dir().to_string_lossy().to_string()
     }
 }
 
 #[tauri::command]
 pub fn get_workspace_path() -> String {
     get_active_workspace_path().to_string_lossy().to_string()
+}
+
+// -----------------------------------------------------------------
+// STORAGE DIRECTORY MANAGEMENT
+// -----------------------------------------------------------------
+
+/// Creates the required sub-directories inside the storage root.
+/// Currently creates: Cache
+/// Call this whenever the storage root is set or changed.
+pub fn ensure_storage_dirs(root: &PathBuf) {
+    let dirs = ["Cache"];
+    for dir in &dirs {
+        let path = root.join(dir);
+        let _ = fs::create_dir_all(&path);
+    }
+}
+
+/// Returns the active Cache directory path.
+/// Priority:
+///   1. <storage.root_path>/Cache
+///   2. <exe_dir>/Cache (fallback)
+pub fn get_cache_dir() -> PathBuf {
+    let cfg = load_config();
+    let root = if !cfg.storage.root_path.trim().is_empty() {
+        PathBuf::from(&cfg.storage.root_path)
+    } else {
+        get_app_install_dir()
+    };
+    let cache = root.join("Cache");
+    let _ = fs::create_dir_all(&cache);
+    cache
+}
+
+#[tauri::command]
+pub fn get_cache_path() -> String {
+    get_cache_dir().to_string_lossy().to_string()
 }
 
 #[cfg(test)]

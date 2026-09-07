@@ -157,9 +157,11 @@ pub fn run() {
             config::import_theme_toml,
             config::get_app_install_path,
             config::get_workspace_path,
+            config::get_cache_path,
             // Explorer file operations
             file_ops::list_directory_contents,
             file_ops::list_all_workspace_files,
+            file_ops::get_cached_workspace_index,
             file_ops::read_text_file,
             file_ops::read_binary_file_base64,
             file_ops::write_text_file,

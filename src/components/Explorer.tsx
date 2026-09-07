@@ -302,7 +302,9 @@ export const Explorer: React.FC = () => {
   const loadDirectory = async (path: string) => {
     try {
       const result: FileEntry[] = await invoke("list_directory_contents", { dirPath: path });
-      setFiles(result);
+      // Hide the system Cache folder from the Explorer sidebar
+      const filtered = result.filter(e => e.name !== "Cache");
+      setFiles(filtered);
       if (path === "") {
         const wsPath: string = await invoke("get_workspace_path");
         setWorkspaceRootPath(wsPath);

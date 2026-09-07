@@ -6,15 +6,17 @@
 
 ### *The Local-Native, Privacy-First Desktop Creator Studio & Developer Workbench*
 
-[![Tauri v2](https://img.shields.io/badge/Tauri-v2.0-24C8D8?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app/)
-[![Rust 2021](https://img.shields.io/badge/Rust-2021_Edition-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![React 19](https://img.shields.io/badge/React-19.1-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4.3-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Vite v7](https://img.shields.io/badge/Vite-v7.0-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Monaco Editor](https://img.shields.io/badge/Editor-Monaco-blue?style=flat-square&logo=visual-studio-code&logoColor=white)](https://microsoft.github.io/monaco-editor/)
-[![Zero Telemetry](https://img.shields.io/badge/Privacy-100%25_Offline_Local-b8440c?style=flat-square)](https://github.com/)
-[![License MIT](https://img.shields.io/badge/License-MIT-4a5568.svg?style=flat-square)](LICENSE)
+[![Tauri v2](https://img.shields.io/badge/Tauri-v2.0-21262d?style=flat-square&logo=tauri&logoColor=24C8D8&labelColor=0d1117)](https://tauri.app/)
+[![Rust 2021](https://img.shields.io/badge/Rust-2021_Edition-21262d?style=flat-square&logo=rust&logoColor=E06C43&labelColor=0d1117)](https://www.rust-lang.org/)
+[![Vite v7](https://img.shields.io/badge/Vite-v7.0-21262d?style=flat-square&logo=vite&logoColor=FFD62E&labelColor=0d1117)](https://vitejs.dev/)
+[![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-21262d?style=flat-square&logo=typescript&logoColor=3178C6&labelColor=0d1117)](https://www.typescriptlang.org/)
+
+[![React 19](https://img.shields.io/badge/React-19.1-21262d?style=flat-square&logo=react&logoColor=61DAFB&labelColor=0d1117)](https://react.dev/)
+[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4.3-21262d?style=flat-square&logo=tailwindcss&logoColor=38B2AC&labelColor=0d1117)](https://tailwindcss.com/)
+[![Monaco Editor](https://img.shields.io/badge/Editor-Monaco-21262d?style=flat-square&logo=vscodium&logoColor=007ACC&labelColor=0d1117)](https://microsoft.github.io/monaco-editor/)
+
+[![Privacy Offline](https://img.shields.io/badge/Privacy-100%25_Offline_Local-21262d?style=flat-square&logo=gnuprivacyguard&logoColor=10B981&labelColor=0d1117)](https://github.com/)
+[![License MIT](https://img.shields.io/badge/License-MIT-21262d?style=flat-square&logo=opensourceinitiative&logoColor=94A3B8&labelColor=0d1117)](LICENSE)
 
 <br/>
 

@@ -30,6 +30,7 @@
 <p align="center">
   <a href="#-why-composer">Why Composer</a> •
   <a href="#-studio-modules">Studio Modules</a> •
+  <a href="#-supported-formats">Supported Formats</a> •
   <a href="#-system-architecture">Architecture</a> •
   <a href="#-download--installation">Download & Install</a> •
   <a href="#-quick-start">Quick Start</a> •
@@ -144,6 +145,37 @@ Composer unifies seven specialized creator studios and an instant workspace laun
 </td>
 </tr>
 </table>
+
+<br/>
+
+---
+
+## 🗂️ Supported Formats
+
+Composer natively understands, renders, and processes a wide range of creative and technical file formats across its dedicated studio engines, while shipping in production-ready native desktop application bundles.
+
+### 1. Workspace File Formats & Studio Matrix
+
+| Category | File Extensions | Studio Engine | Capabilities | Output / Export |
+| :--- | :--- | :--- | :--- | :--- |
+| **📄 Documents & Publishing** | `.md`, `.markdown`, `.txt` | **Markdown Print Studio** | Three-way view (Preview, Split, Code), GFM parser, dynamic Table of Contents, drop cap typography, GitHub alerts (`[!NOTE]`, `[!TIP]`, etc.), reading analytics | Native Print & Vector PDF (`A4`, `Letter`, `Legal`), HTML |
+| **📑 PDF Documents** | `.pdf` | **In-Place PDF Canvas Editor** | Zero-layout-shift canvas text overlay, visual text box detection, interactive inline text editing, dirty state tracking | Direct vector-replaced PDF (lossless, non-destructive), Save As |
+| **🔍 Vector Graphics** | `.svg`, `.xml` | **SVG Vector Inspector** | Three-way view, live Monaco XML split editor, zoom & pan viewport, 5 backdrop presets (Grid, Checkerboard, Paper, Dark, Light), path & viewBox metric counter | `.svg` file download, raw SVG markup clipboard copy |
+| **🖼️ Raster Imagery** | `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`, `.ico`, `.avif`, `.tiff` | **Image Studio & Eyedropper** | 25%–400% zoom, pan, 90° rotation, H/V flips, nearest-neighbor scaling for pixel art/sprites, live HTML5 canvas eyedropper (HEX & RGBA sampling), metadata analysis | `.png` clipboard copy, image download to disk |
+| **💻 Code & Scripting** | `.rs`, `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.html`, `.css`, `.json`, `.toml`, `.yaml`, `.yml`, `.sql`, `.sh` | **Monaco Code Studio** | 15+ syntax highlighters, Vim keybinding emulation, debounced auto-save, luminance theme sync (`vs-dark` / `vs-light`), multi-version revision snapshots | Native file save (<kbd>Ctrl</kbd>+<kbd>S</kbd>), version rollback |
+| **📊 Tabular & Structured Data** | `.csv`, `.json`, `.toml` | **Grid Table / Structured View** | Toggle between raw syntax-highlighted code and interactive formatted spreadsheet grid table view | Save in-place, structured export |
+
+<br/>
+
+### 2. Application Packaging & Distribution Formats
+
+| Distribution Format | Target Platform / Architecture | Artifact / Filename | Description |
+| :--- | :--- | :--- | :--- |
+| **🪟 Windows NSIS Installer** | Windows 10 / 11 (`x64`) | `Composer_<version>_x64-setup.exe` | Automated desktop installer with start menu shortcuts, install hooks, and uninstaller |
+| **⚡ Standalone Executable** | Windows (`x64`) | `composer.exe` | Compiled native Rust + WebView2 binary produced in release bundle |
+| **🔄 Auto-Update Manifest** | Universal Web / GitHub Releases | `latest.json` | JSON release descriptor containing version tag, release notes, and SHA-256 download links |
+| **🔐 Cryptographic Signature** | Tauri Updater Plugin | `.sig` (Minisign) | Asymmetric cryptographic signature verifying application binary integrity before in-place upgrade |
+| **🌐 Cross-Platform Core** | macOS & Linux (Roadmap) | `.dmg`, `.AppImage`, `.deb` | Native multi-platform compatibility enabled via Tauri 2.0 and Rust toolchain |
 
 <br/>
 

@@ -29,10 +29,11 @@
   <a href="#-why-composer">Why Composer</a> •
   <a href="#-studio-modules">Studio Modules</a> •
   <a href="#-system-architecture">Architecture</a> •
+  <a href="#-download--installation">Download & Install</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-visual-deep-dives">Deep Dives</a> •
   <a href="#-configuration--keybindings">Config & Keys</a> •
-  <a href="#-roadmap">Roadmap</a>
+  <a href="#-recent-updates">Recent Updates</a>
 </p>
 
 ---
@@ -244,6 +245,45 @@ sequenceDiagram
 
 ---
 
+## 📦 Download & Installation
+
+Standalone Windows desktop releases are compiled and published automatically:
+
+👉 **[Download Latest Composer for Windows (.exe)](https://github.com/zishan049/Composer/releases/latest)**
+
+1. Download `Composer_<version>_x64-setup.exe` from the [GitHub Releases](https://github.com/zishan049/Composer/releases) section.
+2. Launch the installer and follow the setup prompts.
+
+> [!IMPORTANT]
+> ### 🛡️ Windows Defender SmartScreen Warning Notice
+> 
+> When installing Composer, Microsoft Defender SmartScreen may display:
+> 
+> **"Windows protected your PC — Microsoft Defender SmartScreen prevented an unrecognized app from starting. Running this app might put your PC at risk."**
+> 
+> <br/>
+> 
+> **Why does this appear?**
+> * Composer is an independent, community-driven open-source project.
+> * Microsoft SmartScreen automatically displays this warning on **any newly compiled binary** that has not yet accumulated thousands of downloads or does not possess an expensive commercial Extended Validation (EV) certificate.
+> * The installer is generated directly by automated GitHub Actions from the open-source code in this repository.
+> 
+> **How to proceed with installation:**
+> 1. Click **"More info"** on the SmartScreen dialog.
+> 2. Click the **"Run anyway"** button that appears.
+> 
+> *Alternative (Unblock via File Properties):*
+> 1. Right-click the downloaded `Composer_..._setup.exe` file and select **Properties**.
+> 2. At the bottom of the **General** tab, check the **Unblock** checkbox.
+> 3. Click **Apply**, then **OK**, and launch the installer normally.
+> 
+> **Privacy & Security Guarantee:**
+> Composer is **100% offline, privacy-first, and contains zero analytics, tracking, or network telemetry.** All source code is completely open for review.
+
+<br/>
+
+---
+
 ## ⚡ Quick Start
 
 ### Prerequisites
@@ -359,6 +399,9 @@ Composer stores all runtime state in clean, transparent JSON files under your lo
 
 ```
 Composer/
+├── 📁 .github/                # GitHub Actions CI/CD workflows
+│   └── 📁 workflows/
+│       └── 📄 release.yml     # Automated release pipeline, NSIS installer & updater signatures
 ├── 📁 public/                 # Static web assets & application icons
 ├── 📁 src/                    # Frontend presentation layer (React 19 + TypeScript 5.8)
 │   ├── 📁 assets/             # Brand logos & static vector assets
@@ -369,6 +412,7 @@ Composer/
 │   │   ├── 📄 ImagePreview.tsx    # Raster image inspector & canvas eyedropper
 │   │   ├── 📄 MarkdownFileIcon.tsx# Specialized SVG filetype icon for Markdown
 │   │   ├── 📄 MarkdownPreview.tsx # Markdown publishing & print studio
+│   │   ├── 📄 Onboarding.tsx      # First-run guided setup & storage onboarding wizard
 │   │   ├── 📄 PdfEditor.tsx       # In-place visual PDF text replacement canvas
 │   │   ├── 📄 Settings.tsx        # 60+ palette engine, typography & layout settings
 │   │   ├── 📄 SvgFileIcon.tsx     # Specialized SVG filetype icon for vectors
@@ -425,6 +469,30 @@ Composer/
   - [x] Smart recent files registry with real-time `inspect_paths` path existence validation
   - [x] Modular CSS architecture with semantic tokens and high-contrast B&W defaults
   - [x] 8 typography presets with dynamic Google Fonts runtime injection
+
+<br/>
+
+---
+
+## 🚀 Recent Updates
+
+### 🌟 v0.1.0 — Onboarding & Release Automation
+
+* **✨ Interactive First-Run Onboarding Flow:**
+  * Implemented a welcoming 4-step first-run wizard ([`Onboarding.tsx`](src/components/Onboarding.tsx)) for new installations.
+  * Guides users through greeting, custom storage location configuration, workspace directory selection, and instant workspace indexation.
+* **📦 Automated CI/CD Release & Update Pipeline:**
+  * Created an automated GitHub Actions release workflow ([`release.yml`](.github/workflows/release.yml)) triggered on version tags (`v*`).
+  * Compiles standalone optimized Windows executables and bundles them as NSIS installers.
+  * Automatically generates cryptographic updater signatures (`.sig` & `latest.json`) for seamless future in-app updates.
+* **🗂️ Workspace Selection & Directory Switching Polish:**
+  * Upgraded native folder pickers with directory validation and normalized path handling.
+  * Fixed workspace switching so users can easily change or re-index active project folders without UI desynchronization.
+* **🏷️ Application Branding & Identity:**
+  * Standardized application naming, metadata, and taskbar branding across the installer, system tray/dock, and window frame.
+* **🛡️ Windows Defender SmartScreen Transparency:**
+  * Documented clear verification steps and run-through instructions for Windows SmartScreen on newly compiled open-source releases.
+
 <br/>
 
 **Bespoke aesthetics, uncompromising speed, and complete privacy for creators and developers.**

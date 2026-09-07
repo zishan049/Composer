@@ -34,7 +34,8 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/icon.ico"
     ],
@@ -43,5 +44,14 @@
         "installerHooks": "./nsis/hooks.nsh"
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk2MjJCQzMxMUEyRkEyMjUKUldRbG9pOGFNYndpbGtYVUJtTktPLzU2SCtjc0ZXTGJJNmthSkVQREdJZW1ybC9zamRKcTBXZnAK",
+      "endpoints": [
+        "https://github.com/zishan049/Composer/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
+

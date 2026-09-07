@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import {
   House, Folder, Settings as SettingsIcon,
   RefreshCw, Sun, Moon, Minus, Square, X,
-  HardDrive
+  HardDrive, ArrowUpCircle, Download
 } from "lucide-react";
+
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -46,6 +47,16 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [installPath, setInstallPath] = useState<string>("");
   const [cachePath,   setCachePath]   = useState<string>("");
+
+  // ── Auto-Update State on Launch ─────────────
+  interface LaunchUpdateInfo {
+    version: string;
+    body?: string;
+    updateObj: any;
+  }
+  const [launchUpdateInfo, setLaunchUpdateInfo] = useState<LaunchUpdateInfo | null>(null);
+  const [isUpdatingFromToast, setIsUpdatingFromToast] = useState<boolean>(false);
+
 
   // ── Apply theme from config ─────────────────
   const applyTheme = (cfg: AppConfig) => {
@@ -159,7 +170,27 @@ function App() {
         setTimeout(() => setLoadingPhase("reveal-app"), 200);
         setTimeout(() => setLoadingPhase("done"), 380);
       }
+
+      // ── Silent auto-update check on launch if enabled in config ──
+      if (cfg.general.auto_update) {
+        setTimeout(async () => {
+          try {
+            const { check } = await import("@tauri-apps/plugin-updater");
+            const update = await check();
+            if (update) {
+              setLaunchUpdateInfo({
+                version: update.version,
+                body: update.body || "",
+                updateObj: update,
+              });
+            }
+          } catch (e) {
+            console.warn("Silent background update check:", e);
+          }
+        }, 2000);
+      }
     } catch (err) {
+
       console.error("loadConfig error:", err);
       // On error fall through to app with no onboarding
       setShowOnboarding(false);
@@ -770,8 +801,108 @@ function App() {
         </div>
       )}
 
+      {/* ── Auto-Update Toast on Launch ──────────────────────────── */}
+      {launchUpdateInfo && (
+
+        <div style={{
+          position: "fixed",
+          bottom: "24px",
+          right: "24px",
+          zIndex: 9999,
+          backgroundColor: "var(--bg-surface)",
+          border: "1px solid var(--border-strong)",
+          borderRadius: "var(--radius-md, 8px)",
+          padding: "12px 16px",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          maxWidth: "340px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <ArrowUpCircle size={15} style={{ color: "var(--accent)" }} />
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-primary)" }}>
+                Update Available: v{launchUpdateInfo.version}
+              </span>
+            </div>
+            <button
+              onClick={() => setLaunchUpdateInfo(null)}
+              style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "2px" }}
+              title="Dismiss"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div style={{ fontSize: "11px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+            A newer version of Composer is available. Update now to get the latest features.
+          </div>
+          <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+            <button
+              disabled={isUpdatingFromToast}
+              onClick={async () => {
+                try {
+                  setIsUpdatingFromToast(true);
+                  await launchUpdateInfo.updateObj.downloadAndInstall();
+                  const { relaunch } = await import("@tauri-apps/plugin-process");
+                  await relaunch();
+                } catch (e) {
+                  console.error("Toast update error:", e);
+                  setIsUpdatingFromToast(false);
+                }
+              }}
+              style={{
+                flex: 1,
+                padding: "6px 10px",
+                backgroundColor: "var(--accent)",
+                color: "#000000",
+                fontWeight: 600,
+                fontSize: "11px",
+                borderRadius: "4px",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "5px",
+              }}
+            >
+              {isUpdatingFromToast ? (
+                <>
+                  <RefreshCw size={11} className="animate-spin" />
+                  <span>Updating…</span>
+                </>
+              ) : (
+                <>
+                  <Download size={11} />
+                  <span>Update Now</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setActivePage("Settings");
+                setLaunchUpdateInfo(null);
+              }}
+              style={{
+                padding: "6px 10px",
+                backgroundColor: "var(--bg-surface-elevated)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-secondary)",
+                borderRadius: "4px",
+                fontSize: "11px",
+                cursor: "pointer",
+              }}
+            >
+              View
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
+
 }
 
 export default App;

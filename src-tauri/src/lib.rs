@@ -11,6 +11,12 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+#[tauri::command]
+fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+
 /// Opens native OS folder picker, returns chosen path or None if cancelled.
 #[tauri::command]
 async fn pick_directory(app: tauri::AppHandle) -> Option<String> {
@@ -141,8 +147,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             greet,
+            get_app_version,
             pick_directory,
             pick_directories,
             pick_file,

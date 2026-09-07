@@ -25,3 +25,7 @@ dist-ssr
 
 Plan.md
 .agent
+
+# Signing keys
+*.key
+*.key.pub

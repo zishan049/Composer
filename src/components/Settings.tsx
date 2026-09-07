@@ -1,11 +1,13 @@
 // @ts-nocheck
 import React, { useState, useEffect } from "react";
-import { Sliders, RefreshCw, ChevronDown, Save, Dices, X } from "lucide-react";
+import { Sliders, RefreshCw, ChevronDown, Save, Dices, X, ArrowUpCircle, CheckCircle, AlertCircle, Download } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
 import { AppConfig } from "../types";
 import { useCustomContextMenu } from "./ContextMenu";
 import { FONT_PRESETS, getFontPreset, applyTypographyToRoot } from "../utils/fonts";
+import { useUpdater } from "../utils/useUpdater";
+
 
 // ─────────────────────────────────────────────────────────────
 // Constants (identical to original)
@@ -83,7 +85,9 @@ const AnimatedHexInput: React.FC<{
 // Main Settings Component
 // ─────────────────────────────────────────────────────────────
 export const Settings: React.FC = () => {
+  const updater = useUpdater();
   const [config, setConfig] = useState<AppConfig | null>(null);
+
   const [activeColorKey, setActiveColorKey] = useState<string | null>(null);
   const [layoutDropdownOpen, setLayoutDropdownOpen] = useState(false);
   const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -613,7 +617,149 @@ export const Settings: React.FC = () => {
               </div>
             </div>
 
+            {/* Card: Application Updates */}
+            <div className="stt-section">
+              <div className="stt-section-title">
+                <ArrowUpCircle size={12} />
+                Application Updates
+              </div>
+
+              {/* Auto-update toggle */}
+              <div className="stt-field">
+                <div className="stt-field-row">
+                  <div>
+                    <span className="stt-label">Automatic Updates</span>
+                    <div className="stt-label-hint">Automatically check for updates on app launch</div>
+                  </div>
+                  <label className="stt-toggle-wrapper">
+                    <input
+                      type="checkbox"
+                      className="stt-toggle-input"
+                      checked={config.general.auto_update}
+                      onChange={e => saveConfig({ ...config, general: { ...config.general, auto_update: e.target.checked } })}
+                    />
+                    <span className="stt-toggle-track" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="stt-divider" />
+
+              {/* Version & Manual Check */}
+              <div className="stt-field">
+                <div className="stt-field-row">
+                  <div>
+                    <span className="stt-label">Installed Version</span>
+                    <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                      v{updater.currentVersion}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => updater.checkForUpdates(false)}
+                    disabled={updater.status === "checking" || updater.status === "downloading" || updater.status === "installing"}
+                    className="stt-btn-secondary"
+                    style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <RefreshCw size={12} className={updater.status === "checking" ? "animate-spin" : ""} />
+                    <span>{updater.status === "checking" ? "Checking…" : "Check for Updates"}</span>
+                  </button>
+                </div>
+
+                {/* State: Up to date */}
+                {updater.status === "upToDate" && (
+                  <div className="stt-update-badge stt-update-badge--uptodate" style={{ alignSelf: "flex-start", marginTop: "6px" }}>
+                    <CheckCircle size={12} />
+                    <span>You are on the latest version</span>
+                  </div>
+                )}
+
+                {/* State: Error */}
+                {updater.status === "error" && (
+                  <div className="stt-update-card" style={{ borderColor: "rgba(239,68,68,0.25)" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                      <AlertCircle size={14} style={{ color: "#ef4444", flexShrink: 0, marginTop: "2px" }} />
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                        <span style={{ fontSize: "11px", color: "var(--text-primary)", fontWeight: 600 }}>Check Failed</span>
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)", wordBreak: "break-word" }}>
+                          {updater.errorMessage || "Could not check for updates."}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* State: Update Available */}
+                {(updater.status === "available" || updater.status === "downloading" || updater.status === "installing") && (
+                  <div className="stt-update-card">
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div className="stt-update-badge stt-update-badge--available">
+                        <ArrowUpCircle size={12} />
+                        <span>Update Available: v{updater.newVersion}</span>
+                      </div>
+                      {updater.releaseDate && (
+                        <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+                          {new Date(updater.releaseDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+
+                    {updater.releaseNotes && (
+                      <div style={{ fontSize: "11px", color: "var(--text-secondary)", maxHeight: "80px", overflowY: "auto", whiteSpace: "pre-wrap", padding: "6px 8px", backgroundColor: "var(--bg-app)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-subtle)" }}>
+                        {updater.releaseNotes}
+                      </div>
+                    )}
+
+                    {updater.status === "downloading" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
+                          <span style={{ color: "var(--text-muted)" }}>Downloading update…</span>
+                          <span style={{ fontWeight: 600, color: "var(--accent)" }}>{updater.downloadProgress}%</span>
+                        </div>
+                        <div className="stt-progress-track">
+                          <div className="stt-progress-fill" style={{ width: `${updater.downloadProgress}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {updater.status === "installing" && (
+                      <div style={{ fontSize: "11px", color: "var(--accent)", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <RefreshCw size={12} className="animate-spin" />
+                        <span>Installing update and restarting…</span>
+                      </div>
+                    )}
+
+                    {updater.status === "available" && (
+                      <button
+                        onClick={updater.downloadAndInstall}
+                        className="stt-btn-primary"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          padding: "8px 12px",
+                          backgroundColor: "var(--accent)",
+                          color: "#000000",
+                          borderRadius: "var(--radius-sm)",
+                          fontWeight: 600,
+                          fontSize: "12px",
+                          border: "none",
+                          cursor: "pointer",
+                          marginTop: "4px"
+                        }}
+                      >
+                        <Download size={13} />
+                        <span>Download &amp; Install Update</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
+
 
           {/* ── RIGHT COLUMN: Visual Palette ──────────────────── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>

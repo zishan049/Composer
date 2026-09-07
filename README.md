@@ -302,7 +302,7 @@ git clone https://github.com/your-username/composer.git
 cd composer
 
 # 2. Install frontend dependencies
-npm install
+npm install 
 
 # 3. Launch live development environment (Vite + Tauri Desktop Shell)
 npm run tauri dev

@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v1.0.0)'
+        required: true
+        type: string
 
 jobs:
   release-windows:
@@ -35,8 +40,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Composer ${{ github.ref_name }}'
+          tagName: ${{ inputs.version || github.ref_name }}
+          releaseName: 'Composer ${{ inputs.version || github.ref_name }}'
           releaseBody: 'Download the Composer Windows installer below to install or update.'
           releaseDraft: false
           prerelease: false

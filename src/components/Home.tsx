@@ -23,15 +23,9 @@ interface HomeProps {
   onOpenProject: () => void;
 }
 
-export const Home: React.FC<HomeProps> = ({
-  onNavigate,
-  onOpenRecentFile,
-  onNewFile,
-  onNewFolder,
-  onImport,
-  onOpenProject,
-}) => {
-  // ── Date and Time ──────────────────────────────────────────
+// PERF-7: isolated clock leaf — the 1s tick re-renders only this block,
+// not the whole Home page (search results, recents, action cards).
+const HomeClock: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -55,13 +49,30 @@ export const Home: React.FC<HomeProps> = ({
     });
   }, [currentDate]);
 
-  // Dynamic greeting based on user's system time
-  const greeting = useMemo(() => {
-    const hour = currentDate.getHours();
+  return (
+    <div className="home-datetime" aria-label="Current date and time">
+      <span className="home-datetime-date">{formattedDate}</span>
+      <span className="home-datetime-time">{formattedTime}</span>
+    </div>
+  );
+};
+
+const HomeComponent: React.FC<HomeProps> = ({
+  onNavigate,
+  onOpenRecentFile,
+  onNewFile,
+  onNewFolder,
+  onImport,
+  onOpenProject,
+}) => {
+  // Greeting recomputed on every Home render (mount, search, recents updates)
+  // instead of tracking a per-second clock in this component.
+  const greeting = (() => {
+    const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return "Good Morning,";
     if (hour >= 12 && hour < 17) return "Good Afternoon,";
     return "Good Evening,";
-  }, [currentDate]);
+  })();
 
   // ── Recent Files ───────────────────────────────────────────
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
@@ -186,10 +197,7 @@ export const Home: React.FC<HomeProps> = ({
       <div className="home-container">
 
         {/* ── Date and Time in Upper-Right ──────────────────────── */}
-        <div className="home-datetime" aria-label="Current date and time">
-          <span className="home-datetime-date">{formattedDate}</span>
-          <span className="home-datetime-time">{formattedTime}</span>
-        </div>
+        <HomeClock />
 
         {/* ── Hero / Greeting ───────────────────────────────────── */}
         <div className="home-hero">
@@ -391,3 +399,7 @@ export const Home: React.FC<HomeProps> = ({
     </div>
   );
 };
+
+// PERF-7: memoized page — App-level updates don't re-render Home, and the
+// handler props are stable (useCallback in App).
+export const Home = React.memo(HomeComponent);

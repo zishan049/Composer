@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+
+use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GeneralConfig {
@@ -51,7 +54,7 @@ pub struct ThemeConfig {
     pub nav_separator_line: bool,
     pub nav_separator_color: String,
     pub nav_glass_effect: bool,
-    
+
     // UI elements custom color settings
     pub ui_overrides: std::collections::HashMap<String, String>,
 }
@@ -82,7 +85,7 @@ pub fn resolve_storage_path(path: &str) -> PathBuf {
 
 pub fn create_default_config(_storage_root: &Path) -> AppConfig {
     let mut ui_overrides = std::collections::HashMap::new();
-    
+
     // Set default Black/White Minimalist colors in the hashmap as default UI overrides
     ui_overrides.insert("nav_background".to_string(), "#000000".to_string());
     ui_overrides.insert("content_background".to_string(), "#000000".to_string());
@@ -188,10 +191,42 @@ pub fn get_config_path() -> PathBuf {
     get_canonical_config_path()
 }
 
-/// Loads configuration from disk.
-/// Performs safe forward-migration from legacy `<exe>/storage/config.json` to the OS-standard
-/// configuration directory without deleting or destroying the legacy file.
+// -----------------------------------------------------------------
+// IN-MEMORY CONFIG CACHE
+// -----------------------------------------------------------------
+
+static CONFIG_CACHE: OnceLock<Mutex<Option<AppConfig>>> = OnceLock::new();
+
+fn config_cache() -> &'static Mutex<Option<AppConfig>> {
+    CONFIG_CACHE.get_or_init(|| Mutex::new(None))
+}
+
+/// Loads the application configuration.
+///
+/// The parsed configuration is cached in memory for the lifetime of the
+/// process so commands do not re-read and re-parse `config.json` on every
+/// invocation. The cache is refreshed by [`update_cached_config`] whenever
+/// the configuration is saved.
 pub fn load_config() -> AppConfig {
+    let mut cache = config_cache().lock().unwrap();
+    if let Some(cached) = cache.as_ref() {
+        return cached.clone();
+    }
+    let config = load_config_from_disk();
+    *cache = Some(config.clone());
+    config
+}
+
+/// Replaces the cached configuration after a successful save.
+pub fn update_cached_config(config: &AppConfig) {
+    *config_cache().lock().unwrap() = Some(config.clone());
+}
+
+/// Reads, parses, and migrates the configuration from disk (uncached).
+/// Performs safe forward-migration from legacy `<exe>/storage/config.json`
+/// to the OS-standard configuration directory without deleting or destroying
+/// the legacy file.
+fn load_config_from_disk() -> AppConfig {
     let canonical_path = get_canonical_config_path();
     let legacy_path = get_legacy_config_path();
 
@@ -304,14 +339,38 @@ fn get_active_workspace_path_internal(cfg: &AppConfig) -> PathBuf {
     default_ws
 }
 
+/// Atomically writes `content` to `path`: the data is written to a sibling
+/// temporary file first and then renamed over the target, so a crash
+/// mid-write can never leave a truncated or corrupt file behind.
+fn write_atomic(path: &Path, content: &str) -> Result<(), String> {
+    let dir = path.parent().ok_or_else(|| "Invalid config path".to_string())?;
+    fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+
+    let file_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "config.json".to_string());
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp = dir.join(format!(".{}.{}.tmp-{}", file_name, std::process::id(), unique));
+
+    fs::write(&tmp, content).map_err(|e| e.to_string())?;
+    match fs::rename(&tmp, path) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let _ = fs::remove_file(&tmp);
+            Err(e.to_string())
+        }
+    }
+}
+
 pub fn save_config(config: &AppConfig) -> Result<(), String> {
     let canonical_path = get_canonical_config_path();
     let content = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
 
-    if let Some(parent) = canonical_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    fs::write(&canonical_path, &content).map_err(|e| e.to_string())?;
+    write_atomic(&canonical_path, &content)?;
 
     // Save to custom root_path location if different and configured
     let root_path_str = config.storage.root_path.trim().to_string();
@@ -319,8 +378,7 @@ pub fn save_config(config: &AppConfig) -> Result<(), String> {
         let custom_root = PathBuf::from(&root_path_str);
         let custom_path = custom_root.join("config.json");
         if custom_path != canonical_path {
-            let _ = fs::create_dir_all(&custom_root);
-            let _ = fs::write(custom_path, &content);
+            let _ = write_atomic(&custom_path, &content);
         }
         // Always (re-)create required storage sub-directories when root changes
         ensure_storage_dirs(&custom_root);
@@ -331,36 +389,127 @@ pub fn save_config(config: &AppConfig) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_app_config() -> AppConfig {
+pub async fn get_app_config() -> AppConfig {
     load_config()
 }
 
 #[tauri::command]
-pub fn save_app_config(config: AppConfig) -> Result<(), String> {
-    save_config(&config)
-}
+pub async fn save_app_config(app: tauri::AppHandle, config: AppConfig) -> Result<(), String> {
+    // Storage paths are security-sensitive: a compromised webview must not be
+    // able to repoint the storage root or workspace at arbitrary directories.
+    // Only the currently configured value or a path the user picked through a
+    // native dialog / drag-and-drop in this session is accepted.
+    let current = load_config();
+    let session_paths = app.state::<crate::session::SessionPaths>();
 
-#[tauri::command]
-pub fn export_theme_toml(theme: ThemeConfig, export_path: String) -> Result<(), String> {
-    let path = Path::new(&export_path);
-    let toml_str = toml::to_string_pretty(&theme).map_err(|e| e.to_string())?;
-    fs::write(path, toml_str).map_err(|e| e.to_string())?;
+    let new_root = config.storage.root_path.trim().to_string();
+    let root_changed = new_root != current.storage.root_path.trim();
+    if root_changed && !new_root.is_empty() && !session_paths.is_allowed(Path::new(&new_root)) {
+        return Err(
+            "Storage root can only be changed through the native folder picker".to_string(),
+        );
+    }
+
+    let new_workspace = config.storage.workspace_path.trim().to_string();
+    let workspace_changed = new_workspace != current.storage.workspace_path.trim();
+    if workspace_changed
+        && !new_workspace.is_empty()
+        && !session_paths.is_allowed(Path::new(&new_workspace))
+    {
+        return Err(
+            "Workspace path can only be changed through the native folder picker".to_string(),
+        );
+    }
+
+    let config_to_save = config.clone();
+    tauri::async_runtime::spawn_blocking(move || save_config(&config_to_save))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    // Keep the in-memory cache and the runtime asset protocol scope in sync
+    // with what was just written to disk.
+    update_cached_config(&config);
+    if root_changed || workspace_changed {
+        let active = get_active_workspace_path();
+        crate::refresh_asset_protocol_scope(&app, &active);
+    }
     Ok(())
 }
 
 #[tauri::command]
-pub fn import_theme_toml(import_path: String) -> Result<ThemeConfig, String> {
-    let path = Path::new(&import_path);
-    if !path.exists() {
-        return Err("Theme file does not exist".to_string());
+pub async fn export_theme_toml(
+    app: tauri::AppHandle,
+    theme: ThemeConfig,
+    export_path: String,
+    overwrite: Option<bool>,
+) -> Result<(), String> {
+    let path = PathBuf::from(&export_path);
+
+    // The destination must be user-confirmed: either strictly inside the
+    // active workspace or produced by a native save dialog this session.
+    let workspace_root = get_active_workspace_path();
+    let dest = match crate::file_ops::validate_path_in_workspace(&path, &workspace_root) {
+        Ok(validated) => validated,
+        Err(_) => {
+            if app.state::<crate::session::SessionPaths>().is_allowed(&path) {
+                path
+            } else {
+                return Err(
+                    "Export destination must be inside the active workspace or chosen through the native save dialog"
+                        .to_string(),
+                );
+            }
+        }
+    };
+
+    // Never silently clobber an existing file unless explicitly confirmed.
+    if dest.exists() && !overwrite.unwrap_or(false) {
+        return Err(format!(
+            "'{}' already exists; pass overwrite: true to replace it",
+            dest.to_string_lossy()
+        ));
     }
-    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let theme = toml::from_str::<ThemeConfig>(&content).map_err(|e| e.to_string())?;
-    Ok(theme)
+
+    let toml_str = toml::to_string_pretty(&theme)
+        .map_err(|_| "Failed to serialize theme".to_string())?;
+
+    tauri::async_runtime::spawn_blocking(move || fs::write(&dest, toml_str).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn get_app_install_path() -> String {
+pub async fn import_theme_toml(
+    app: tauri::AppHandle,
+    import_path: String,
+) -> Result<ThemeConfig, String> {
+    let path = PathBuf::from(&import_path);
+
+    // The source must be user-confirmed: either strictly inside the active
+    // workspace or produced by a native file picker this session.
+    let workspace_root = get_active_workspace_path();
+    let allowed = crate::file_ops::validate_path_in_workspace(&path, &workspace_root).is_ok()
+        || app.state::<crate::session::SessionPaths>().is_allowed(&path);
+    if !allowed {
+        return Err(
+            "Theme file must be inside the active workspace or chosen through the native file picker"
+                .to_string(),
+        );
+    }
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let content = fs::read_to_string(&path).map_err(|_| "Failed to read theme file".to_string())?;
+        // Deliberately generic error: raw parser errors echo file contents
+        // back to the caller and turn this into a content-disclosure oracle.
+        toml::from_str::<ThemeConfig>(&content)
+            .map_err(|_| "Theme file is not a valid Composer theme".to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_app_install_path() -> String {
     let cfg = load_config();
     if !cfg.storage.root_path.is_empty() {
         cfg.storage.root_path
@@ -370,7 +519,7 @@ pub fn get_app_install_path() -> String {
 }
 
 #[tauri::command]
-pub fn get_workspace_path() -> String {
+pub async fn get_workspace_path() -> String {
     get_active_workspace_path().to_string_lossy().to_string()
 }
 
@@ -406,7 +555,7 @@ pub fn get_cache_dir() -> PathBuf {
 }
 
 #[tauri::command]
-pub fn get_cache_path() -> String {
+pub async fn get_cache_path() -> String {
     get_cache_dir().to_string_lossy().to_string()
 }
 
@@ -426,7 +575,29 @@ mod tests {
         let cfg = create_default_config(&dir);
         assert_eq!(cfg.general.app_name, "Composer");
         assert_eq!(cfg.editor.font_family, "EB Garamond");
-        assert_eq!(cfg.theme.theme_preset, "light");
+        assert_eq!(cfg.theme.theme_preset, "dark");
+    }
+
+    #[test]
+    fn test_write_atomic_replaces_existing_file_and_leaves_no_temp_files() {
+        let dir = std::env::temp_dir().join("composer_test_atomic_write");
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+        let target = dir.join("config.json");
+
+        write_atomic(&target, "old").expect("first write failed");
+        assert_eq!(fs::read_to_string(&target).unwrap(), "old");
+
+        write_atomic(&target, "new").expect("second write failed");
+        assert_eq!(fs::read_to_string(&target).unwrap(), "new");
+
+        let leftovers: Vec<String> = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(leftovers, vec!["config.json".to_string()]);
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }
-

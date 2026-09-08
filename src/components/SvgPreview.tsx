@@ -34,13 +34,24 @@ export const SvgPreview: React.FC<SvgPreviewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const prevBlobUrlRef = useRef<string>("");
 
+  // Debounce the raw content: while editing in code mode, `svgContent` changes
+  // on every keystroke, and we don't want to re-parse / re-serialize the SVG
+  // and rebuild its blob URL at input rate (same pattern as MarkdownPreview).
+  const [debouncedContent, setDebouncedContent] = useState<string>(svgContent);
+
+  useEffect(() => {
+    if (svgContent === debouncedContent) return;
+    const timer = setTimeout(() => setDebouncedContent(svgContent), 200);
+    return () => clearTimeout(timer);
+  }, [svgContent]);
+
   // Parse, validate, and build isolated Blob URL
   useEffect(() => {
-    if (!svgContent) return;
+    if (!debouncedContent) return;
 
     try {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(svgContent, "image/svg+xml");
+      const doc = parser.parseFromString(debouncedContent, "image/svg+xml");
       const parseErrorNode = doc.querySelector("parsererror");
 
       if (parseErrorNode) {
@@ -81,7 +92,7 @@ export const SvgPreview: React.FC<SvgPreviewProps> = ({
         if (!svgEl.getAttribute("xmlns")) {
           svgEl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
         }
-        if (svgContent.includes("xlink:") && !svgEl.getAttribute("xmlns:xlink")) {
+        if (debouncedContent.includes("xlink:") && !svgEl.getAttribute("xmlns:xlink")) {
           svgEl.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
         }
 
@@ -98,7 +109,7 @@ export const SvgPreview: React.FC<SvgPreviewProps> = ({
     } catch (e: any) {
       setXmlError(e.message || "Failed to parse SVG");
     }
-  }, [svgContent]);
+  }, [debouncedContent]);
 
   // Clean up blob URL on unmount
   useEffect(() => {

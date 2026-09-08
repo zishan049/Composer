@@ -1,7 +1,6 @@
 // @ts-nocheck
-import React, { useState, useEffect, useMemo, Suspense } from "react";
-import Editor from "@monaco-editor/react";
-import { 
+import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import {
   Folder, File, FileText, Image as ImageIcon, Table as TableIcon, 
   Search, Plus, Save, BookOpen,
   RotateCw, Columns, Code, FileCode, History, X, ChevronRight, ChevronDown,
@@ -10,7 +9,7 @@ import {
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { FileEntry } from "../types";
+import { FileEntry, AppConfig } from "../types";
 import { useCustomContextMenu } from "./ContextMenu";
 import { trackRecentFile } from "../utils/recentFiles";
 import { SvgFileIcon } from "./SvgFileIcon";
@@ -22,6 +21,14 @@ const SvgPreview   = React.lazy(() => import("./SvgPreview"));
 const ImagePreview = React.lazy(() => import("./ImagePreview"));
 const MarkdownPreview = React.lazy(() => import("./MarkdownPreview").then(m => ({ default: m.MarkdownPreview })));
 
+// PERF-2 + PERF-3: Monaco and its self-hosted setup module (loader.config +
+// MonacoEnvironment workers — see src/lib/monacoSetup.ts) only load when an
+// editable tab is first opened, so the monaco vendor chunk is never fetched
+// at startup. The setup module's side effects run before the editor mounts.
+const Editor = React.lazy(() =>
+  import("../lib/monacoSetup").then(() => import("@monaco-editor/react"))
+);
+
 interface OpenTab {
   path: string;
   name: string;
@@ -30,11 +37,240 @@ interface OpenTab {
   isModified: boolean;
   fileType: string;
   fileSize?: number;
+  tooLarge?: boolean;      // PERF-13: oversized file opened read-only (metadata only)
   svgViewMode?: "preview" | "split" | "code";
   mdViewMode?: "preview" | "split" | "code";
 }
 
-export const Explorer: React.FC = () => {
+// PERF-13: files larger than this open in a read-only metadata view instead of
+// being read into React state.
+const MAX_EDITABLE_FILE_SIZE = 10 * 1024 * 1024;
+
+// PERF-16: version-history cap fallback — replaced by the configured
+// `max_versions_per_file` once the app config is loaded.
+const DEFAULT_MAX_VERSIONS = 20;
+
+// PERF-12: number of CSV rows rendered per page in grid view.
+const CSV_PAGE_SIZE = 500;
+
+// Debounce helper — keeps rapid updates from thrashing expensive sinks (iframes, grids)
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+const getFileType = (name: string): string => {
+  const ext = name.split(".").pop()?.toLowerCase();
+  if (!ext) return "code";
+  if (["txt", "md"].includes(ext)) return ext;
+  if (["html", "css", "js"].includes(ext)) return "html";
+  if (["png", "jpg", "jpeg", "webp", "gif", "bmp", "ico", "avif", "tiff"].includes(ext)) return "image";
+  if (ext === "pdf") return "pdf";
+  if (ext === "svg") return "svg";
+  if (["csv", "json", "toml"].includes(ext)) return ext;
+  return "code";
+};
+
+const isSvgFile = (tab?: OpenTab | null): boolean => {
+  if (!tab) return false;
+  return tab.fileType === "svg" || tab.name.toLowerCase().endsWith(".svg");
+};
+
+const isMdFile = (tab?: OpenTab | null): boolean => {
+  if (!tab) return false;
+  return tab.fileType === "md" || tab.name.toLowerCase().endsWith(".md");
+};
+
+// ── File type icon helper ──────────────────────────────────────
+const getFileIcon = (file: FileEntry, isSelected: boolean) => {
+  const iconColor = isSelected ? "var(--accent)" : "var(--text-muted)";
+  const iconProps = { size: 13, style: { color: iconColor, flexShrink: 0 } };
+  if (file.is_dir)                                                      return <Folder           {...iconProps} />;
+  if (file.name.toLowerCase().endsWith(".svg"))                         return <SvgFileIcon      {...iconProps} />;
+  if (file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown")) return <MarkdownFileIcon {...iconProps} />;
+  if (file.name.toLowerCase().endsWith(".txt"))                        return <FileText         {...iconProps} />;
+  if (file.name.match(/\.(png|jpg|jpeg|webp|gif)$/i))                   return <ImageIcon        {...iconProps} />;
+  if (file.name.endsWith(".pdf"))                                       return <FileText         {...{ ...iconProps, style: { color: "#F87171", flexShrink: 0 } }} />;
+  if (file.name.match(/\.(csv|json|toml)$/i))                          return <TableIcon        {...iconProps} />;
+  return <FileCode {...iconProps} />;
+};
+
+interface FileRowProps {
+  file: FileEntry;
+  isSelected: boolean;
+  onOpen: (file: FileEntry) => void;
+  onToggleSelect: (path: string) => void;
+  onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
+}
+
+// PERF-1: memoized row — keystrokes and unrelated state changes no longer
+// re-render every file in the list. Handlers are stable (see Explorer).
+const FileRow = React.memo(function FileRow({ file, isSelected, onOpen, onToggleSelect, onContextMenu }: FileRowProps) {
+  return (
+    <div
+      onClick={e => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          onToggleSelect(file.path);
+        } else {
+          onOpen(file);
+        }
+      }}
+      onContextMenu={e => onContextMenu(e, file)}
+      className={`exp-tree-item ${isSelected ? "selected" : ""}`}
+    >
+      <span className="exp-tree-icon">{getFileIcon(file, isSelected)}</span>
+      <span className="exp-tree-name">{file.name}</span>
+    </div>
+  );
+});
+
+// PERF-1: Monaco keystrokes stay inside this leaf component. Draft text is held
+// in local state and committed up to Explorer on the 800ms autosave cadence
+// (immediately when the dirty flag flips), so typing never re-renders the whole
+// Explorer tree. Drafts are flushed on unmount, and external content changes
+// (version restore) are adopted automatically.
+const MonacoTabEditor = React.memo(function MonacoTabEditor({
+  tab,
+  monacoTheme,
+  onCommit,
+}: {
+  tab: OpenTab;
+  monacoTheme: string;
+  onCommit: (path: string, content: string) => void;
+}) {
+  const [draft, setDraft] = useState<string>(tab.content);
+  const draftRef = useRef<string>(tab.content);
+  const committedRef = useRef<string>(tab.content);
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Adopt external content changes (version-history restore, PDF re-save)
+  useEffect(() => {
+    if (tab.content !== committedRef.current) {
+      committedRef.current = tab.content;
+      draftRef.current = tab.content;
+      if (commitTimerRef.current !== null) {
+        clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
+      }
+      setDraft(tab.content);
+    }
+  }, [tab.content]);
+
+  const flushCommit = useCallback(() => {
+    if (commitTimerRef.current !== null) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+    if (draftRef.current !== committedRef.current) {
+      committedRef.current = draftRef.current;
+      onCommit(tab.path, draftRef.current);
+    }
+  }, [onCommit, tab.path]);
+
+  // Flush pending edits when this pane unmounts (tab switch)
+  useEffect(() => flushCommit, [flushCommit]);
+
+  const language =
+    tab.fileType === "html" ? "html" :
+    tab.fileType === "md"   ? "markdown" :
+    tab.fileType === "json" ? "json" :
+    tab.fileType === "toml" ? "ini" :
+    isSvgFile(tab)          ? "xml" : "typescript";
+
+  const handleChange = (val: string | undefined) => {
+    if (val === undefined) return;
+    draftRef.current = val;
+    setDraft(val);
+
+    if (commitTimerRef.current !== null) clearTimeout(commitTimerRef.current);
+    commitTimerRef.current = setTimeout(() => {
+      commitTimerRef.current = null;
+      flushCommit();
+    }, 800);
+
+    // The dirty indicator must flip immediately, not on the debounce cadence
+    if ((val !== tab.originalContent) !== tab.isModified) {
+      flushCommit();
+    }
+  };
+
+  return (
+    <Editor
+      height="100%"
+      defaultLanguage={language}
+      language={language}
+      theme={monacoTheme}
+      value={draft}
+      onChange={handleChange}
+      options={{
+        minimap: { enabled: false },
+        fontSize: 13,
+        fontFamily: '"JetBrains Mono", "Cascadia Code", Consolas, monospace',
+        lineHeight: 1.6,
+        tabSize: 2,
+        wordWrap: "on",
+        scrollbar: { verticalScrollbarSize: 5, horizontalScrollbarSize: 5 },
+        padding: { top: 12, bottom: 12 },
+      }}
+    />
+  );
+});
+
+// PERF-12: parse the CSV once per content change (memoized) and render in
+// pages instead of materializing every row of a potentially huge file.
+const CsvGridView = React.memo(function CsvGridView({ content }: { content: string }) {
+  const [visibleRows, setVisibleRows] = useState<number>(CSV_PAGE_SIZE);
+
+  const lines = useMemo(() => content.split("\n"), [content]);
+  const headerCells = useMemo(() => lines[0]?.split(",") ?? [], [lines]);
+  const bodyRows = useMemo(() => lines.slice(1).filter(row => row.trim()), [lines]);
+  const shownRows = bodyRows.slice(0, visibleRows);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <table className="exp-grid-table">
+        <thead>
+          <tr>
+            {headerCells.map((col, idx) => (
+              <th key={idx}>{col}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {shownRows.map((row, rIdx) => (
+            <tr key={rIdx}>
+              {row.split(",").map((cell, cIdx) => <td key={cIdx}>{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {bodyRows.length > shownRows.length && (
+        <button
+          onClick={() => setVisibleRows(prev => prev + CSV_PAGE_SIZE)}
+          style={{
+            alignSelf: "center",
+            background: "none",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-sm)",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            fontSize: "11px",
+            padding: "4px 12px",
+          }}
+        >
+          Show more rows ({shownRows.length} of {bodyRows.length})
+        </button>
+      )}
+    </div>
+  );
+});
+
+const ExplorerComponent: React.FC = () => {
   const [currentDirPath, setCurrentDirPath] = useState<string>("");
   const [sidebarWidth, setSidebarWidth] = useState<number>(240);
   const [isResizing, setIsResizing] = useState<boolean>(false);
@@ -99,6 +335,8 @@ export const Explorer: React.FC = () => {
   const [isGridView, setIsGridView] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [fileVersions, setFileVersions] = useState<{version: number, timestamp: string, content: string}[]>([]);
+  // PERF-16: cap for the in-memory version history (config max_versions_per_file)
+  const [maxVersionsPerFile, setMaxVersionsPerFile] = useState<number>(DEFAULT_MAX_VERSIONS);
 
   const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number }>>({});
   const [isPdfEditMode, setIsPdfEditMode] = useState<boolean>(false);
@@ -298,8 +536,13 @@ export const Explorer: React.FC = () => {
 
   const { showContextMenu, ContextMenuComponent } = useCustomContextMenu();
 
+  // PERF-14: window/keyboard listeners and memoized file rows read the latest
+  // state & handlers through this ref (assigned every render below), so the
+  // listeners register once and row handlers keep a stable identity.
+  const latestRef = useRef<any>(null);
+
   // Load directory contents
-  const loadDirectory = async (path: string) => {
+  const loadDirectory = useCallback(async (path: string) => {
     try {
       const result: FileEntry[] = await invoke("list_directory_contents", { dirPath: path });
       // Hide the system Cache folder from the Explorer sidebar
@@ -315,11 +558,20 @@ export const Explorer: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDirectory("");
     const unsub = listen("config_updated", () => loadDirectory(""));
+
+    // PERF-16: read the configured version-history cap
+    invoke<AppConfig>("get_app_config")
+      .then(cfg => {
+        const max = cfg?.editor?.max_versions_per_file;
+        if (typeof max === "number" && max > 0) setMaxVersionsPerFile(max);
+      })
+      .catch(() => {});
+
     return () => { unsub.then(fn => fn()); };
   }, []);
 
@@ -361,7 +613,8 @@ export const Explorer: React.FC = () => {
     };
   }, []);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (PERF-14: registered once — the handler reads the
+  // latest state and handlers through latestRef)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -372,34 +625,36 @@ export const Explorer: React.FC = () => {
         target?.isContentEditable
       ) return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveActiveTab(); }
+      const s = latestRef.current;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); s.saveActiveTab(); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "w") {
         e.preventDefault();
-        if (activeTabPath) {
-          const filtered = openTabs.filter(t => t.path !== activeTabPath);
+        if (s.activeTabPath) {
+          const filtered = s.openTabs.filter(t => t.path !== s.activeTabPath);
           setOpenTabs(filtered);
           setActiveTabPath(filtered.length > 0 ? filtered[filtered.length - 1].path : null);
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") { e.preventDefault(); openNewItemModal("file"); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") { e.preventDefault(); s.openNewItemModal("file"); }
       if (e.key === "F2") {
         e.preventDefault();
-        const targetPath = selectedPaths.length === 1 ? selectedPaths[0] : activeTabPath;
-        if (targetPath) openRenameModal(targetPath);
+        const targetPath = s.selectedPaths.length === 1 ? s.selectedPaths[0] : s.activeTabPath;
+        if (targetPath) s.openRenameModal(targetPath);
       }
       if (e.key === "Delete" || e.key === "Del") {
         e.preventDefault();
-        const targets = selectedPaths.length > 0 ? selectedPaths : (activeTabPath ? [activeTabPath] : []);
+        const targets = s.selectedPaths.length > 0 ? s.selectedPaths : (s.activeTabPath ? [s.activeTabPath] : []);
         const toDelete = targets.filter(p => !p.includes("composer.toml"));
         if (toDelete.length > 0) {
           if (confirm(`Are you sure you want to delete ${toDelete.length} selected item(s)?`)) {
             Promise.all(toDelete.map(path => invoke("delete_file_or_dir", { path })))
               .then(() => {
                 setSelectedPaths([]);
-                loadDirectory(currentDirPath);
-                const remainingTabs = openTabs.filter(t => !toDelete.includes(t.path));
+                s.loadDirectory(s.currentDirPath);
+                const remainingTabs = s.openTabs.filter(t => !toDelete.includes(t.path));
                 setOpenTabs(remainingTabs);
-                if (activeTabPath && toDelete.includes(activeTabPath)) {
+                if (s.activeTabPath && toDelete.includes(s.activeTabPath)) {
                   setActiveTabPath(remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].path : null);
                 }
               })
@@ -407,77 +662,73 @@ export const Explorer: React.FC = () => {
           }
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") { e.preventDefault(); setSelectedPaths(files.map(f => f.path)); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") { e.preventDefault(); setSelectedPaths(s.files.map(f => f.path)); }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedPaths, activeTabPath, openTabs, currentDirPath, files]);
+  }, []);
 
-  const getFileType = (name: string): string => {
-    const ext = name.split(".").pop()?.toLowerCase();
-    if (!ext) return "code";
-    if (["txt", "md"].includes(ext)) return ext;
-    if (["html", "css", "js"].includes(ext)) return "html";
-    if (["png", "jpg", "jpeg", "webp", "gif", "bmp", "ico", "avif", "tiff"].includes(ext)) return "image";
-    if (ext === "pdf") return "pdf";
-    if (ext === "svg") return "svg";
-    if (["csv", "json", "toml"].includes(ext)) return ext;
-    return "code";
-  };
-
-  const isSvgFile = (tab?: OpenTab | null): boolean => {
-    if (!tab) return false;
-    return tab.fileType === "svg" || tab.name.toLowerCase().endsWith(".svg");
-  };
-
-  const isMdFile = (tab?: OpenTab | null): boolean => {
-    if (!tab) return false;
-    return tab.fileType === "md" || tab.name.toLowerCase().endsWith(".md");
-  };
-
-  const openFile = async (entry: FileEntry) => {
+  const openFile = useCallback(async (entry: FileEntry) => {
     trackRecentFile(entry.path, entry.name);
-    const existing = openTabs.find(t => t.path === entry.path);
-    if (existing) { setActiveTabPath(entry.path); return; }
+    if (latestRef.current && latestRef.current.openTabs.some(t => t.path === entry.path)) {
+      setActiveTabPath(entry.path);
+      return;
+    }
 
     const type = getFileType(entry.name);
     let content = "";
+    let tooLarge = false;
+    let fileSize = entry.size;
+
     if (type === "pdf" || type === "image") {
       try { content = convertFileSrc(entry.path); }
       catch (e) { content = `[Failed to resolve asset path: ${e}]`; }
+    } else if (entry.size > MAX_EDITABLE_FILE_SIZE) {
+      // PERF-13: don't read multi-megabyte files into memory — open a
+      // read-only metadata view instead.
+      tooLarge = true;
     } else {
-      try { content = await invoke("read_text_file", { filePath: entry.path }); }
-      catch (e) { content = `[Binary content or could not read file: ${e}]`; }
+      try {
+        content = await invoke("read_text_file", { filePath: entry.path });
+        // PERF-13: the size may be unknown (e.g. opened via Home search) —
+        // guard again after reading and drop the content if it's huge.
+        if (content.length > MAX_EDITABLE_FILE_SIZE) {
+          tooLarge = true;
+          if (!fileSize) fileSize = content.length;
+          content = "";
+        }
+      } catch (e) { content = `[Binary content or could not read file: ${e}]`; }
     }
 
     const newTab: OpenTab = {
       path: entry.path, name: entry.name, content, originalContent: content,
-      isModified: false, fileType: type, fileSize: entry.size,
+      isModified: false, fileType: type, fileSize, tooLarge,
       svgViewMode: type === "svg" ? "preview" : undefined,
       mdViewMode:  type === "md"  ? "split"   : undefined,
     };
     setOpenTabs(prev => [...prev, newTab]);
     setActiveTabPath(entry.path);
-  };
+  }, []);
 
   // Listen for file-open and quick-action events dispatched from Home or elsewhere
+  // (PERF-14: registered once — handlers read the latest state via latestRef)
   useEffect(() => {
     const handleOpenFile = async (e: any) => {
       const { path, name, is_dir } = e.detail || {};
       if (!path) return;
       if (is_dir) {
-        loadDirectory(path);
+        latestRef.current.loadDirectory(path);
       } else {
         const fileName = name || path.split(/[\\\/]/).pop() || "file";
-        await openFile({ name: fileName, path, is_dir: false, size: 0 });
+        await latestRef.current.openFile({ name: fileName, path, is_dir: false, size: 0 });
       }
     };
 
     const handleHomeAction = (e: any) => {
       const action = e.detail;
       if (action === "file" || action === "folder" || action === "import-file" || action === "import-folder") {
-        openNewItemModal(action);
+        latestRef.current.openNewItemModal(action);
       }
     };
 
@@ -487,7 +738,7 @@ export const Explorer: React.FC = () => {
       window.removeEventListener("composer:open-file", handleOpenFile);
       window.removeEventListener("composer:home-action", handleHomeAction);
     };
-  }, [openTabs, currentDirPath]);
+  }, []);
 
   const closeTab = (path: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -504,21 +755,54 @@ export const Explorer: React.FC = () => {
       try {
         await invoke("write_text_file", { filePath: tab.path, content: tab.content });
         setOpenTabs(openTabs.map(t => t.path === tab.path ? { ...t, isModified: false, originalContent: t.content } : t));
-        const newVersion = { version: fileVersions.length + 1, timestamp: new Date().toLocaleTimeString(), content: tab.content };
-        setFileVersions([newVersion, ...fileVersions]);
+        // PERF-16: cap the in-memory version history at the configured limit
+        const newVersion = {
+          version: (fileVersions[0]?.version ?? 0) + 1,
+          timestamp: new Date().toLocaleTimeString(),
+          content: tab.content,
+        };
+        setFileVersions([newVersion, ...fileVersions].slice(0, maxVersionsPerFile));
       } catch (e) { alert("Failed to save: " + e); }
     }
   };
 
-  const handleContentChange = (val: string | undefined) => {
-    if (val === undefined || !activeTabPath) return;
-    setOpenTabs(openTabs.map(t => {
-      if (t.path === activeTabPath) return { ...t, content: val, isModified: val !== t.originalContent };
-      return t;
+  // PERF-1: the single commit path from the editor pane into tab state (also
+  // used by version-history restore). Returns the same tab object when nothing
+  // actually changed so no-op flushes don't cause a re-render.
+  const commitTabContent = useCallback((path: string, val: string) => {
+    setOpenTabs(prev => prev.map(t => {
+      if (t.path !== path) return t;
+      const isModified = val !== t.originalContent;
+      if (t.content === val && t.isModified === isModified) return t;
+      return { ...t, content: val, isModified };
     }));
+  }, []);
+
+  // PERF-14: keep the ref pointing at the latest state & handlers
+  latestRef.current = {
+    selectedPaths, activeTabPath, openTabs, currentDirPath, files,
+    loadDirectory, openFile, saveActiveTab, openRenameModal, openNewItemModal,
   };
 
   const activeTab = openTabs.find(t => t.path === activeTabPath);
+
+  // SEC-8 + PERF-5: script-free preview (sandbox=""), debounced so typing
+  // doesn't tear down and rebuild the iframe on every keystroke
+  const debouncedHtmlContent = useDebouncedValue(
+    activeTab?.fileType === "html" ? activeTab.content : "",
+    250
+  );
+
+  // PERF-1: filter the file list once per query change (lowercase computed
+  // once), not per file per render
+  const visibleFiles = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return files;
+    return files.filter(f => f.name.toLowerCase().includes(q));
+  }, [files, searchQuery]);
+
+  const selectedPathSet = useMemo(() => new Set(selectedPaths), [selectedPaths]);
+
   const activeSvgMode = activeTab?.svgViewMode || svgViewMode;
   const setSvgMode = (mode: "preview" | "split" | "code") => {
     setSvgViewMode(mode);
@@ -545,10 +829,12 @@ export const Explorer: React.FC = () => {
     return () => clearTimeout(timer);
   }, [activeTab?.content, activeTab?.path, activeTab?.isModified]);
 
-  // Context menus
-  const handleFileRightClick = (e: React.MouseEvent, entry: FileEntry) => {
-    let currentSelection = selectedPaths;
-    if (!selectedPaths.includes(entry.path)) {
+  // Context menus (PERF-1: stable identity for the memoized file rows; reads
+  // the latest state via latestRef. showContextMenu only calls a stable
+  // setter, so the first-render instance is safe to keep.)
+  const handleFileRightClick = useCallback((e: React.MouseEvent, entry: FileEntry) => {
+    let currentSelection = latestRef.current.selectedPaths;
+    if (!currentSelection.includes(entry.path)) {
       currentSelection = [entry.path];
       setSelectedPaths([entry.path]);
     }
@@ -557,18 +843,19 @@ export const Explorer: React.FC = () => {
         label: currentSelection.length > 1 ? `Open Selected (${currentSelection.length})` : `Open ${entry.name}`,
         icon: <File size={13} />,
         onClick: () => {
+          const s = latestRef.current;
           if (entry.is_dir && currentSelection.length === 1) {
-            loadDirectory(entry.path);
+            s.loadDirectory(entry.path);
           } else {
             currentSelection.forEach(async (path) => {
-              const fileObj = files.find(f => f.path === path);
-              if (fileObj && !fileObj.is_dir) openFile(fileObj);
+              const fileObj = s.files.find(f => f.path === path);
+              if (fileObj && !fileObj.is_dir) s.openFile(fileObj);
             });
           }
         }
       },
       { label: "", isSeparator: true },
-      { label: "Rename", shortcut: "F2", disabled: currentSelection.length > 1, onClick: () => openRenameModal(entry.path) },
+      { label: "Rename", shortcut: "F2", disabled: currentSelection.length > 1, onClick: () => latestRef.current.openRenameModal(entry.path) },
       {
         label: "Delete", shortcut: "Del",
         disabled: currentSelection.some(p => p.includes("composer.toml")),
@@ -577,10 +864,11 @@ export const Explorer: React.FC = () => {
             Promise.all(currentSelection.map(path => invoke("delete_file_or_dir", { path })))
               .then(() => {
                 setSelectedPaths([]);
-                loadDirectory(currentDirPath);
-                const remainingTabs = openTabs.filter(t => !currentSelection.includes(t.path));
+                const s = latestRef.current;
+                s.loadDirectory(s.currentDirPath);
+                const remainingTabs = s.openTabs.filter(t => !currentSelection.includes(t.path));
                 setOpenTabs(remainingTabs);
-                if (activeTabPath && currentSelection.includes(activeTabPath)) {
+                if (s.activeTabPath && currentSelection.includes(s.activeTabPath)) {
                   setActiveTabPath(remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].path : null);
                 }
               })
@@ -589,7 +877,8 @@ export const Explorer: React.FC = () => {
         }
       }
     ]);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSidebarBlankRightClick = (e: React.MouseEvent) => {
     showContextMenu(e, [
@@ -602,19 +891,18 @@ export const Explorer: React.FC = () => {
     ]);
   };
 
-  // ── File type icon helper ──────────────────────────────────────
-  const getFileIcon = (file: FileEntry, isSelected: boolean) => {
-    const iconColor = isSelected ? "var(--accent)" : "var(--text-muted)";
-    const iconProps = { size: 13, style: { color: iconColor, flexShrink: 0 } };
-    if (file.is_dir)                                                      return <Folder           {...iconProps} />;
-    if (file.name.toLowerCase().endsWith(".svg"))                         return <SvgFileIcon      {...iconProps} />;
-    if (file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown")) return <MarkdownFileIcon {...iconProps} />;
-    if (file.name.toLowerCase().endsWith(".txt"))                        return <FileText         {...iconProps} />;
-    if (file.name.match(/\.(png|jpg|jpeg|webp|gif)$/i))                   return <ImageIcon        {...iconProps} />;
-    if (file.name.endsWith(".pdf"))                                       return <FileText         {...{ ...iconProps, style: { color: "#F87171", flexShrink: 0 } }} />;
-    if (file.name.match(/\.(csv|json|toml)$/i))                          return <TableIcon        {...iconProps} />;
-    return <FileCode {...iconProps} />;
-  };
+  // PERF-1: stable row handlers so memoized FileRows don't re-render
+  const handleRowToggleSelect = useCallback((path: string) => {
+    setSelectedPaths(prev =>
+      prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]
+    );
+  }, []);
+
+  const handleRowOpen = useCallback((file: FileEntry) => {
+    setSelectedPaths([file.path]);
+    if (file.is_dir) loadDirectory(file.path);
+    else openFile(file);
+  }, [loadDirectory, openFile]);
 
   // ─────────────────────────────────────────────────────────────
   return (
@@ -696,34 +984,16 @@ export const Explorer: React.FC = () => {
           )}
 
           {/* File entries */}
-          {files
-            .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
-            .map(file => {
-              const isSelected = selectedPaths.includes(file.path);
-              return (
-                <div
-                  key={file.path}
-                  onClick={e => {
-                    if (e.ctrlKey || e.metaKey) {
-                      e.preventDefault();
-                      setSelectedPaths(prev =>
-                        prev.includes(file.path) ? prev.filter(p => p !== file.path) : [...prev, file.path]
-                      );
-                    } else {
-                      setSelectedPaths([file.path]);
-                      if (file.is_dir) loadDirectory(file.path);
-                      else openFile(file);
-                    }
-                  }}
-                  onContextMenu={e => handleFileRightClick(e, file)}
-                  className={`exp-tree-item ${isSelected ? "selected" : ""}`}
-                >
-                  <span className="exp-tree-icon">{getFileIcon(file, isSelected)}</span>
-                  <span className="exp-tree-name">{file.name}</span>
-                </div>
-              );
-            })
-          }
+          {visibleFiles.map(file => (
+            <FileRow
+              key={file.path}
+              file={file}
+              isSelected={selectedPathSet.has(file.path)}
+              onOpen={handleRowOpen}
+              onToggleSelect={handleRowToggleSelect}
+              onContextMenu={handleFileRightClick}
+            />
+          ))}
         </div>
       </div>
 
@@ -772,7 +1042,17 @@ export const Explorer: React.FC = () => {
         )}
 
         {/* Tab Content */}
-        {activeTab && (
+        {activeTab && (activeTab.tooLarge ? (
+          /* PERF-13: oversized file — read-only metadata view (matches empty state) */
+          <div className="exp-empty">
+            <div className="exp-empty-brand" style={{ fontSize: "22px", opacity: 0.5 }}>{activeTab.name}</div>
+            <p className="exp-empty-hint">
+              This file is {formatFileSize(activeTab.fileSize)} — too large to open in the editor
+              (limit {formatFileSize(MAX_EDITABLE_FILE_SIZE)}).
+            </p>
+            <p className="exp-empty-hint" style={{ fontSize: "11px", opacity: 0.7 }}>{activeTab.path}</p>
+          </div>
+        ) : (
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
             {/* Editor Workspace Column */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -907,22 +1187,7 @@ export const Explorer: React.FC = () => {
                       {isGridView ? (
                         <div style={{ width: "100%", height: "100%", overflow: "auto", padding: "12px", backgroundColor: "var(--bg-app)" }}>
                           {activeTab.fileType === "csv" ? (
-                            <table className="exp-grid-table">
-                              <thead>
-                                <tr>
-                                  {activeTab.content.split("\n")[0]?.split(",").map((col, idx) => (
-                                    <th key={idx}>{col}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {activeTab.content.split("\n").slice(1).filter(row => row.trim()).map((row, rIdx) => (
-                                  <tr key={rIdx}>
-                                    {row.split(",").map((cell, cIdx) => <td key={cIdx}>{cell}</td>)}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                            <CsvGridView key={activeTab.path} content={activeTab.content} />
                           ) : (
                             <div style={{ padding: "12px", backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
                               {activeTab.content}
@@ -940,35 +1205,11 @@ export const Explorer: React.FC = () => {
                           }}
                         />
                       ) : (
-                        <Editor
-                          height="100%"
-                          defaultLanguage={
-                            activeTab.fileType === "html"   ? "html" :
-                            activeTab.fileType === "md"     ? "markdown" :
-                            activeTab.fileType === "json"   ? "json" :
-                            activeTab.fileType === "toml"   ? "ini" :
-                            isSvgFile(activeTab)            ? "xml" : "typescript"
-                          }
-                          language={
-                            activeTab.fileType === "html"   ? "html" :
-                            activeTab.fileType === "md"     ? "markdown" :
-                            activeTab.fileType === "json"   ? "json" :
-                            activeTab.fileType === "toml"   ? "ini" :
-                            isSvgFile(activeTab)            ? "xml" : "typescript"
-                          }
-                          theme={monacoTheme}
-                          value={activeTab.content}
-                          onChange={handleContentChange}
-                          options={{
-                            minimap: { enabled: false },
-                            fontSize: 13,
-                            fontFamily: '"JetBrains Mono", "Cascadia Code", Consolas, monospace',
-                            lineHeight: 1.6,
-                            tabSize: 2,
-                            wordWrap: "on",
-                            scrollbar: { verticalScrollbarSize: 5, horizontalScrollbarSize: 5 },
-                            padding: { top: 12, bottom: 12 },
-                          }}
+                        <MonacoTabEditor
+                          key={activeTab.path}
+                          tab={activeTab}
+                          monacoTheme={monacoTheme}
+                          onCommit={commitTabContent}
                         />
                       )}
                     </div>
@@ -999,7 +1240,10 @@ export const Explorer: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                      <iframe sandbox="allow-scripts" style={{ flex: 1, border: "none" }} srcDoc={activeTab.content} />
+                      {/* SEC-8: purely visual preview — no allow-scripts.
+                          PERF-5: srcDoc is debounced (250ms) so typing
+                          doesn't tear down and rebuild the iframe per keystroke. */}
+                      <iframe sandbox="" style={{ flex: 1, border: "none" }} srcDoc={debouncedHtmlContent} />
                     </div>
                   )}
 
@@ -1024,7 +1268,7 @@ export const Explorer: React.FC = () => {
                             </div>
                             <button
                               className="exp-history-restore-btn"
-                              onClick={() => handleContentChange(v.content)}
+                              onClick={() => commitTabContent(activeTab.path, v.content)}
                             >
                               Restore
                             </button>
@@ -1038,6 +1282,7 @@ export const Explorer: React.FC = () => {
               </Suspense>
             </div>
           </div>
+          )
         )}
       </div>
 
@@ -1271,3 +1516,7 @@ export const Explorer: React.FC = () => {
     </div>
   );
 };
+
+// PERF-7: memoized page — App-level updates (page switches, config changes)
+// don't re-render the Explorer while it stays mounted in the background.
+export const Explorer = React.memo(ExplorerComponent);

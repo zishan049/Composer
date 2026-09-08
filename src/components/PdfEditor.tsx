@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as pdfjsLib from "pdfjs-dist";
-import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFPageProxy, PDFDocumentLoadingTask, RenderTask } from "pdfjs-dist";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { invoke } from "@tauri-apps/api/core";
 import { Save, Loader } from "lucide-react";
@@ -40,6 +40,10 @@ interface PageData {
 // ─── PdfPage ─────────────────────────────────────────────────────────────────
 // Each page owns its own canvas. Rendering happens in a useEffect that fires
 // after the canvas is mounted, so the ref is always valid.
+//
+// The component is memoized and receives only its own page's edit map (see
+// the per-page `edits` state in PdfEditor), so typing in one page's text box
+// never re-renders the other pages' overlay trees.
 interface PdfPageProps {
   data: PageData;
   edits: Record<string, string>;
@@ -47,11 +51,18 @@ interface PdfPageProps {
   onTextChange: (pi: number, ii: number, v: string) => void;
 }
 
-const PdfPage: React.FC<PdfPageProps> = ({ data, edits, editKey, onTextChange }) => {
+/** Stable empty map – lets memoized pages without edits skip re-rendering. */
+const EMPTY_EDITS: Record<string, string> = {};
+
+/** Pure key helper kept at module scope so its identity never changes. */
+const editKey = (pi: number, ii: number) => `${pi}:${ii}`;
+
+const PdfPage = React.memo(({ data, edits, editKey, onTextChange }: PdfPageProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let renderTask: RenderTask | null = null;
     const render = async () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -59,11 +70,27 @@ const PdfPage: React.FC<PdfPageProps> = ({ data, edits, editKey, onTextChange })
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d");
-      if (!ctx || cancelled) return;
-      await data.pdfPage.render({ canvasContext: ctx, canvas, viewport }).promise;
+      if (!ctx) return;
+      try {
+        renderTask = data.pdfPage.render({ canvasContext: ctx, canvas, viewport });
+        await renderTask.promise;
+        renderTask = null;
+        // Free the page's intermediate worker-side resources now that the
+        // render is done (the text items we still need were already extracted).
+        if (!cancelled) data.pdfPage.cleanup();
+      } catch {
+        // Rendering was cancelled (unmount / data replaced) – nothing to do.
+      }
     };
     render();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      renderTask?.cancel();
+      renderTask = null;
+      // Release the canvas backing store immediately.
+      const canvas = canvasRef.current;
+      if (canvas) { canvas.width = 0; canvas.height = 0; }
+    };
   }, [data]);
 
   return (
@@ -130,7 +157,7 @@ const PdfPage: React.FC<PdfPageProps> = ({ data, edits, editKey, onTextChange })
       })}
     </div>
   );
-};
+});
 
 // ─── PdfEditor ────────────────────────────────────────────────────────────────
 interface PdfEditorProps {
@@ -141,8 +168,11 @@ interface PdfEditorProps {
 
 const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved }) => {
   const SCALE = 1.5;
-  const [pages,   setPages]   = useState<PageData[]>([]);
-  const [edits,   setEdits]   = useState<Record<string, string>>({});
+  const [pages, setPages] = useState<PageData[]>([]);
+  // Edits grouped per page (`{ [pageIndex]: { "pi:ii": value } }`) so a
+  // keystroke only produces a new map for the page being edited and every
+  // other memoized PdfPage keeps its old props.
+  const [edits, setEdits] = useState<Record<number, Record<string, string>>>({});
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const rawBytesRef = useRef<Uint8Array | null>(null);
@@ -159,15 +189,18 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
   // ── load PDF ───────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
+    let destroyed = false;
+    let loadingTask: PDFDocumentLoadingTask | null = null;
+    let pdf: PDFDocumentProxy | null = null;
     setLoading(true);
     setEdits({});
     setPages([]);
 
     (async () => {
       try {
-        let pdf: PDFDocumentProxy;
         if (base64DataUrl.startsWith("asset:") || base64DataUrl.startsWith("http")) {
-          pdf = await pdfjsLib.getDocument({ url: base64DataUrl }).promise;
+          loadingTask = pdfjsLib.getDocument({ url: base64DataUrl });
+          pdf = await loadingTask.promise;
           fetch(base64DataUrl)
             .then(res => res.arrayBuffer())
             .then(buf => { rawBytesRef.current = new Uint8Array(buf); })
@@ -175,7 +208,10 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
         } else {
           const bytes = decodeBase64(base64DataUrl);
           rawBytesRef.current = bytes;
-          pdf = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+          // pdf.js transfers the data buffer to the worker (detaching it in
+          // this thread), so hand it a copy and keep the original for saving.
+          loadingTask = pdfjsLib.getDocument({ data: bytes.slice() });
+          pdf = await loadingTask.promise;
         }
         const result: PageData[] = [];
 
@@ -222,19 +258,36 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
           setLoading(false);
         }
       } catch (err) {
-        console.error("PdfEditor load error:", err);
-        if (!cancelled) setLoading(false);
+        // Rejections caused by our own destroy() in the cleanup below are
+        // expected – don't log those.
+        if (!cancelled) {
+          console.error("PdfEditor load error:", err);
+          setLoading(false);
+        }
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Guard against double-destroy.
+      if (destroyed) return;
+      destroyed = true;
+      if (pdf) {
+        // Document finished loading – destroy it to release worker-side
+        // resources (per opened PDF tab / on file change).
+        pdf.destroy().catch(() => {});
+      } else if (loadingTask) {
+        // Load still in flight – destroying the task cancels it.
+        loadingTask.destroy().catch(() => {});
+      }
+    };
   }, [base64DataUrl, decodeBase64]);
 
   // ── edit helpers ───────────────────────────────────────────────────────────
-  const editKey = (pi: number, ii: number) => `${pi}:${ii}`;
-
-  const handleTextChange = (pi: number, ii: number, v: string) =>
-    setEdits(prev => ({ ...prev, [editKey(pi, ii)]: v }));
+  const handleTextChange = useCallback((pi: number, ii: number, v: string) => {
+    const key = editKey(pi, ii);
+    setEdits(prev => ({ ...prev, [pi]: { ...prev[pi], [key]: v } }));
+  }, []);
 
   // ── save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -254,7 +307,9 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
     }
     setSaving(true);
     try {
-      const pdfDoc   = await PDFDocument.load(rawBytesRef.current.slice(), { ignoreEncryption: true });
+      // pdf-lib's parser is read-only over its input (it keeps subarray views,
+      // never mutates), so the raw bytes can be passed directly.
+      const pdfDoc   = await PDFDocument.load(rawBytesRef.current, { ignoreEncryption: true });
       const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const pdfPages = pdfDoc.getPages();
 
@@ -262,10 +317,13 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
         const pdfPage = pdfPages[page.pageIndex];
         if (!pdfPage) continue;
 
+        const pageEdits = edits[page.pageIndex];
+        if (!pageEdits) continue;
+
         for (const item of page.textItems) {
           const key     = editKey(item.pageIndex, item.itemIndex);
-          if (!(key in edits) || edits[key] === item.str) continue;
-          const newText = edits[key];
+          if (!(key in pageEdits) || pageEdits[key] === item.str) continue;
+          const newText = pageEdits[key];
           if (!newText.trim()) continue;
 
           // PDF user-space coords come directly from item.transform[4/5]
@@ -333,7 +391,7 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
     );
   }
 
-  const hasEdits = Object.keys(edits).length > 0;
+  const hasEdits = Object.values(edits).some(m => Object.keys(m).length > 0);
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#525659]">
@@ -356,6 +414,9 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
       </div>
 
       {/* Pages */}
+      {/* TODO(perf): all pages mount upfront – a 200-page PDF allocates every
+          canvas before the user scrolls. Follow-up: render pages on scroll
+          (windowing/virtualization) instead of the full list below. */}
       <div className="flex-1 overflow-y-auto flex flex-col items-center gap-8 py-8 px-4">
         {pages.length === 0 ? (
           <div className="text-white/40 font-sans-meta text-xs uppercase tracking-wider mt-16">
@@ -366,7 +427,7 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
             <PdfPage
               key={page.pageIndex}
               data={page}
-              edits={edits}
+              edits={edits[page.pageIndex] || EMPTY_EDITS}
               editKey={editKey}
               onTextChange={handleTextChange}
             />

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from "react";
 import { Marked, marked } from "marked";
 import DOMPurify from "dompurify";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
@@ -65,6 +65,23 @@ export interface PrintConfig {
 
 type TypographyFont = "serif" | "sans" | "mono";
 type FontSize = "sm" | "base" | "lg" | "xl";
+
+// HTML-escape untrusted values before interpolating them into generated markup (SEC-10).
+// Never rely on the downstream sanitizer to repair broken attribute construction.
+const escapeHtml = (value: unknown): string =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+// Resolve a usable DOMPurify instance, or null when it is unavailable (SEC-2)
+const getPurifier = (): any => {
+  if (typeof DOMPurify?.sanitize === "function") return DOMPurify;
+  if (typeof DOMPurify === "function") return DOMPurify(window);
+  return null;
+};
 
 export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   content,
@@ -140,31 +157,42 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       return trimmed;
     }
 
-    // Relative path resolution
-    let cleanPath = trimmed.replace(/^(\.\/|\/)/, "");
-    let fullPath = "";
-    if (fileDir) {
-      fullPath = `${fileDir}/${cleanPath}`;
-    } else if (workspaceRoot) {
-      const cleanRoot = workspaceRoot.replace(/\\/g, "/").replace(/\/$/, "");
-      fullPath = `${cleanRoot}/${cleanPath}`;
+    // Reject traversal, absolute, drive-letter, and UNC paths (SEC-9)
+    if (
+      trimmed.startsWith("/") ||
+      trimmed.includes("\\") ||
+      /^[a-zA-Z]:/.test(trimmed) ||
+      trimmed.split("/").includes("..")
+    ) {
+      return "";
     }
 
-    if (fullPath) {
-      try {
-        return convertFileSrc(fullPath);
-      } catch {
-        return trimmed;
-      }
+    // Relative path resolution
+    const cleanPath = trimmed.replace(/^\.\//, "");
+    const baseDir = fileDir || (workspaceRoot ? workspaceRoot.replace(/\\/g, "/").replace(/\/+$/, "") : "");
+    if (!baseDir) return trimmed;
+
+    // Normalize the joined path and verify it stays under the document's directory (SEC-9)
+    const normalize = (p: string) => p.split("/").filter((seg) => seg && seg !== ".").join("/");
+    const normalizedPath = normalize(`${baseDir}/${cleanPath}`);
+    const normalizedBase = normalize(baseDir);
+    if (!normalizedPath.startsWith(`${normalizedBase}/`)) return "";
+
+    try {
+      return convertFileSrc(normalizedPath);
+    } catch {
+      return "";
     }
-    return trimmed;
   }, [fileDir, workspaceRoot]);
 
   // Debounced content to prevent synchronous AST parsing and DOMPurify on every single keystroke
   const [debouncedContent, setDebouncedContent] = useState<string>(content);
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedContent(content);
+      // Mark the parse re-render as non-urgent so input stays responsive (PERF-9)
+      startTransition(() => {
+        setDebouncedContent(content);
+      });
     }, 200);
     return () => clearTimeout(timer);
   }, [content]);
@@ -245,11 +273,11 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
               .replace(/\s+/g, "-");
 
             return `
-              <div class="md-heading-container group" id="${slug}">
+              <div class="md-heading-container group" id="${escapeHtml(slug)}">
                 <h${depthVal} class="font-serif-display font-bold tracking-tight">
                   ${textVal}
                 </h${depthVal}>
-                <a href="#${slug}" class="md-heading-anchor" title="Direct link to ${rawText}">#</a>
+                <a href="#${escapeHtml(slug)}" class="md-heading-anchor" title="Direct link to ${escapeHtml(rawText)}">#</a>
               </div>
             `;
           },
@@ -257,21 +285,21 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
           image(arg, title, text) {
             const token = typeof arg === "object" && arg !== null ? arg : { href: arg, title, text };
             const resolvedHref = resolveAssetSrc(token.href || "");
-            const titleAttr = token.title ? `title="${token.title}"` : "";
-            const altAttr = token.text ? `alt="${token.text}"` : 'alt=""';
-            return `<img src="${resolvedHref}" ${altAttr} ${titleAttr} loading="lazy" onerror="this.onerror=null; this.classList.add('opacity-40'); this.title='Image failed to load: ' + this.getAttribute('src');" />`;
+            const titleAttr = token.title ? `title="${escapeHtml(token.title)}"` : "";
+            const altAttr = token.text ? `alt="${escapeHtml(token.text)}"` : 'alt=""';
+            return `<img src="${escapeHtml(resolvedHref)}" ${altAttr} ${titleAttr} loading="lazy" />`;
           },
 
           link(arg, title, text) {
             const token = typeof arg === "object" && arg !== null ? arg : { href: arg, title, text };
             const hrefVal = token.href || "";
             const isExternal = hrefVal.startsWith("http://") || hrefVal.startsWith("https://") || hrefVal.startsWith("mailto:");
-            const titleAttr = token.title ? `title="${token.title}"` : "";
+            const titleAttr = token.title ? `title="${escapeHtml(token.title)}"` : "";
             const textVal = token.text || hrefVal;
             if (isExternal) {
-              return `<a href="${hrefVal}" ${titleAttr} data-external="true" target="_blank" rel="noopener noreferrer">${textVal}</a>`;
+              return `<a href="${escapeHtml(hrefVal)}" ${titleAttr} data-external="true" target="_blank" rel="noopener noreferrer">${textVal}</a>`;
             }
-            return `<a href="${hrefVal}" ${titleAttr}>${textVal}</a>`;
+            return `<a href="${escapeHtml(hrefVal)}" ${titleAttr}>${textVal}</a>`;
           },
 
           code(arg, lang) {
@@ -282,7 +310,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             return `
               <div class="my-4 rounded border border-rule/70 bg-cream/20 overflow-hidden shadow-xs relative group/code">
                 <div class="px-3 py-1.5 bg-cream/40 border-b border-rule/50 flex items-center justify-between text-[11px] font-sans-meta text-muted">
-                  <span class="font-mono uppercase font-bold tracking-wider text-accent text-[10px]">${language}</span>
+                  <span class="font-mono uppercase font-bold tracking-wider text-accent text-[10px]">${escapeHtml(language)}</span>
                   <button 
                     type="button" 
                     class="code-copy-btn p-1 px-2 rounded hover:bg-cream hover:text-ink text-muted transition-colors flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
@@ -313,7 +341,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
         /<img\s+([^>]*?)src=["']([^"']+)["']([^>]*)>/gi,
         (match, prefix, src, suffix) => {
           const resolved = resolveAssetSrc(src);
-          return `<img ${prefix}src="${resolved}"${suffix}>`;
+          return `<img ${prefix}src="${escapeHtml(resolved)}"${suffix}>`;
         }
       );
 
@@ -352,30 +380,27 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
         }
       );
 
-      // Sanitize with DOMPurify safely
-      let clean = rawHtml;
-      try {
-        const purifyInstance = typeof DOMPurify?.sanitize === "function" 
-          ? DOMPurify 
-          : typeof DOMPurify === "function" 
-          ? DOMPurify(window) 
-          : null;
+      // Sanitize with DOMPurify safely — fail CLOSED: never fall back to raw HTML (SEC-2)
+      const purifyInstance = getPurifier();
+      if (!purifyInstance || typeof purifyInstance.sanitize !== "function") {
+        return `<div class="p-4 text-red-600 font-mono text-xs">Preview unavailable: the HTML sanitizer could not be initialized.</div>`;
+      }
 
-        if (purifyInstance && typeof purifyInstance.sanitize === "function") {
-          clean = purifyInstance.sanitize(rawHtml, {
-            ADD_TAGS: ["iframe"],
-            ADD_ATTR: ["target", "rel", "align", "data-code", "data-external", "onerror", "loading"],
-            FORBID_TAGS: ["script"],
-            FORBID_ATTR: ["onload"]
-          });
-        }
+      let clean: string;
+      try {
+        clean = purifyInstance.sanitize(rawHtml, {
+          ADD_ATTR: ["target", "rel", "align", "data-code", "data-external", "loading"],
+          FORBID_TAGS: ["script"],
+          FORBID_ATTR: ["onload"]
+        });
       } catch (purifyErr) {
         console.warn("DOMPurify sanitize warning:", purifyErr);
+        return `<div class="p-4 text-red-600 font-mono text-xs">Preview unavailable: this document could not be sanitized for display.</div>`;
       }
 
       return clean;
     } catch (err: any) {
-      return `<div class="p-4 text-red-600 font-mono text-xs">Failed to render Markdown: ${err.message}</div>`;
+      return `<div class="p-4 text-red-600 font-mono text-xs">Failed to render Markdown: ${escapeHtml(err.message)}</div>`;
     }
   }, [debouncedContent, resolveAssetSrc, markedInstance]);
 
@@ -418,32 +443,53 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       // Check for anchor links or external links
       const link = target.closest("a");
       if (link) {
-        const href = link.getAttribute("href");
-        const isExternal = link.getAttribute("data-external") === "true";
+        const href = link.getAttribute("href") || "";
 
-        if (isExternal && href) {
-          e.preventDefault();
-          try {
-            await openUrl(href);
-          } catch (err) {
-            window.open(href, "_blank");
+        // Intercept every in-preview anchor click so nothing falls through to
+        // default webview navigation (SEC-16)
+        e.preventDefault();
+
+        // Internal heading anchors scroll within the preview
+        if (href.startsWith("#")) {
+          const targetId = href.substring(1);
+          if (targetId) {
+            const targetElem = container.querySelector(`[id="${CSS.escape(targetId)}"]`);
+            if (targetElem) {
+              targetElem.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
           }
           return;
         }
 
-        if (href?.startsWith("#")) {
-          e.preventDefault();
-          const targetId = href.substring(1);
-          const targetElem = container.querySelector(`[id="${targetId}"]`);
-          if (targetElem) {
-            targetElem.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
+        // Only open external links whose scheme has been validated (SEC-17)
+        const colonIdx = href.indexOf(":");
+        const scheme = colonIdx === -1 ? "" : href.slice(0, colonIdx).toLowerCase();
+        if (scheme !== "http" && scheme !== "https" && scheme !== "mailto") {
+          return;
+        }
+
+        try {
+          await openUrl(href);
+        } catch (err) {
+          window.open(href, "_blank");
         }
       }
     };
 
+    // Dim images that fail to load without inline onerror handlers (SEC-1)
+    const handleMediaError = (e: Event) => {
+      if (e.target instanceof HTMLImageElement) {
+        e.target.classList.add("opacity-40");
+        e.target.title = "Image failed to load";
+      }
+    };
+    container.addEventListener("error", handleMediaError, true);
+
     container.addEventListener("click", handleClick);
-    return () => container.removeEventListener("click", handleClick);
+    return () => {
+      container.removeEventListener("click", handleClick);
+      container.removeEventListener("error", handleMediaError, true);
+    };
   }, [showToast]);
 
   // Jump to TOC heading
@@ -476,7 +522,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   };
 
   // Generate pure, self-contained printable HTML document
-  const generatePrintableHtml = useCallback((config: PrintConfig): string => {
+  const generatePrintableHtml = useCallback((config: PrintConfig, bodyHtml: string = renderedHtml): string => {
     const marginMap = {
       normal: "20mm 20mm",
       narrow: "10mm 10mm",
@@ -517,7 +563,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
           <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0 0 0; line-height: 1.8;">
             ${tocItems.map(item => `
               <li style="padding-left: ${(item.level - 1) * 16}px; font-size: 0.85rem; color: ${colors.muted};">
-                <span style="color: ${colors.text};">${item.text}</span>
+                <span style="color: ${colors.text};">${escapeHtml(item.text)}</span>
               </li>
             `).join("")}
           </ul>
@@ -530,7 +576,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       headerHtml = `
         <header class="print-header" style="border-bottom: 2px solid ${colors.rule}; padding-bottom: 0.75rem; margin-bottom: 1.8rem; display: flex; justify-content: space-between; align-items: flex-end; font-family: 'Inter', sans-serif; font-size: 8.5pt; color: ${colors.muted}; page-break-after: avoid; break-after: avoid;">
           <div>
-            <h1 style="margin: 0; font-family: ${headingFontMap[config.font]}; font-size: 1.65rem; color: ${colors.text}; font-weight: 700; border: none; padding: 0;">${config.customTitle || fileName.replace(/\.md$/i, "")}</h1>
+            <h1 style="margin: 0; font-family: ${headingFontMap[config.font]}; font-size: 1.65rem; color: ${colors.text}; font-weight: 700; border: none; padding: 0;">${escapeHtml(config.customTitle || fileName.replace(/\.md$/i, ""))}</h1>
             <div style="margin-top: 4px; font-size: 8.5pt;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} • ${stats.words} words • ~${stats.readingTime} min read</div>
           </div>
           <div style="text-transform: uppercase; letter-spacing: 0.12em; font-size: 7.5pt; color: ${colors.accent}; font-weight: 700;">
@@ -545,7 +591,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       footerHtml = `
         <footer class="print-footer" style="margin-top: 3rem; padding-top: 0.75rem; border-top: 1px solid ${colors.rule}; display: flex; justify-content: space-between; font-family: 'Inter', sans-serif; font-size: 8pt; color: ${colors.muted}; page-break-inside: avoid; break-inside: avoid;">
           <span>Generated with Composer</span>
-          <span>${config.customTitle || fileName}</span>
+          <span>${escapeHtml(config.customTitle || fileName)}</span>
         </footer>
       `;
     }
@@ -566,7 +612,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${config.customTitle || fileName.replace(/\.md$/i, "")}</title>
+  <title>${escapeHtml(config.customTitle || fileName.replace(/\.md$/i, ""))}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
@@ -626,7 +672,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   ${headerHtml}
   ${tocHtml}
   <article class="print-article">
-    ${renderedHtml}
+    ${bodyHtml}
   </article>
   ${footerHtml}
 </body>
@@ -640,6 +686,11 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
 
     const iframe = document.createElement("iframe");
     iframe.id = "composer-print-iframe";
+    // Sandbox the print document before writing into it (SEC-4). Scripts are
+    // forbidden (no allow-scripts), so nothing written into the frame can execute.
+    // allow-same-origin/allow-modals are required for the parent to write the
+    // document and invoke print(); they do not re-enable script execution.
+    iframe.setAttribute("sandbox", "allow-same-origin allow-modals");
     iframe.style.position = "fixed";
     iframe.style.right = "0";
     iframe.style.bottom = "0";
@@ -666,9 +717,24 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
     }, 350);
   }, [generatePrintableHtml, showToast]);
 
+  // Strictly sanitize rendered HTML before embedding it in a standalone export (SEC-15).
+  // Fail closed: return empty content rather than exporting unsanitized markup.
+  const strictSanitizeForExport = useCallback((html: string): string => {
+    const purifyInstance = getPurifier();
+    if (!purifyInstance || typeof purifyInstance.sanitize !== "function") return "";
+    try {
+      return purifyInstance.sanitize(html, {
+        FORBID_TAGS: ["script", "iframe", "object", "embed"],
+        FORBID_ATTR: ["onerror", "onload", "srcdoc"]
+      });
+    } catch {
+      return "";
+    }
+  }, []);
+
   // Download complete standalone HTML
   const downloadStandaloneHtml = useCallback((config: PrintConfig) => {
-    const fullHtml = generatePrintableHtml(config);
+    const fullHtml = generatePrintableHtml(config, strictSanitizeForExport(renderedHtml));
     const blob = new Blob([fullHtml], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -677,18 +743,18 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
     a.click();
     URL.revokeObjectURL(url);
     showToast("HTML document downloaded", <Check size={12} className="text-emerald-500" />);
-  }, [generatePrintableHtml, fileName, showToast]);
+  }, [generatePrintableHtml, fileName, showToast, renderedHtml, strictSanitizeForExport]);
 
   // Copy complete standalone HTML
   const copyPrintableHtml = useCallback(async (config: PrintConfig) => {
-    const fullHtml = generatePrintableHtml(config);
+    const fullHtml = generatePrintableHtml(config, strictSanitizeForExport(renderedHtml));
     try {
       await navigator.clipboard.writeText(fullHtml);
       showToast("Printable HTML copied", <Check size={12} className="text-emerald-500" />);
     } catch {
       showToast("Failed to copy HTML", <AlertCircle size={12} className="text-red-500" />);
     }
-  }, [generatePrintableHtml, showToast]);
+  }, [generatePrintableHtml, showToast, renderedHtml, strictSanitizeForExport]);
 
   const handlePrint = () => {
     executeIsolatedPrint({

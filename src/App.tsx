@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   House, Folder, Settings as SettingsIcon,
   RefreshCw, Sun, Moon, Minus, Square, X,
@@ -34,11 +34,35 @@ const NAV_ITEMS = [
 // ─────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────
+
+// PERF-7: leaf component — the 2s RAM poll re-renders only this readout,
+// not the whole app tree (Explorer's file list, Home, etc.)
+function RamUsageText() {
+  const [pct, setPct] = useState<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchRam = async () => {
+      try {
+        const value: number = await invoke("get_system_ram_usage");
+        if (!cancelled) setPct(value);
+      } catch { /* ignore */ }
+    };
+    fetchRam();
+    const ramTimer = setInterval(fetchRam, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(ramTimer);
+    };
+  }, []);
+
+  return <>{pct}%</>;
+}
+
 function App() {
   const [activePage,  setActivePage]  = useState<string>("Home");
   const [config,      setConfig]      = useState<AppConfig | null>(null);
   const [navLayout,   setNavLayout]   = useState<string>("sidebar");
-  const [sysRamUsage, setSysRamUsage] = useState<number>(0);
 
   type LoadingPhase = "loading" | "reveal-app" | "done";
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("loading");
@@ -266,19 +290,10 @@ function App() {
     });
     const layoutUnsub = listen<string>("nav_layout_changed", e => setNavLayout(e.payload));
 
-    // RAM polling every 2s
-    const fetchRam = async () => {
-      try { const pct: number = await invoke("get_system_ram_usage"); setSysRamUsage(pct); }
-      catch { /* ignore */ }
-    };
-    fetchRam();
-    const ramTimer = setInterval(fetchRam, 2000);
-
     return () => {
       document.removeEventListener("contextmenu", noCtx);
       configUnsub.then(fn  => fn());
       layoutUnsub.then(fn  => fn());
-      clearInterval(ramTimer);
     };
   }, []);
 
@@ -305,10 +320,14 @@ function App() {
         if (activePage !== "Home") {
           setActivePage("Home");
         }
-        setTimeout(() => {
-          const input = document.getElementById("home-search-input");
-          if (input) { input.focus(); (input as HTMLInputElement).select(); }
-        }, 50);
+        // PERF-2: Home mounts on demand — retry briefly in case its chunk
+        // is still loading on the very first navigation.
+        const focusHomeSearch = (attempts: number) => {
+          const input = document.getElementById("home-search-input") as HTMLInputElement | null;
+          if (input) { input.focus(); input.select(); }
+          else if (attempts > 0) setTimeout(() => focusHomeSearch(attempts - 1), 50);
+        };
+        setTimeout(() => focusHomeSearch(10), 50);
       }
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
@@ -350,35 +369,40 @@ function App() {
   }, [activePage]);
 
   // ── Home Action Handlers ───────────────────────
-  const handleOpenRecentFile = (path: string, name: string) => {
+  // (useCallback so the memoized Home page isn't re-rendered by new handler
+  // identities — see PERF-7. Explorer stays mounted, so the 40ms-delayed
+  // window events below always land on already-registered listeners.)
+  const handleOpenRecentFile = useCallback((path: string, name: string) => {
     setActivePage("Explorer");
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("composer:open-file", { detail: { path, name } }));
     }, 40);
-  };
+  }, []);
 
-  const handleNewFile = () => {
+  const handleNewFile = useCallback(() => {
     setActivePage("Explorer");
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "file" }));
     }, 40);
-  };
+  }, []);
 
-  const handleNewFolder = () => {
+  const handleNewFolder = useCallback(() => {
     setActivePage("Explorer");
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "folder" }));
     }, 40);
-  };
+  }, []);
 
-  const handleImport = () => {
+  const handleImport = useCallback(() => {
     setActivePage("Explorer");
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "import-file" }));
     }, 40);
-  };
+  }, []);
 
-  const handleOpenProject = async () => {
+  const handleNavigate = useCallback((page: string) => setActivePage(page), []);
+
+  const handleOpenProject = useCallback(async () => {
     try {
       const chosen: string | null = await invoke("pick_directory");
       if (chosen) {
@@ -397,7 +421,7 @@ function App() {
     } catch (err) {
       console.error("Failed to select workspace directory:", err);
     }
-  };
+  }, []);
 
   // ── Helpers ──────────────────────────────────
   const iconOnly = config?.theme?.ui_overrides?.nav_icon_only === "true";
@@ -411,22 +435,30 @@ function App() {
         </div>
       }
     >
-      <div className={`h-full w-full ${activePage === "Home" ? "block" : "hidden"}`}>
-        <Home
-          onNavigate={(page) => setActivePage(page)}
-          onOpenRecentFile={handleOpenRecentFile}
-          onNewFile={handleNewFile}
-          onNewFolder={handleNewFolder}
-          onImport={handleImport}
-          onOpenProject={handleOpenProject}
-        />
-      </div>
+      {/* PERF-2: inactive pages unmount so React.lazy only fetches their
+          chunks on demand. Explorer stays mounted (hidden) so open tabs,
+          drafts and sidebar state survive page switches, and its window
+          listeners keep serving the 40ms-delayed events from Home. */}
+      {activePage === "Home" && (
+        <div className="h-full w-full">
+          <Home
+            onNavigate={handleNavigate}
+            onOpenRecentFile={handleOpenRecentFile}
+            onNewFile={handleNewFile}
+            onNewFolder={handleNewFolder}
+            onImport={handleImport}
+            onOpenProject={handleOpenProject}
+          />
+        </div>
+      )}
       <div className={`h-full w-full ${activePage === "Explorer" ? "block" : "hidden"}`}>
         <Explorer />
       </div>
-      <div className={`h-full w-full ${activePage === "Settings" ? "block" : "hidden"}`}>
-        <Settings />
-      </div>
+      {activePage === "Settings" && (
+        <div className="h-full w-full">
+          <Settings />
+        </div>
+      )}
     </React.Suspense>
   );
 
@@ -529,7 +561,7 @@ function App() {
 
           {/* RAM */}
           <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-            <span style={{ color: "var(--accent)", fontWeight: 600 }}>{sysRamUsage}%</span> RAM
+            <span style={{ color: "var(--accent)", fontWeight: 600 }}><RamUsageText /></span> RAM
           </span>
         </div>
 
@@ -599,7 +631,7 @@ function App() {
                   <span className="c2-workspace-label">Workspace</span>
                   <span className="c2-workspace-online">
                     <span className="c2-online-dot" />
-                    Online · {sysRamUsage}% RAM
+                    Online · <RamUsageText />% RAM
                   </span>
                 </div>
               </div>
@@ -654,7 +686,7 @@ function App() {
                   <span className="c2-workspace-label">Workspace</span>
                   <span className="c2-workspace-online">
                     <span className="c2-online-dot" />
-                    Online · {sysRamUsage}% RAM
+                    Online · <RamUsageText />% RAM
                   </span>
                 </div>
               </div>
@@ -751,7 +783,7 @@ function App() {
             </button>
           </div>
           <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-            <span style={{ color: "var(--accent)", fontWeight: 600 }}>{sysRamUsage}%</span> RAM
+            <span style={{ color: "var(--accent)", fontWeight: 600 }}><RamUsageText /></span> RAM
           </span>
         </div>
 

@@ -30,7 +30,7 @@ export interface UpdaterState {
 
 export function useUpdater(): UpdaterState {
   const [status, setStatus] = useState<UpdateStatus>('idle');
-  const [currentVersion, setCurrentVersion] = useState<string>('0.1.0');
+  const [currentVersion, setCurrentVersion] = useState<string>('0.1.1');
   const [newVersion, setNewVersion] = useState<string | null>(null);
   const [releaseDate, setReleaseDate] = useState<string | null>(null);
   const [releaseNotes, setReleaseNotes] = useState<string | null>(null);

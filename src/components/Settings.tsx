@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect } from "react";
-import { Sliders, RefreshCw, ChevronDown, Save, Dices, X, ArrowUpCircle, CheckCircle, AlertCircle, Download } from "lucide-react";
+import { Sliders, RefreshCw, ChevronDown, Save, Dices, X, ArrowUpCircle, CheckCircle, AlertCircle, Download, Keyboard } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
 import { AppConfig } from "../types";
@@ -45,6 +45,80 @@ const PRESETS: Record<string, string[]> = {
   card_background:["#0F0F0F", "#171717", "#27272A", "#E4E4E7", "#F4F4F5", "#FAFAFA", "#FFFFFF"],
   border_accent:  ["#FFFFFF", "#E4E4E7", "#A1A1AA", "#71717A", "#3F3F46", "#18181B", "#000000"],
 };
+
+// ─────────────────────────────────────────────────────────────
+// Keyboard shortcut reference (mirrors the handlers in App.tsx,
+// Explorer.tsx, ImagePreview.tsx, MarkdownPreview.tsx, SvgPreview.tsx
+// and Home.tsx — keep in sync when a shortcut changes)
+// ─────────────────────────────────────────────────────────────
+const SHORTCUT_GROUPS: { title: string; shortcuts: { keys: string[]; action: string }[] }[] = [
+  {
+    title: "Global",
+    shortcuts: [
+      { keys: ["Ctrl", "K"],        action: "Jump to Home search" },
+      { keys: ["Ctrl", "F"],        action: "Focus Explorer / Home search" },
+      { keys: ["Ctrl", "R"],        action: "Reload app window" },
+      { keys: ["F5"],                action: "Reload app window" },
+      { keys: ["F11"],               action: "Toggle fullscreen" },
+      { keys: ["Esc"],               action: "Close menus, dialogs & pickers" },
+    ],
+  },
+  {
+    title: "Explorer",
+    shortcuts: [
+      { keys: ["Ctrl", "S"],        action: "Save active tab" },
+      { keys: ["Ctrl", "W"],        action: "Close active tab" },
+      { keys: ["Ctrl", "N"],        action: "New file" },
+      { keys: ["Ctrl", "A"],        action: "Select all files" },
+      { keys: ["F2"],                action: "Rename selected item / active tab" },
+      { keys: ["Del"],               action: "Delete selected items" },
+      { keys: ["Enter"],             action: "Confirm name input" },
+    ],
+  },
+  {
+    title: "Image Viewer",
+    shortcuts: [
+      { keys: ["Ctrl", "+"],        action: "Zoom in" },
+      { keys: ["Ctrl", "−"],        action: "Zoom out" },
+      { keys: ["Ctrl", "0"],        action: "Fit to view" },
+      { keys: ["Ctrl", "1"],        action: "Actual size (100%)" },
+      { keys: ["R"],                 action: "Rotate clockwise" },
+      { keys: ["Shift", "R"],       action: "Rotate counter-clockwise" },
+      { keys: ["H"],                 action: "Flip horizontally" },
+      { keys: ["V"],                 action: "Flip vertically" },
+      { keys: ["I"],                 action: "Toggle eyedropper" },
+    ],
+  },
+  {
+    title: "Markdown Preview",
+    shortcuts: [
+      { keys: ["Ctrl", "P"],        action: "Open print & save dialog" },
+    ],
+  },
+  {
+    title: "SVG Viewer",
+    shortcuts: [
+      { keys: ["Ctrl", "Wheel"],    action: "Zoom in / out" },
+    ],
+  },
+  {
+    title: "Home Search",
+    shortcuts: [
+      { keys: ["↑"],                 action: "Select previous result" },
+      { keys: ["↓"],                 action: "Select next result" },
+      { keys: ["Enter"],             action: "Open selected result" },
+      { keys: ["Esc"],               action: "Clear search" },
+    ],
+  },
+  {
+    title: "Mouse",
+    shortcuts: [
+      { keys: ["Back"],              action: "Previous page" },
+      { keys: ["Fwd"],               action: "Next page" },
+      { keys: ["R-Click"],           action: "Context menu" },
+    ],
+  },
+];
 
 // ─────────────────────────────────────────────────────────────
 // Animated Hex Input (identical to original — preserved)
@@ -106,6 +180,18 @@ export const Settings: React.FC = () => {
   const [localGlowBrightness, setLocalGlowBrightness] = useState<number>(1.0);
   const [localUiSmoothness, setLocalUiSmoothness] = useState<number>(4);
   const [localNavSmoothness, setLocalNavSmoothness] = useState<number>(4);
+
+  // Debounced storage-path editing: the text inputs keep uncommitted drafts in
+  // local state and only persist via saveConfig after the user pauses typing
+  // (300 ms) or blurs the field – not on every keystroke.
+  const [storageDraft, setStorageDraft] = useState<{ root_path?: string; workspace_path?: string }>({});
+  const storageDraftRef = React.useRef<{ root_path?: string; workspace_path?: string }>({});
+  const textSaveDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Latest config for callbacks (debounce timers / unmount flush) that must
+  // not capture a stale render's `config`.
+  const configRef = React.useRef<AppConfig | null>(null);
+
+  React.useEffect(() => { configRef.current = config; }, [config]);
 
   // ── ALL LOGIC BELOW IS 100% IDENTICAL TO ORIGINAL ─────────────────────────
 
@@ -347,14 +433,40 @@ export const Settings: React.FC = () => {
       configUnsub.then(fn => fn());
       if (saveTimeoutRef.current)  clearTimeout(saveTimeoutRef.current);
       if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
+      // Persist any storage-path edits still pending when the page unmounts.
+      flushStorageDraft();
     };
   }, []);
 
   const saveConfig = async (next: AppConfig) => {
+    configRef.current = next;
     setConfig(next);
     await invoke("save_app_config", { config: next });
     applyTheme(next.theme.ui_overrides, next.theme.font_family_ui);
     await emit("config_updated", next);
+  };
+
+  // Commit any pending storage-path draft to the config (single save + emit).
+  const flushStorageDraft = () => {
+    if (textSaveDebounceRef.current) {
+      clearTimeout(textSaveDebounceRef.current);
+      textSaveDebounceRef.current = null;
+    }
+    const draft = storageDraftRef.current;
+    if (draft.root_path === undefined && draft.workspace_path === undefined) return;
+    const base = configRef.current;
+    if (!base) return;
+    storageDraftRef.current = {};
+    setStorageDraft({});
+    saveConfig({ ...base, storage: { ...base.storage, ...draft } });
+  };
+
+  const updateStorageDraft = (patch: { root_path?: string; workspace_path?: string }) => {
+    const next = { ...storageDraftRef.current, ...patch };
+    storageDraftRef.current = next;
+    setStorageDraft(next);
+    if (textSaveDebounceRef.current) clearTimeout(textSaveDebounceRef.current);
+    textSaveDebounceRef.current = setTimeout(flushStorageDraft, 300);
   };
 
   const patchOverride = async (key: string, val: string) => {
@@ -451,15 +563,19 @@ export const Settings: React.FC = () => {
                 <div className="stt-field-row" style={{ gap: "8px" }}>
                   <input
                     type="text"
-                    value={config.storage.root_path}
-                    onChange={e => saveConfig({ ...config, storage: { ...config.storage, root_path: e.target.value } })}
+                    value={storageDraft.root_path ?? config.storage.root_path}
+                    onChange={e => updateStorageDraft({ root_path: e.target.value })}
+                    onBlur={flushStorageDraft}
                     className="stt-input stt-input-mono"
                     style={{ flex: 1 }}
                   />
                   <button
                     onClick={async () => {
                       const chosen: string | null = await invoke("pick_directory");
-                      if (chosen) saveConfig({ ...config, storage: { ...config.storage, root_path: chosen } });
+                      if (chosen) {
+                        updateStorageDraft({ root_path: chosen });
+                        flushStorageDraft();
+                      }
                     }}
                     className="stt-browse-btn"
                   >
@@ -473,16 +589,20 @@ export const Settings: React.FC = () => {
                 <div className="stt-field-row" style={{ gap: "8px" }}>
                   <input
                     type="text"
-                    value={config.storage.workspace_path || ""}
+                    value={storageDraft.workspace_path ?? config.storage.workspace_path ?? ""}
                     placeholder="Same as storage root (fallback)"
-                    onChange={e => saveConfig({ ...config, storage: { ...config.storage, workspace_path: e.target.value } })}
+                    onChange={e => updateStorageDraft({ workspace_path: e.target.value })}
+                    onBlur={flushStorageDraft}
                     className="stt-input stt-input-mono"
                     style={{ flex: 1 }}
                   />
                   <button
                     onClick={async () => {
                       const chosen: string | null = await invoke("pick_directory");
-                      if (chosen) saveConfig({ ...config, storage: { ...config.storage, workspace_path: chosen } });
+                      if (chosen) {
+                        updateStorageDraft({ workspace_path: chosen });
+                        flushStorageDraft();
+                      }
                     }}
                     className="stt-browse-btn"
                   >
@@ -886,6 +1006,35 @@ export const Settings: React.FC = () => {
               </div>
             </div>
 
+          </div>
+        </div>
+
+        {/* ── Keyboard Shortcuts (full width) ─────────────────── */}
+        <div className="stt-section stt-section--span-full" style={{ marginTop: "16px" }}>
+          <div className="stt-section-title">
+            <Keyboard size={12} />
+            Keyboard Shortcuts
+          </div>
+
+          <div className="stt-shortcut-groups">
+            {SHORTCUT_GROUPS.map(group => (
+              <div key={group.title} className="stt-shortcut-group">
+                <div className="stt-shortcut-group-title">{group.title}</div>
+                {group.shortcuts.map(sc => (
+                  <div key={sc.action} className="stt-shortcut-row">
+                    <span className="stt-shortcut-action">{sc.action}</span>
+                    <span className="stt-shortcut-keys">
+                      {sc.keys.map((k, i) => (
+                        <React.Fragment key={k}>
+                          {i > 0 && <span className="stt-shortcut-plus">+</span>}
+                          <kbd className="stt-kbd">{k}</kbd>
+                        </React.Fragment>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 [package]
 name = "composer"
-version = "0.1.0"
+version = "0.1.1"
 description = "Composer — A Modern Writing Environment"
 authors = ["you"]
 edition = "2021"
@@ -26,9 +26,6 @@ tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 
 serde_json = "1"
-tokio = { version = "1", features = ["time", "fs", "io-util"] }
 toml = "0.8.19"
-uuid = { version = "1.8.0", features = ["v4", "serde"] }
-zip = { version = "2", features = [] }
 sys-info = "0.9.1"
 base64 = "0.22"

@@ -35,16 +35,17 @@ export default defineConfig(async () => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("@monaco-editor")) {
+          // matches both `monaco-editor` and `@monaco-editor/react`
+          if (id.includes("monaco-editor")) {
             return "vendor-monaco";
           }
-          if (id.includes("pdfjs-dist") || id.includes("pdf-lib") || id.includes("jspdf")) {
+          if (id.includes("pdfjs-dist") || id.includes("pdf-lib")) {
             return "vendor-pdf";
           }
           if (id.includes("marked") || id.includes("dompurify")) {
             return "vendor-markdown";
           }
-          if (id.includes("lucide-react") || id.includes("framer-motion")) {
+          if (id.includes("lucide-react")) {
             return "vendor-ui";
           }
         },

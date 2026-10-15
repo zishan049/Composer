@@ -1,88 +1,90 @@
 <div align="center">
 
-<img src="src-tauri/icons/icon.ico" alt="Composer app icon" width="88" height="88" />
+<img src="src-tauri/icons/icon.ico" alt="Composer app icon" width="72" />
 
 # Composer
 
-### A quiet, local-first workspace for creating and editing.
+**A focused desktop workspace for your files.**
 
-One desktop studio for code, Markdown, PDFs, SVGs, images, and structured data — built to keep your work on your machine.
+Create, inspect, and edit code, documents, vectors, images, and data — in one minimal, local-first app.
 
 <br />
 
-[![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app/)
-[![Rust](https://img.shields.io/badge/Rust-2021-DEA584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111827)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-8B9AAB?style=flat-square)](LICENSE)
+[![Rust](https://img.shields.io/badge/Rust-2021-DEA584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
-**[Download for Windows](https://github.com/zishan049/Composer/releases/latest)** · **[Explore the source](https://github.com/zishan049/Composer)** · **[Report a bug](https://github.com/zishan049/Composer/issues)**
+<br />
+
+[**Download**](https://github.com/zishan049/Composer/releases/latest) · [**Features**](#what-you-can-do) · [**Build from source**](#run-locally) · [**Report an issue**](https://github.com/zishan049/Composer/issues)
 
 </div>
 
 ---
 
-## The idea
+## A workspace that stays out of the way
 
-Creative and technical work often means bouncing between a code editor, a Markdown previewer, a PDF tool, and an image utility. Composer brings those everyday tools into one focused desktop workspace.
+Composer brings everyday creative and technical file workflows into a single desktop application. Instead of switching between separate tools to inspect a document, edit code, preview an SVG, or review an image, work from one consistent workspace.
 
-It is built with **Tauri 2, Rust, React, and TypeScript**: a native desktop shell with a modern web UI, local file workflows, and a deliberately customizable interface.
+- **Local-first by design** — work with files on your machine.
+- **One focused interface** — a compact shell and familiar navigation across tools.
+- **Your preferred setup** — customize themes, typography, accents, and navigation.
 
-> **Your workspace. Your files. Your machine.**
+## The interface
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>Home dashboard</strong><br />
+      <sub>Search, quick actions, and recent work.</sub><br /><br />
+      <img src="docs/screenshots/home.svg" alt="Composer Home dashboard UI preview" width="100%" />
+    </td>
+    <td width="50%">
+      <strong>Code workspace</strong><br />
+      <sub>File tree, editor tabs, and source editing.</sub><br /><br />
+      <img src="docs/screenshots/code-studio.svg" alt="Composer code workspace UI preview" width="100%" />
+    </td>
+  </tr>
+</table>
+
+> **Screenshot note:** These are source-derived UI previews based on the current React components and CSS design tokens. They communicate the intended layout, but are not pixel captures from a running application.
 
 ## What you can do
 
-| Studio | What it's for |
+| Tool | Capabilities |
 | --- | --- |
-| **Code** | Edit source files with Monaco, syntax highlighting, multi-tab workflows, Vim keybindings, and save support. |
-| **Markdown** | Write and preview Markdown, switch between code/split/preview modes, and prepare print-ready documents. |
-| **PDF** | Inspect PDFs and edit supported text directly on the page canvas. |
-| **SVG** | Inspect vector artwork, edit XML, and see changes in a live preview. |
-| **Images** | Zoom, rotate, flip, inspect metadata, and sample exact pixel colors. |
-| **Data** | Work with supported structured and tabular files in code or grid views. |
-| **Workspace** | Browse local folders, search for files, revisit recent work, and use quick actions. |
-| **Appearance** | Personalize themes, typography, accent colors, and navigation layouts. |
+| **Code** | Monaco-based editing, syntax highlighting, multi-tab workflows, and Vim keybindings. |
+| **Markdown** | Write and preview Markdown with code, split, and preview modes. |
+| **PDF** | View PDFs and edit supported text on the document canvas. |
+| **SVG** | Inspect vector files, edit SVG/XML source, and preview changes. |
+| **Images** | Zoom, rotate, flip, inspect metadata, and sample pixel colors. |
+| **Structured data** | Work with supported CSV and other data files in text or grid views. |
+| **Workspace** | Browse folders, search files, revisit recent work, and create or import items. |
+| **Appearance** | Adjust themes, typography, accent colors, and navigation layouts. |
 
-## Interface
+## Get Composer
 
-Composer's interface uses a monochrome, local-first design system: a compact title bar, left navigation, quiet surfaces, and a focused workspace.
+### Windows
 
-| Home dashboard | Code studio |
-| --- | --- |
-| ![Composer home dashboard UI preview](docs/screenshots/home.svg) | ![Composer code studio UI preview](docs/screenshots/code-studio.svg) |
+Download the latest available installer from **[GitHub Releases](https://github.com/zishan049/Composer/releases/latest)**.
 
-<sub>These source-derived UI previews are based on the current React component structure and design tokens. They illustrate the documented layout, but are not pixel captures from a running desktop build. Exact screenshots should be captured from the packaged app to validate runtime rendering.</sub>
+1. Open the latest release.
+2. Download the Windows `.exe` installer from its assets.
+3. Run the installer and launch Composer.
 
-## Why Composer
+If no release assets are available, build the application from source using the steps below.
 
-- **Local-first workflow** — work with files on your machine instead of relying on a cloud workspace.
-- **Multiple tools, one workspace** — move between code, documents, vector graphics, images, and data without changing apps.
-- **A UI you can make yours** — choose from curated palettes, typography presets, and navigation layouts.
-- **Native desktop foundation** — Tauri and Rust power the desktop shell and filesystem operations.
-- **Keyboard-friendly** — global search and familiar editing shortcuts keep common actions close at hand.
+## Run locally
 
-> Privacy note: Composer is designed for local workflows. Review the source code and the permissions of any installed build to verify the behavior that matters to you. Some optional features, such as dynamically loaded fonts or update checks, may use network access.
+### Requirements
 
-## Get started
-
-### Download the app
-
-The latest published Windows installer is available from **[GitHub Releases](https://github.com/zishan049/Composer/releases/latest)**.
-
-1. Download the latest `.exe` installer from the release assets.
-2. Run the installer and follow the prompts.
-3. Launch Composer and choose your workspace during setup.
-
-### Run from source
-
-#### Prerequisites
-
-- Node.js 20 or 22
+- Node.js (20 or 22 recommended)
 - npm
 - Rust and Cargo
-- Platform-specific Tauri build prerequisites ([Tauri setup guide](https://tauri.app/start/prerequisites/))
+- Platform-specific prerequisites from the [Tauri setup guide](https://tauri.app/start/prerequisites/)
 
-#### Development
+### Development build
 
 ```bash
 git clone https://github.com/zishan049/Composer.git
@@ -91,13 +93,13 @@ npm install
 npm run tauri dev
 ```
 
-#### Production build
+### Production build
 
 ```bash
 npm run tauri build
 ```
 
-Build artifacts are produced under `src-tauri/target/release/bundle/`.
+Tauri bundle artifacts are typically generated under `src-tauri/target/release/bundle/`.
 
 ## Keyboard shortcuts
 
@@ -105,64 +107,67 @@ Build artifacts are produced under `src-tauri/target/release/bundle/`.
 | --- | --- |
 | `Ctrl/Cmd + K` | Open quick search |
 | `Ctrl/Cmd + S` | Save the active document |
-| `Ctrl/Cmd + F` | Focus file search |
+| `Ctrl/Cmd + F` | Focus file search where supported |
 | `F11` | Toggle fullscreen |
 | `Esc` | Close the active dialog or overlay |
 
-Shortcut behavior can vary by view and platform.
+Shortcut behavior may vary by view and operating system.
 
-## Built with
+## Technology
 
-| Layer | Technology |
+| Layer | Stack |
 | --- | --- |
-| Desktop runtime | Tauri 2 |
-| Native backend | Rust 2021 |
+| Desktop shell | Tauri 2 |
+| Native backend | Rust |
 | UI | React 19 + TypeScript |
-| Build tooling | Vite 7 |
-| Styling | Tailwind CSS 4 + modular CSS |
-| Code editing | Monaco Editor |
-| PDF processing | PDF.js + pdf-lib |
+| Build | Vite 7 |
+| Styling | Tailwind CSS 4 and modular CSS |
+| Code editor | Monaco Editor |
+| PDF | PDF.js and pdf-lib |
 
-## Project structure
+## Repository layout
 
 ```text
 Composer/
 ├── .github/          # CI and release workflows
 ├── public/           # Static assets
+├── docs/screenshots/ # README UI previews
 ├── src/
-│   ├── components/   # Studio views and shared UI
-│   ├── styles/       # Design tokens and modular styles
-│   ├── utils/        # Client-side utilities
-│   ├── App.tsx       # Application shell and navigation
+│   ├── components/   # Home, Explorer, Settings, and studio views
+│   ├── styles/       # Design tokens and component styling
+│   ├── utils/        # Shared utilities
+│   ├── App.tsx       # App shell and navigation
 │   └── types.ts      # Shared TypeScript types
 ├── src-tauri/
-│   └── src/          # Rust commands and native file operations
+│   └── src/          # Rust commands and native integrations
 ├── PRD.md            # Product requirements
-└── package.json      # Dependencies and scripts
+└── package.json
 ```
 
-## Roadmap
+## Project status
 
-- [x] Unified desktop workspace for supported creative and technical file types
-- [x] Local file explorer and quick search
+- [x] Desktop shell and workspace navigation
+- [x] Local file browsing and quick search
 - [x] Code, Markdown, PDF, SVG, image, and structured-data workflows
-- [x] Customizable themes and navigation layouts
-- [ ] Add screenshots captured from the current app build
-- [ ] Expand automated tests and cross-platform release coverage
+- [x] Theme and navigation customization
+- [ ] Replace source-derived previews with screenshots captured from the running app
+- [ ] Expand automated testing and cross-platform release coverage
 
 ## Contributing
 
-Ideas, bug reports, and thoughtful improvements are welcome.
+Bug reports, feature ideas, and focused improvements are welcome.
 
-1. Check the existing issues before opening a new one.
-2. Include clear reproduction steps for bugs.
-3. Keep changes focused and consistent with the project's local-first, minimal design direction.
+1. Search [existing issues](https://github.com/zishan049/Composer/issues) before opening a new one.
+2. For bugs, include your operating system, reproduction steps, and expected behavior.
+3. Keep changes focused and consistent with the project's minimal, local-first direction.
 
-Open an issue on **[GitHub](https://github.com/zishan049/Composer/issues)** to get started.
+## Privacy
+
+Composer is designed around local file workflows. Optional capabilities such as update checks or dynamically loaded fonts may require network access. Consult the source and the behavior of the build you install if you need to verify a specific privacy or security property.
 
 ## License
 
-Composer is distributed under the [MIT License](LICENSE).
+See [LICENSE](LICENSE) for licensing terms.
 
 ---
 
@@ -170,6 +175,6 @@ Composer is distributed under the [MIT License](LICENSE).
 
 **Made for focused work. Built to stay out of the way.**
 
-<sub>If Composer is useful to you, consider giving the project a ⭐ on GitHub.</sub>
+[⭐ Star Composer on GitHub](https://github.com/zishan049/Composer)
 
 </div>

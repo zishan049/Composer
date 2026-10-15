@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/composer-mark.svg" alt="Composer — burnt-orange serif C on a charcoal background" width="112" />
+<img src="src-tauri/icons/icon.ico" alt="Composer app icon" width="72" />
 
 # Composer
 

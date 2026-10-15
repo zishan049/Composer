@@ -45,20 +45,13 @@ It is built with **Tauri 2, Rust, React, and TypeScript**: a native desktop shel
 
 ## Interface
 
-Composer is designed around a minimal, editorial interface: restrained surfaces, readable typography, compact navigation, and themes that can adapt to your workflow.
+Composer's interface uses a monochrome, local-first design system: a compact title bar, left navigation, quiet surfaces, and a focused workspace.
 
-<!--
-Add genuine screenshots captured from the running application here.
-Recommended files:
-  docs/screenshots/home.png
-  docs/screenshots/code-studio.png
-  docs/screenshots/markdown-studio.png
-  docs/screenshots/pdf-studio.png
+| Home dashboard | Code studio |
+| --- | --- |
+| ![Composer home dashboard UI preview](docs/screenshots/home.svg) | ![Composer code studio UI preview](docs/screenshots/code-studio.svg) |
 
-Capture at a consistent desktop viewport and use the real app UI; do not substitute concept art for application screenshots.
--->
-
-*Screenshots will be added after capturing the current application build so the README reflects the actual UI, not mockups.*
+<sub>These source-derived UI previews are based on the current React component structure and design tokens. They illustrate the documented layout, but are not pixel captures from a running desktop build. Exact screenshots should be captured from the packaged app to validate runtime rendering.</sub>
 
 ## Why Composer
 

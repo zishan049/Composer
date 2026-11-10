@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { 
   ZoomIn, ZoomOut, Maximize2, RotateCcw, RotateCw, 
@@ -306,7 +305,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const handleMouseUp = () => setIsPanning(false);
 
   // Click Canvas (Handles Eyedropper Copy or Double Click)
-  const handleCanvasClick = (e: React.MouseEvent) => {
+  const handleCanvasClick = () => {
     if (isEyedropperActive && hoveredColor) {
       navigator.clipboard.writeText(hoveredColor.hex);
       showToast(`Copied ${hoveredColor.hex}`, (

@@ -2,7 +2,7 @@
 
 <img src="src-tauri/icons/icon.ico" alt="Composer app icon" width="72" />
 
-# Composer v0.2
+# Composer v0.3
 
 **A minimal, fast, local-first desktop workspace.**
 
@@ -25,10 +25,18 @@ Create, edit, organize, search, and preview project files without the complexity
 
 ## Workspace-first design
 
-Composer v0.2 provides a calm, focused environment designed around local files and folders. Rather than being an editor surrounded by unrelated panels or an overloaded IDE, Composer prioritizes workspace clarity, rapid search, and smooth previews.
+Composer v0.3 matures Composer into a comprehensive workspace management application designed around local files and folders. Rather than an editor surrounded by unrelated panels or an overloaded IDE, Composer prioritizes workspace clarity, rapid search, reliable workspace lifecycle, and smooth previews.
 
-- **Local-first by design** — Your project files live entirely on your machine in a strictly sandboxed directory.
-- **Real Workspace Overview** — Answers *"What is in this workspace, and what should I open next?"* with real file/folder counts, volume stats, recent file history, and deterministically sorted recently modified files.
+- **Local-first by design** — Your project files live entirely on your machine in a strictly sandboxed directory. No telemetry, no cloud lock-in.
+- **Complete UI/UX Redesign** — Premium minimal desktop workspace inspired by modern productivity software. Restrained teal accent (`#39C6B0`), dark-first charcoal surfaces (`#0B0D0F`, `#111416`, `#171B1E`), and a matching high-contrast light theme with reduced-motion accessibility support.
+- **First-Class Workspace Lifecycle** — Switch between recent workspaces, open existing folders, view relative timestamps, and remove workspace entries from history without touching files on disk. Graceful handling of missing or inaccessible workspace roots.
+- **Real Workspace Overview** — Answers *"What is in this workspace, and what should I open next?"* with live file/folder counts, volume stats, composition breakdowns by file type (Markdown, Code, Media, Config, etc.), quick action triggers, and "Reveal in File Manager".
+- **Dedicated Information Architecture** — Clean separation into four core workspace views:
+  - **Overview**: Landing page with workspace health, metrics, composition breakdown, and quick starts.
+  - **Files**: Explorer tree, Monaco editor, tab state management, and rich previewers.
+  - **Search**: Dedicated search hub with deterministic ranking and category filter pills.
+  - **Recent**: Dedicated activity hub distinguishing recently opened files, recently modified files on disk, and known workspaces.
+- **Unsaved Changes Protection** — Explicit modal guards prevent accidental data loss when closing dirty editor tabs or switching workspaces.
 - **Deterministic Search & Indexing** — Fast, local search ranked strictly:
   1. Exact filename match (matches full name or stem)
   2. Filename prefix match
@@ -37,7 +45,6 @@ Composer v0.2 provides a calm, focused environment designed around local files a
   5. File content match (for supported text/markdown files $\le$ 1MB) with stable alphabetical tie-breaking.
 - **Command Palette (`Ctrl/Cmd + K`)** — Jump to views, create documents, switch workspaces, toggle themes, and find files instantly from any screen.
 - **Atomic file operations** — Text saves use atomic sibling-temporary writes to prevent data corruption during unexpected halts or power interruptions.
-- **Unified Design System** — Dark-first charcoal surfaces (`#0B0D0F`, `#111416`, `#171B1E`) with a restrained teal accent (`#39C6B0`) and a complete, matching light theme.
 
 ---
 
@@ -45,9 +52,12 @@ Composer v0.2 provides a calm, focused environment designed around local files a
 
 | Area | Capabilities |
 | --- | --- |
-| **Workspace Overview** | Summary metrics (files, folders, shallow volume), switch workspaces, quick action cards, and tabbed recent/modified file activity. |
-| **Explorer & Files** | Compact tree navigation, recursive expansion, file and folder creation, rename, delete with confirmation, and external asset import. |
-| **Code & Markdown** | Monaco-based editor, Markdown preview (split, code, and preview modes), syntax highlighting, and tabs with dirty-state tracking. |
+| **Workspace Overview** | Summary metrics (files, folders, recursive volume), file type composition bars, switch workspaces, quick action cards, reveal in file manager, and tabbed recent/modified file activity. |
+| **Workspace Management** | Switch between recent workspaces, open local folders, remove recent workspace history without deleting files, and recover from missing roots. |
+| **Explorer & Files** | Compact tree navigation, recursive expansion, file and folder creation, rename, delete with confirmation, and external asset import. Context menu includes "Reveal in File Manager" and "Copy Path". |
+| **Code & Markdown** | Monaco-based editor, Markdown preview (split, code, and preview modes), syntax highlighting, saved/unsaved status indicators, and tabs with dirty-state confirmation guards. |
+| **Search View** | Dedicated search engine with deterministic ranking, category filter pills (All, Markdown, Code, Config/Data, Plain Text), match type badges, and code snippets with line numbers. |
+| **Recent Activity** | Dedicated hub tracking recently opened files, recently modified files on disk, and recent workspace history. |
 | **Command Palette** | Accessible with `Ctrl/Cmd + K` or titlebar search for keyboard-driven navigation, file opening, and theme toggling. |
 | **Previews** | Native vector rendering for SVG, text/canvas viewer for PDF, color sampling and metadata inspection for images, and table views for CSV/JSON/TOML. |
 | **Security & Sandbox** | Canonicalized workspace root enforcement, traversal (`..`) rejection, and session allowlisting. |

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import type { PDFDocumentProxy, PDFPageProxy, PDFDocumentLoadingTask, RenderTask } from "pdfjs-dist";
@@ -275,7 +274,7 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
       if (pdf) {
         // Document finished loading – destroy it to release worker-side
         // resources (per opened PDF tab / on file change).
-        pdf.destroy().catch(() => {});
+        (pdf as any).destroy?.().catch(() => {});
       } else if (loadingTask) {
         // Load still in flight – destroying the task cancels it.
         loadingTask.destroy().catch(() => {});

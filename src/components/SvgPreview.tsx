@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   ZoomIn, ZoomOut, Maximize2, RotateCcw, Copy, Check, Download, 
   Sun, Moon, Grid, AlertCircle, CheckCircle2, Move

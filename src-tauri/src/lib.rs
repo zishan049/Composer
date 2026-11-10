@@ -165,7 +165,10 @@ async fn import_to_directory(
     let dest = validated_dest_dir.join(&name);
     let validated_dest = file_ops::validate_path_in_workspace(&dest, &workspace_root)?;
     if validated_dest.exists() {
-        return Err(format!("'{}' already exists in workspace", name.to_string_lossy()));
+        return Err(format!(
+            "'{}' already exists in workspace",
+            name.to_string_lossy()
+        ));
     }
 
     let return_path = validated_dest.to_string_lossy().to_string();
@@ -243,9 +246,8 @@ pub fn refresh_asset_protocol_scope(app: &tauri::AppHandle, workspace: &Path) {
         // Forbid roots that are disjoint from the new workspace. Overlapping
         // roots cannot be revoked without also blocking the new workspace,
         // because deny patterns take precedence over allowed ones.
-        let disjoint = *old != canonical
-            && !canonical.starts_with(old)
-            && !old.starts_with(&canonical);
+        let disjoint =
+            *old != canonical && !canonical.starts_with(old) && !old.starts_with(&canonical);
         if disjoint {
             let _ = scope.forbid_directory(old, true);
         }
@@ -302,6 +304,8 @@ pub fn run() {
             // Config commands
             config::get_app_config,
             config::save_app_config,
+            config::open_workspace_dir,
+            config::remove_recent_workspace,
             config::export_theme_toml,
             config::import_theme_toml,
             config::get_app_install_path,
@@ -314,6 +318,7 @@ pub fn run() {
             file_ops::get_workspace_stats,
             file_ops::invalidate_workspace_index,
             file_ops::search_workspace,
+            file_ops::open_in_file_manager,
             file_ops::read_text_file,
             file_ops::read_binary_file_base64,
             file_ops::write_text_file,

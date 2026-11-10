@@ -10,9 +10,16 @@ export interface GeneralConfig {
   onboarding_completed: boolean;
 }
 
+export interface RecentWorkspace {
+  path: string;
+  name: string;
+  last_opened: number;
+}
+
 export interface StorageConfig {
   root_path: string;
   workspace_path: string;
+  recent_workspaces?: RecentWorkspace[];
 }
 
 export interface EditorConfig {
@@ -75,6 +82,7 @@ export interface WorkspaceStats {
   total_size_bytes: number;
   workspace_path: string;
   workspace_name: string;
+  file_types?: Record<string, number>;
 }
 
 export interface RecentFile {

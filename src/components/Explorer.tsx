@@ -3,7 +3,7 @@ import {
   Folder, File, FileText, Image as ImageIcon, Table as TableIcon, 
   Search, Plus, Save, BookOpen,
   RotateCw, Columns, Code, FileCode, History, X, ChevronRight, ChevronDown,
-  Grid3x3, Upload, FolderPlus
+  Grid3x3, Upload, FolderPlus, AlertCircle
 } from "lucide-react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -336,6 +336,7 @@ const ExplorerComponent: React.FC = () => {
   const [fileVersions, setFileVersions] = useState<{version: number, timestamp: string, content: string}[]>([]);
   // PERF-16: cap for the in-memory version history (config max_versions_per_file)
   const [maxVersionsPerFile, setMaxVersionsPerFile] = useState<number>(DEFAULT_MAX_VERSIONS);
+  const [closingTabPrompt, setClosingTabPrompt] = useState<{ path: string; name: string } | null>(null);
 
   const [isPdfEditMode, setIsPdfEditMode] = useState<boolean>(false);
 
@@ -573,6 +574,12 @@ const ExplorerComponent: React.FC = () => {
     return () => { unsub.then(fn => fn()); };
   }, []);
 
+  useEffect(() => {
+    const hasUnsaved = openTabs.some(t => t.isModified);
+    (window as any).__composer_has_unsaved = hasUnsaved;
+    window.dispatchEvent(new CustomEvent("composer:unsaved-changed", { detail: { hasUnsaved } }));
+  }, [openTabs]);
+
   // Native Tauri drag-and-drop listener for external files & folders
   useEffect(() => {
     let unlistenFn: (() => void) | null = null;
@@ -738,13 +745,37 @@ const ExplorerComponent: React.FC = () => {
     };
   }, []);
 
-  const closeTab = (path: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const closeTabDirect = (path: string) => {
     const filtered = openTabs.filter(t => t.path !== path);
     setOpenTabs(filtered);
     if (activeTabPath === path) {
       setActiveTabPath(filtered.length > 0 ? filtered[filtered.length - 1].path : null);
     }
+    setClosingTabPrompt(null);
+  };
+
+  const closeTab = (path: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const tab = openTabs.find(t => t.path === path);
+    if (tab && tab.isModified && tab.fileType !== "pdf") {
+      setClosingTabPrompt({ path: tab.path, name: tab.name });
+    } else {
+      closeTabDirect(path);
+    }
+  };
+
+  const handleSaveAndClosePrompt = async () => {
+    if (!closingTabPrompt) return;
+    const tab = openTabs.find(t => t.path === closingTabPrompt.path);
+    if (tab) {
+      try {
+        await invoke("write_text_file", { filePath: tab.path, content: tab.content });
+      } catch (e) {
+        alert("Failed to save before closing: " + e);
+        return;
+      }
+    }
+    closeTabDirect(closingTabPrompt.path);
   };
 
   const saveActiveTab = async () => {
@@ -853,6 +884,19 @@ const ExplorerComponent: React.FC = () => {
         }
       },
       { label: "", isSeparator: true },
+      {
+        label: "Reveal in File Manager",
+        onClick: () => {
+          invoke("open_in_file_manager", { path: entry.path }).catch(() => {});
+        }
+      },
+      {
+        label: "Copy Path",
+        onClick: () => {
+          navigator.clipboard.writeText(entry.path);
+        }
+      },
+      { label: "", isSeparator: true },
       { label: "Rename", shortcut: "F2", disabled: currentSelection.length > 1, onClick: () => latestRef.current.openRenameModal(entry.path) },
       {
         label: "Delete", shortcut: "Del",
@@ -885,6 +929,7 @@ const ExplorerComponent: React.FC = () => {
       { label: "Import Files...",  icon: <Upload size={13} />,                          onClick: () => openNewItemModal("import-file") },
       { label: "Import Folders...",icon: <FolderPlus size={13} />,                      onClick: () => openNewItemModal("import-folder") },
       { label: "", isSeparator: true },
+      { label: "Reveal in File Manager", onClick: () => { invoke("open_in_file_manager", { path: currentDirPath }).catch(() => {}); } },
       { label: "Refresh List",     icon: <RotateCw size={13} />,                        onClick: () => loadDirectory(currentDirPath) }
     ]);
   };
@@ -1057,8 +1102,11 @@ const ExplorerComponent: React.FC = () => {
 
               {/* Toolstrip */}
               <div className="exp-toolstrip">
-                <div className="exp-toolstrip-left">
-                  <span className="exp-mode-label">
+                <div className="exp-toolstrip-left flex items-center gap-2 min-w-0">
+                  <span className="text-[11px] font-mono text-[var(--text-muted)] truncate max-w-xs" title={activeTab.path}>
+                    {activeTab.path.replace(workspaceRootPath, "").replace(/^[\\\/]/, "") || activeTab.name}
+                  </span>
+                  <span className="exp-mode-label shrink-0">
                     {isSvgFile(activeTab)
                       ? `SVG · ${activeSvgMode}`
                       : isMdFile(activeTab)
@@ -1066,8 +1114,18 @@ const ExplorerComponent: React.FC = () => {
                       : activeTab.fileType}
                   </span>
 
+                  {activeTab.isModified ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                      Unsaved
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/20 shrink-0">
+                      Saved
+                    </span>
+                  )}
+
                   {activeTab.isModified && (
-                    <button onClick={saveActiveTab} className="exp-save-btn">
+                    <button onClick={saveActiveTab} className="exp-save-btn cursor-pointer">
                       <Save size={10} />
                       <span>Save</span>
                     </button>
@@ -1505,6 +1563,54 @@ const ExplorerComponent: React.FC = () => {
             <div className="dlg-footer">
               <button type="button" className="dlg-btn-cancel" onClick={() => setShowRenameModal(false)}>Cancel</button>
               <button type="button" className="dlg-btn-confirm" onClick={handleRenameConfirm}>Rename</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Unsaved Changes Tab Close Modal ─────────────────── */}
+      {closingTabPrompt && (
+        <div className="dlg-overlay">
+          <div className="dlg-panel dlg-panel--sm">
+            <div className="dlg-header">
+              <div className="dlg-title-group">
+                <span className="dlg-title-icon text-amber-400">
+                  <AlertCircle size={15} />
+                </span>
+                <span className="dlg-title">Unsaved Changes</span>
+              </div>
+              <button className="dlg-close-btn" onClick={() => setClosingTabPrompt(null)}>
+                <X size={14} />
+              </button>
+            </div>
+            <div className="dlg-body">
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                You have unsaved changes in <code className="text-[var(--accent)] font-semibold">{closingTabPrompt.name}</code>.
+                Do you want to save your edits before closing?
+              </p>
+            </div>
+            <div className="dlg-footer">
+              <button
+                type="button"
+                className="dlg-btn-cancel"
+                onClick={() => setClosingTabPrompt(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 cursor-pointer"
+                onClick={() => closeTabDirect(closingTabPrompt.path)}
+              >
+                Don't Save
+              </button>
+              <button
+                type="button"
+                className="dlg-btn-confirm"
+                onClick={handleSaveAndClosePrompt}
+              >
+                Save &amp; Close
+              </button>
             </div>
           </div>
         </div>

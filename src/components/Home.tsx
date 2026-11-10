@@ -1,22 +1,40 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
-  FileText, FileCode, Folder, Image as ImageIcon, Table as TableIcon,
-  Search, Plus, FolderPlus, Upload, FolderOpen,
-  X, Clock, File as FileIcon, HardDrive, Files, Folders,
-  Sparkles, CheckCircle2, AlertCircle
+  FileText,
+  FileCode,
+  Folder,
+  Image as ImageIcon,
+  Table as TableIcon,
+  Search,
+  Plus,
+  FolderPlus,
+  Upload,
+  FolderOpen,
+  X,
+  Clock,
+  File as FileIcon,
+  HardDrive,
+  Files,
+  Folders,
+  Copy,
+  Check,
+  ExternalLink,
+  PieChart,
+  AlertTriangle,
 } from "lucide-react";
-import { FileEntry, RecentFile, WorkspaceStats, SearchResult } from "../types";
+import { FileEntry, RecentFile, RecentWorkspace, WorkspaceStats, SearchResult } from "../types";
 import {
   getWorkspaceStats,
   getCachedWorkspaceIndex,
   listAllWorkspaceFiles,
   searchWorkspace,
-  inspectPaths
+  inspectPaths,
+  openInFileManager,
 } from "../lib/api";
 import {
   getRecentFiles,
   removeRecentFile,
-  formatRelativeTime
+  formatRelativeTime,
 } from "../utils/recentFiles";
 import { SvgFileIcon } from "./SvgFileIcon";
 import { MarkdownFileIcon } from "./MarkdownFileIcon";
@@ -28,9 +46,11 @@ interface HomeProps {
   onNewFolder: () => void;
   onImport: () => void;
   onOpenProject: () => void;
+  recentWorkspaces?: RecentWorkspace[];
+  onSelectWorkspace?: (path: string) => void;
+  onRemoveRecentWorkspace?: (path: string) => void;
 }
 
-// Format bytes into readable format
 function formatFileSize(bytes?: number): string {
   if (bytes === undefined || bytes === null || isNaN(bytes)) return "0 B";
   if (bytes === 0) return "0 B";
@@ -41,7 +61,6 @@ function formatFileSize(bytes?: number): string {
   return `${val} ${sizes[i] || "B"}`;
 }
 
-// Isolated Clock leaf component
 const HomeClock: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
@@ -81,24 +100,20 @@ const HomeComponent: React.FC<HomeProps> = ({
   onNewFolder,
   onImport,
   onOpenProject,
+  recentWorkspaces = [],
+  onSelectWorkspace,
+  onRemoveRecentWorkspace,
 }) => {
-  const greeting = (() => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return "Good morning,";
-    if (hour >= 12 && hour < 17) return "Good afternoon,";
-    return "Good evening,";
-  })();
-
-  // ── Workspace stats and file index ─────────────────────────
   const [stats, setStats] = useState<WorkspaceStats | null>(null);
   const [workspaceFiles, setWorkspaceFiles] = useState<FileEntry[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [copiedPath, setCopiedPath] = useState<boolean>(false);
 
-  // Tab selection: "recent" (opened files) vs "modified" (recently changed on disk)
-  const [activeTab, setActiveTab] = useState<"recent" | "modified">("recent");
+  // Tab selection: "recent" (opened files) vs "modified" (on disk) vs "workspaces"
+  const [activeTab, setActiveTab] = useState<"recent" | "modified" | "workspaces">("recent");
 
-  // Load real workspace stats
+  // Load real workspace stats and files
   const loadWorkspaceData = useCallback(async () => {
     setIsLoadingStats(true);
     setStatsError(null);
@@ -106,7 +121,6 @@ const HomeComponent: React.FC<HomeProps> = ({
       const realStats = await getWorkspaceStats();
       setStats(realStats);
 
-      // Load files for modified list & quick searching
       try {
         const cached = await getCachedWorkspaceIndex();
         if (cached && cached.length > 0) {
@@ -116,7 +130,7 @@ const HomeComponent: React.FC<HomeProps> = ({
           setWorkspaceFiles(fresh);
         }
       } catch {
-        // Fallback or empty workspace
+        // Fallback for empty workspace
       }
     } catch (err: any) {
       console.warn("Failed to load workspace data:", err);
@@ -133,7 +147,7 @@ const HomeComponent: React.FC<HomeProps> = ({
     return () => window.removeEventListener("composer:recent-files-updated", handleConfigUpdate);
   }, [loadWorkspaceData]);
 
-  // ── Recent Files (History) ─────────────────────────────────
+  // Recent Files
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [availablePaths, setAvailablePaths] = useState<Set<string>>(new Set());
 
@@ -143,12 +157,12 @@ const HomeComponent: React.FC<HomeProps> = ({
 
     if (list.length > 0) {
       try {
-        const paths = list.map(item => item.path);
+        const paths = list.map((item) => item.path);
         const inspected: FileEntry[] = await inspectPaths(paths);
-        const validSet = new Set(inspected.map(e => e.path));
+        const validSet = new Set(inspected.map((e) => e.path));
         setAvailablePaths(validSet);
-      } catch (err) {
-        setAvailablePaths(new Set(list.map(i => i.path)));
+      } catch {
+        setAvailablePaths(new Set(list.map((i) => i.path)));
       }
     }
   }, []);
@@ -157,15 +171,24 @@ const HomeComponent: React.FC<HomeProps> = ({
     refreshRecent();
   }, [refreshRecent]);
 
-  // Deterministic Recently Modified Files
+  // Recently modified on disk
   const recentlyModifiedFiles = useMemo(() => {
     return workspaceFiles
-      .filter(f => !f.is_dir && f.modified_ms)
+      .filter((f) => !f.is_dir && f.modified_ms)
       .sort((a, b) => (b.modified_ms || 0) - (a.modified_ms || 0))
       .slice(0, 15);
   }, [workspaceFiles]);
 
-  // ── Global Search State ─────────────────────────────────────
+  // Top file types breakdown from real stats
+  const topFileTypes = useMemo(() => {
+    if (!stats?.file_types) return [];
+    return Object.entries(stats.file_types)
+      .filter(([ext]) => ext && ext !== "other")
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 4);
+  }, [stats]);
+
+  // Quick Search State
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -174,7 +197,6 @@ const HomeComponent: React.FC<HomeProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Unified Ranked Search with Rust backend
   useEffect(() => {
     const q = searchQuery.trim();
     if (!q) {
@@ -192,7 +214,7 @@ const HomeComponent: React.FC<HomeProps> = ({
           setSearchResults(results);
           setSelectedIndex(-1);
         }
-      } catch (err) {
+      } catch {
         if (!isCancelled) setSearchResults([]);
       } finally {
         if (!isCancelled) setIsSearching(false);
@@ -212,7 +234,11 @@ const HomeComponent: React.FC<HomeProps> = ({
     if (entry.is_dir) {
       onNavigate("Explorer");
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("composer:open-file", { detail: { path: entry.path, is_dir: true } }));
+        window.dispatchEvent(
+          new CustomEvent("composer:open-file", {
+            detail: { path: entry.path, is_dir: true },
+          })
+        );
       }, 50);
     } else {
       onOpenRecentFile(entry.path, filename);
@@ -222,10 +248,10 @@ const HomeComponent: React.FC<HomeProps> = ({
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex(prev => (prev + 1 < searchResults.length ? prev + 1 : 0));
+      setSelectedIndex((prev) => (prev + 1 < searchResults.length ? prev + 1 : 0));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex(prev => (prev - 1 >= 0 ? prev - 1 : searchResults.length - 1));
+      setSelectedIndex((prev) => (prev - 1 >= 0 ? prev - 1 : searchResults.length - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < searchResults.length) {
@@ -239,18 +265,36 @@ const HomeComponent: React.FC<HomeProps> = ({
     }
   };
 
-  // Icon helper
+  const copyPathToClipboard = () => {
+    if (stats?.workspace_path) {
+      navigator.clipboard.writeText(stats.workspace_path);
+      setCopiedPath(true);
+      setTimeout(() => setCopiedPath(false), 1500);
+    }
+  };
+
+  const handleOpenFileManager = async () => {
+    try {
+      await openInFileManager(stats?.workspace_path);
+    } catch (e) {
+      console.error("Open in file manager error:", e);
+    }
+  };
+
   const getFileIcon = (filename: string, isDir?: boolean) => {
-    const iconProps = { size: 15, style: { color: "var(--text-muted)", flexShrink: 0 } };
-    if (isDir) return <Folder {...iconProps} style={{ color: "var(--accent)", flexShrink: 0 }} />;
+    const iconProps = { size: 14, style: { color: "var(--text-muted)", flexShrink: 0 } };
+    if (isDir) return <Folder {...iconProps} style={{ color: "var(--accent)" }} />;
     const ext = filename.split(".").pop()?.toLowerCase();
     if (ext === "svg") return <SvgFileIcon {...iconProps} />;
-    if (ext === "md" || ext === "markdown") return <MarkdownFileIcon {...iconProps} style={{ color: "var(--accent)" }} />;
+    if (ext === "md" || ext === "markdown")
+      return <MarkdownFileIcon {...iconProps} style={{ color: "var(--accent)" }} />;
     if (ext === "txt") return <FileText {...iconProps} />;
-    if (["png", "jpg", "jpeg", "webp", "gif", "ico"].includes(ext || "")) return <ImageIcon {...iconProps} />;
-    if (ext === "pdf") return <FileText {...iconProps} style={{ color: "#F87171", flexShrink: 0 }} />;
+    if (["png", "jpg", "jpeg", "webp", "gif", "ico"].includes(ext || ""))
+      return <ImageIcon {...iconProps} />;
+    if (ext === "pdf") return <FileText {...iconProps} style={{ color: "#F87171" }} />;
     if (["csv", "json", "toml"].includes(ext || "")) return <TableIcon {...iconProps} />;
-    if (["js", "ts", "jsx", "tsx", "html", "css", "rs", "py"].includes(ext || "")) return <FileCode {...iconProps} />;
+    if (["js", "ts", "jsx", "tsx", "html", "css", "rs", "py"].includes(ext || ""))
+      return <FileCode {...iconProps} />;
     return <FileIcon {...iconProps} />;
   };
 
@@ -259,52 +303,71 @@ const HomeComponent: React.FC<HomeProps> = ({
   return (
     <div className="home-root">
       <div className="home-container">
-
-        {/* ── Real-time Date and Time ───────────────────────────── */}
+        {/* Real-time Date and Time */}
         <HomeClock />
 
-        {/* ── Hero / Greeting ───────────────────────────────────── */}
-        <div className="home-hero">
-          <span className="home-greeting">
-            <Sparkles size={14} />
-            {greeting}
-          </span>
-          <h1 className="home-heading">Overview</h1>
-          <p className="home-description">
-            Your local workspace at a glance. Browse, search, and jump straight into work.
-          </p>
-        </div>
-
-        {/* ── Active Workspace Identity Card ────────────────────── */}
+        {/* ── Active Workspace Header ───────────────────────────── */}
         <div className="home-workspace-header">
-          <div className="home-workspace-info">
-            <span className="home-workspace-badge">Workspace</span>
-            <span className="home-workspace-name">{stats?.workspace_name || "Active Project"}</span>
-            <span className="home-workspace-path" title={stats?.workspace_path || ""}>
-              {stats?.workspace_path || "Loading workspace..."}
-            </span>
+          <div className="home-workspace-info min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="home-workspace-badge">Active Workspace</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--accent)]">
+                Local-First
+              </span>
+            </div>
+            <h1 className="home-workspace-name truncate">
+              {stats?.workspace_name || "Active Project"}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="home-workspace-path font-mono text-[11px] truncate max-w-md" title={stats?.workspace_path || ""}>
+                {stats?.workspace_path || "Loading workspace path..."}
+              </span>
+              <button
+                onClick={copyPathToClipboard}
+                className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-nav-hover-bg)] cursor-pointer transition-colors"
+                title="Copy directory path"
+              >
+                {copiedPath ? <Check size={12} className="text-[var(--accent)]" /> : <Copy size={12} />}
+              </button>
+            </div>
           </div>
-          <button
-            onClick={onOpenProject}
-            className="home-workspace-change-btn"
-            title="Choose a different workspace root"
-          >
-            Switch Workspace
-          </button>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleOpenFileManager}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-surface-elevated)] hover:bg-[var(--sidebar-nav-hover-bg)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              title="Open folder in File Explorer / Finder"
+            >
+              <ExternalLink size={13} />
+              <span>Reveal in File Manager</span>
+            </button>
+            <button
+              onClick={onOpenProject}
+              className="home-workspace-change-btn cursor-pointer"
+              title="Switch or manage project workspaces"
+            >
+              Switch Workspace
+            </button>
+          </div>
         </div>
 
-        {/* Error notice if workspace failed to load */}
+        {/* Error notification if directory missing/moved */}
         {statsError && (
-          <div
-            className="flex items-center gap-2 px-3 py-2 mb-4 rounded text-xs"
-            style={{ backgroundColor: "rgba(239, 68, 68, 0.12)", color: "#EF4444", border: "1px solid rgba(239, 68, 68, 0.25)" }}
-          >
-            <AlertCircle size={14} />
-            <span>Workspace error: {statsError}</span>
+          <div className="flex items-center justify-between gap-3 p-3 mb-5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={15} className="shrink-0" />
+              <span>Workspace directory is unavailable or was moved: {statsError}</span>
+            </div>
+            <button
+              onClick={onOpenProject}
+              className="px-2.5 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-200 font-medium cursor-pointer"
+            >
+              Locate Folder
+            </button>
           </div>
         )}
 
-        {/* ── Summary Metrics (Nandi Style) ─────────────────────── */}
+        {/* ── Real Metric Summary Cards ─────────────────────────── */}
         <div className="home-stats-grid">
           {/* Card 1: Files */}
           <div className="home-stat-card">
@@ -313,9 +376,9 @@ const HomeComponent: React.FC<HomeProps> = ({
               <Files size={15} className="home-stat-icon" />
             </div>
             <span className="home-stat-value">
-              {isLoadingStats ? "..." : (stats?.file_count ?? 0)}
+              {isLoadingStats ? "..." : stats?.file_count ?? 0}
             </span>
-            <span className="home-stat-sub">Indexed in root</span>
+            <span className="home-stat-sub">Indexed files</span>
           </div>
 
           {/* Card 2: Folders */}
@@ -325,37 +388,50 @@ const HomeComponent: React.FC<HomeProps> = ({
               <Folders size={15} className="home-stat-icon" />
             </div>
             <span className="home-stat-value">
-              {isLoadingStats ? "..." : (stats?.folder_count ?? 0)}
+              {isLoadingStats ? "..." : stats?.folder_count ?? 0}
             </span>
-            <span className="home-stat-sub">Direct directories</span>
+            <span className="home-stat-sub">Directories</span>
           </div>
 
           {/* Card 3: Size */}
           <div className="home-stat-card">
             <div className="home-stat-top">
-              <span className="home-stat-label">Workspace Size</span>
+              <span className="home-stat-label">Workspace Volume</span>
               <HardDrive size={15} className="home-stat-icon" />
             </div>
             <span className="home-stat-value">
               {isLoadingStats ? "..." : formatFileSize(stats?.total_size_bytes)}
             </span>
-            <span className="home-stat-sub">Shallow file volume</span>
+            <span className="home-stat-sub">Total size on disk</span>
           </div>
 
-          {/* Card 4: Status */}
+          {/* Card 4: File Types Breakdown */}
           <div className="home-stat-card">
             <div className="home-stat-top">
-              <span className="home-stat-label">Local Isolation</span>
-              <CheckCircle2 size={15} style={{ color: "var(--accent)" }} />
+              <span className="home-stat-label">Composition</span>
+              <PieChart size={15} className="home-stat-icon" />
             </div>
-            <span className="home-stat-value text-base font-semibold" style={{ color: "var(--accent)" }}>
-              Active &amp; Sandboxed
-            </span>
-            <span className="home-stat-sub">Local-first filesystem</span>
+            {topFileTypes.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {topFileTypes.map(([ext, count]) => (
+                  <span
+                    key={ext}
+                    className="text-[10.5px] px-2 py-0.5 rounded font-mono font-medium bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-primary)]"
+                  >
+                    .{ext} <span className="text-[var(--accent)] font-bold">{count}</span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="home-stat-value text-sm font-medium text-[var(--text-muted)]">
+                {isLoadingStats ? "Analyzing..." : "No files indexed"}
+              </span>
+            )}
+            <span className="home-stat-sub">Dominant extensions</span>
           </div>
         </div>
 
-        {/* ── Global Search / Action Field ──────────────────────── */}
+        {/* ── Global Search Bar ─────────────────────────────────── */}
         <div className="home-search-wrapper">
           <div
             className={`home-search-bar ${isSearchFocused ? "focused" : ""}`}
@@ -366,9 +442,9 @@ const HomeComponent: React.FC<HomeProps> = ({
               id="home-search-input"
               ref={searchInputRef}
               type="text"
-              placeholder="Search filename, relative path, or file content..."
+              placeholder="Search filename, relative path, or text content..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => {
                 setTimeout(() => setIsSearchFocused(false), 200);
@@ -379,12 +455,14 @@ const HomeComponent: React.FC<HomeProps> = ({
               spellCheck={false}
             />
             {isSearching && (
-              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>Searching...</span>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                Searching...
+              </span>
             )}
             <kbd className="home-search-kbd">Ctrl K</kbd>
           </div>
 
-          {/* Search Dropdown Results */}
+          {/* Search Dropdown */}
           {isSearchFocused && searchQuery.trim().length > 0 && (
             <div ref={dropdownRef} className="home-search-dropdown">
               {searchResults.length > 0 ? (
@@ -392,7 +470,7 @@ const HomeComponent: React.FC<HomeProps> = ({
                   <button
                     key={`${item.path}-${idx}`}
                     className={`home-search-item ${idx === selectedIndex ? "selected" : ""}`}
-                    onMouseDown={e => {
+                    onMouseDown={(e) => {
                       e.preventDefault();
                       handleSelectSearchResult(item);
                     }}
@@ -401,14 +479,7 @@ const HomeComponent: React.FC<HomeProps> = ({
                     <div className="home-search-item-info">
                       <div className="flex items-center gap-2">
                         <span className="home-search-item-name">{item.name}</span>
-                        <span
-                          className="text-[9px] px-1.5 py-0.2 rounded font-medium"
-                          style={{
-                            backgroundColor: "var(--bg-surface)",
-                            color: "var(--accent)",
-                            border: "1px solid var(--border-subtle)",
-                          }}
-                        >
+                        <span className="text-[9px] px-1.5 py-0.2 rounded font-medium bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--accent)]">
                           {item.match_type.replace("_", " ")}
                         </span>
                       </div>
@@ -433,7 +504,6 @@ const HomeComponent: React.FC<HomeProps> = ({
 
         {/* ── Quick Action Cards ────────────────────────────────── */}
         <div className="home-actions-grid">
-          {/* 1. New File */}
           <button onClick={onNewFile} className="home-action-card" title="Create a new file">
             <div className="home-action-icon-box">
               <Plus size={16} />
@@ -442,8 +512,7 @@ const HomeComponent: React.FC<HomeProps> = ({
             <span className="home-action-subtitle">Create Markdown, text, or code</span>
           </button>
 
-          {/* 2. New Folder */}
-          <button onClick={onNewFolder} className="home-action-card" title="Create a new directory">
+          <button onClick={onNewFolder} className="home-action-card" title="Create a new folder">
             <div className="home-action-icon-box">
               <FolderPlus size={16} />
             </div>
@@ -451,26 +520,24 @@ const HomeComponent: React.FC<HomeProps> = ({
             <span className="home-action-subtitle">Organize project structure</span>
           </button>
 
-          {/* 3. Import */}
           <button onClick={onImport} className="home-action-card" title="Import external files">
             <div className="home-action-icon-box">
               <Upload size={16} />
             </div>
             <span className="home-action-title">Import</span>
-            <span className="home-action-subtitle">Add external assets or notes</span>
+            <span className="home-action-subtitle">Add external documents or media</span>
           </button>
 
-          {/* 4. Open Project */}
-          <button onClick={onOpenProject} className="home-action-card" title="Select workspace directory">
+          <button onClick={() => onNavigate("Search")} className="home-action-card" title="Search workspace">
             <div className="home-action-icon-box">
-              <FolderOpen size={16} />
+              <Search size={16} />
             </div>
-            <span className="home-action-title">Open Project</span>
-            <span className="home-action-subtitle">Switch workspace directory</span>
+            <span className="home-action-title">Deep Search</span>
+            <span className="home-action-subtitle">Find across paths and content</span>
           </button>
         </div>
 
-        {/* ── Worksurface List: Recent Files / Recently Modified ── */}
+        {/* ── Activity Sections (Recent Files / Modified / Recent Workspaces) ── */}
         <div className="home-recent-section">
           <div className="home-recent-header">
             <div className="home-section-tabs">
@@ -478,7 +545,7 @@ const HomeComponent: React.FC<HomeProps> = ({
                 className={`home-tab-pill ${activeTab === "recent" ? "active" : ""}`}
                 onClick={() => setActiveTab("recent")}
               >
-                Recent Files {recentFiles.length > 0 && `(${recentFiles.length})`}
+                Recently Opened {recentFiles.length > 0 && `(${recentFiles.length})`}
               </button>
               <button
                 className={`home-tab-pill ${activeTab === "modified" ? "active" : ""}`}
@@ -486,14 +553,22 @@ const HomeComponent: React.FC<HomeProps> = ({
               >
                 Recently Modified {recentlyModifiedFiles.length > 0 && `(${recentlyModifiedFiles.length})`}
               </button>
+              {recentWorkspaces.length > 0 && (
+                <button
+                  className={`home-tab-pill ${activeTab === "workspaces" ? "active" : ""}`}
+                  onClick={() => setActiveTab("workspaces")}
+                >
+                  Known Workspaces ({recentWorkspaces.length})
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Tab 1: Recent Files */}
+          {/* Tab 1: Recently Opened Files */}
           {activeTab === "recent" && (
             recentFiles.length > 0 ? (
               <div className="home-recent-list">
-                {recentFiles.map(file => {
+                {recentFiles.map((file) => {
                   const isAvailable = availablePaths.has(file.path);
                   return (
                     <div
@@ -501,22 +576,20 @@ const HomeComponent: React.FC<HomeProps> = ({
                       className={`home-recent-row ${!isAvailable ? "unavailable" : ""}`}
                       onClick={() => {
                         if (!isAvailable) {
-                          if (confirm(`"${file.filename}" is no longer available at this path. Remove it from recent files?`)) {
+                          if (confirm(`"${file.filename}" is unavailable. Remove from recents?`)) {
                             removeRecentFile(file.path);
                           }
                           return;
                         }
                         onOpenRecentFile(file.path, file.filename);
                       }}
-                      title={isAvailable ? file.path : "File not found"}
+                      title={isAvailable ? file.path : "File not found on disk"}
                     >
                       <div className="home-recent-left">
-                        <div className="home-recent-icon">
-                          {getFileIcon(file.filename)}
-                        </div>
+                        <div className="home-recent-icon">{getFileIcon(file.filename)}</div>
                         <div className="home-recent-info">
                           <span className="home-recent-filename">{file.filename}</span>
-                          <span className="home-recent-filepath">{file.path}</span>
+                          <span className="home-recent-filepath font-mono">{file.path}</span>
                         </div>
                       </div>
 
@@ -528,11 +601,11 @@ const HomeComponent: React.FC<HomeProps> = ({
                           {formatRelativeTime(file.lastOpened)}
                         </span>
                         <button
-                          onClick={e => {
+                          onClick={(e) => {
                             e.stopPropagation();
                             removeRecentFile(file.path);
                           }}
-                          className="home-recent-remove-btn"
+                          className="home-recent-remove-btn cursor-pointer"
                           title="Remove from recents"
                         >
                           <X size={12} />
@@ -547,17 +620,17 @@ const HomeComponent: React.FC<HomeProps> = ({
                 <Clock size={24} className="home-recent-empty-icon" />
                 <span className="home-recent-empty-title">No recent files yet</span>
                 <p className="home-recent-empty-desc">
-                  Files you open and edit will appear here for fast one-click access.
+                  Files you open and edit in Composer will appear here for fast one-click access.
                 </p>
               </div>
             )
           )}
 
-          {/* Tab 2: Recently Modified (Deterministic on-disk) */}
+          {/* Tab 2: Recently Modified on Disk */}
           {activeTab === "modified" && (
             recentlyModifiedFiles.length > 0 ? (
               <div className="home-recent-list">
-                {recentlyModifiedFiles.map(file => {
+                {recentlyModifiedFiles.map((file) => {
                   const filename = file.name.split(/[\\\/]/).pop() || file.name;
                   return (
                     <div
@@ -572,12 +645,12 @@ const HomeComponent: React.FC<HomeProps> = ({
                         </div>
                         <div className="home-recent-info">
                           <span className="home-recent-filename">{file.name}</span>
-                          <span className="home-recent-filepath">{file.path}</span>
+                          <span className="home-recent-filepath font-mono">{file.path}</span>
                         </div>
                       </div>
 
                       <div className="home-recent-right">
-                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        <span className="text-[11px] font-mono text-[var(--text-muted)]">
                           {formatFileSize(file.size)}
                         </span>
                         {file.modified_ms && (
@@ -592,7 +665,7 @@ const HomeComponent: React.FC<HomeProps> = ({
               </div>
             ) : (
               <div className="home-recent-empty">
-                <AlertCircle size={24} className="home-recent-empty-icon" />
+                <Clock size={24} className="home-recent-empty-icon" />
                 <span className="home-recent-empty-title">No modified files indexed</span>
                 <p className="home-recent-empty-desc">
                   Files in this workspace with timestamps will appear here in chronological order.
@@ -601,35 +674,88 @@ const HomeComponent: React.FC<HomeProps> = ({
             )
           )}
 
+          {/* Tab 3: Recent Workspaces */}
+          {activeTab === "workspaces" && (
+            <div className="home-recent-list">
+              {recentWorkspaces.map((ws) => {
+                const isActive =
+                  ws.path.toLowerCase() === (stats?.workspace_path || "").toLowerCase();
+                return (
+                  <div
+                    key={ws.path}
+                    className={`home-recent-row ${isActive ? "border-[var(--accent)]/40 bg-[var(--accent-soft)]" : ""}`}
+                    onClick={() => onSelectWorkspace && onSelectWorkspace(ws.path)}
+                    title={ws.path}
+                  >
+                    <div className="home-recent-left">
+                      <div className="home-recent-icon">
+                        <FolderOpen size={14} className={isActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]"} />
+                      </div>
+                      <div className="home-recent-info">
+                        <div className="flex items-center gap-2">
+                          <span className="home-recent-filename">{ws.name}</span>
+                          {isActive && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[var(--accent)] text-[#0B0D0F]">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <span className="home-recent-filepath font-mono">{ws.path}</span>
+                      </div>
+                    </div>
+
+                    <div className="home-recent-right">
+                      {ws.last_opened > 0 && (
+                        <span className="home-recent-time">
+                          {formatRelativeTime(ws.last_opened)}
+                        </span>
+                      )}
+                      {onRemoveRecentWorkspace && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveRecentWorkspace(ws.path);
+                          }}
+                          className="home-recent-remove-btn cursor-pointer"
+                          title="Remove from recents (does not delete directory)"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Empty workspace state */}
           {isWorkspaceEmpty && (
             <div className="home-recent-empty mt-4 p-8 rounded-xl border border-dashed border-[var(--border-subtle)]">
               <FolderOpen size={32} style={{ color: "var(--accent)" }} />
-              <span className="text-sm font-semibold text-[var(--text-primary)]">Workspace is empty</span>
+              <span className="text-sm font-semibold text-[var(--text-primary)]">
+                Workspace is empty
+              </span>
               <p className="text-xs text-[var(--text-muted)] max-w-sm">
-                Get started by creating a new document or folder, or import files from your computer.
+                Get started by creating a new document or folder, or import project files from your computer.
               </p>
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={onNewFile}
-                  className="px-3 py-1.5 rounded text-xs font-medium"
-                  style={{ backgroundColor: "var(--accent)", color: "#0B0D0F" }}
+                  className="px-3 py-1.5 rounded text-xs font-semibold bg-[var(--accent)] text-[#0B0D0F] hover:bg-[var(--accent-hover)] transition-colors cursor-pointer"
                 >
-                  Create File
+                  Create First File
                 </button>
                 <button
                   onClick={onImport}
-                  className="px-3 py-1.5 rounded text-xs font-medium"
-                  style={{ backgroundColor: "var(--bg-surface-elevated)", color: "var(--text-primary)" }}
+                  className="px-3 py-1.5 rounded text-xs font-medium bg-[var(--bg-surface-elevated)] text-[var(--text-primary)] border border-[var(--border-default)] hover:bg-[var(--sidebar-nav-hover-bg)] transition-colors cursor-pointer"
                 >
-                  Import
+                  Import Files
                 </button>
               </div>
             </div>
           )}
-
         </div>
-
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 [package]
 name = "composer"
-version = "0.2.0"
+version = "0.3.0"
 description = "Composer — A Modern Writing Environment"
 authors = ["you"]
 edition = "2021"

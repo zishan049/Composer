@@ -19,6 +19,15 @@ export const getAppInstallPath = (): Promise<string> =>
 export const getWorkspacePath = (): Promise<string> =>
   invoke("get_workspace_path");
 
+export const openWorkspaceDir = (path: string): Promise<AppConfig> =>
+  invoke("open_workspace_dir", { path });
+
+export const removeRecentWorkspace = (path: string): Promise<AppConfig> =>
+  invoke("remove_recent_workspace", { path });
+
+export const openInFileManager = (path?: string): Promise<void> =>
+  invoke("open_in_file_manager", { path });
+
 export const getCachePath = (): Promise<string> =>
   invoke("get_cache_path");
 

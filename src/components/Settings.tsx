@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { Sliders, RefreshCw, ChevronDown, Save, Dices, X, ArrowUpCircle, CheckCircle, AlertCircle, Download, Keyboard } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -175,9 +174,7 @@ export const Settings: React.FC = () => {
   const [newThemeName, setNewThemeName] = useState("");
   const [saveError, setSaveError] = useState("");
   const [rollDegrees, setRollDegrees] = useState(0);
-  const [presetsDropdownOpen, setPresetsDropdownOpen] = useState(false);
 
-  const [localGlowBrightness, setLocalGlowBrightness] = useState<number>(1.0);
   const [localUiSmoothness, setLocalUiSmoothness] = useState<number>(4);
   const [localNavSmoothness, setLocalNavSmoothness] = useState<number>(4);
 
@@ -332,7 +329,6 @@ export const Settings: React.FC = () => {
       const cfg: AppConfig = await invoke("get_app_config");
       setConfig(cfg);
       applyTheme(cfg.theme.ui_overrides, cfg.theme.font_family_ui);
-      setLocalGlowBrightness(parseFloat(cfg.theme.ui_overrides.accent_glow_brightness || "1.0"));
       setLocalUiSmoothness(parseInt(cfg.theme.ui_overrides.ui_edge_smoothness || "4"));
       setLocalNavSmoothness(parseInt(cfg.theme.ui_overrides.navbar_edge_smoothness || "4"));
       await loadCustomPresets(cfg.storage.root_path);
@@ -416,14 +412,12 @@ export const Settings: React.FC = () => {
       if (cfg && cfg.theme) {
         setConfig(cfg);
         applyTheme(cfg.theme.ui_overrides, cfg.theme.font_family_ui);
-        setLocalGlowBrightness(parseFloat(cfg.theme.ui_overrides.accent_glow_brightness || "1.0"));
         setLocalUiSmoothness(parseInt(cfg.theme.ui_overrides.ui_edge_smoothness || "4"));
         setLocalNavSmoothness(parseInt(cfg.theme.ui_overrides.navbar_edge_smoothness || "4"));
       } else {
         invoke<AppConfig>("get_app_config").then(fresh => {
           setConfig(fresh);
           applyTheme(fresh.theme.ui_overrides, fresh.theme.font_family_ui);
-          setLocalGlowBrightness(parseFloat(fresh.theme.ui_overrides.accent_glow_brightness || "1.0"));
           setLocalUiSmoothness(parseInt(fresh.theme.ui_overrides.ui_edge_smoothness || "4"));
           setLocalNavSmoothness(parseInt(fresh.theme.ui_overrides.navbar_edge_smoothness || "4"));
         }).catch(() => {});

@@ -80,6 +80,22 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       perform: () => { onNavigate("Explorer"); onClose(); },
     },
     {
+      id: "nav-search",
+      category: "Navigation",
+      title: "Go to Search",
+      subtitle: "Deterministic workspace search",
+      icon: <Search size={14} />,
+      perform: () => { onNavigate("Search"); onClose(); },
+    },
+    {
+      id: "nav-recent",
+      category: "Navigation",
+      title: "Go to Recent Activity",
+      subtitle: "Recent files and workspaces",
+      icon: <House size={14} />,
+      perform: () => { onNavigate("Recent"); onClose(); },
+    },
+    {
       id: "nav-settings",
       category: "Navigation",
       title: "Go to Settings",

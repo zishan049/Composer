@@ -1,5 +1,5 @@
 /* ============================================================
-   COMPOSER V0.2 — DESIGN TOKENS
+   COMPOSER V0.3 — DESIGN TOKENS
    Minimal Local Workspace (Charcoal Dark + Restrained Teal + Crisp Light)
    ============================================================ */
 
@@ -30,7 +30,7 @@
   --accent-softer:  rgba(57, 198, 176, 0.06);
 
   /* ── Sidebar specific ────────────────────────────────────── */
-  --sidebar-width:              150px;
+  --sidebar-width:              210px;
   --sidebar-nav-active-bg:      rgba(57, 198, 176, 0.10);
   --sidebar-nav-active-border:  var(--accent);
   --sidebar-nav-hover-bg:       rgba(255, 255, 255, 0.04);
@@ -146,4 +146,13 @@
   --theme-accent: var(--accent);
   --theme-rule:   var(--border-subtle);
   --theme-light-rule: rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

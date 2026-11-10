@@ -2,33 +2,40 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   House, Folder, Settings as SettingsIcon,
   RefreshCw, Sun, Moon, Minus, Square, X,
-  HardDrive, ArrowUpCircle, Download, Search
+  HardDrive, ArrowUpCircle, Download, Search,
+  Clock, ChevronDown
 } from "lucide-react";
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "./types";
+import { openWorkspaceDir, removeRecentWorkspace } from "./lib/api";
 import { applyTypographyToRoot } from "./utils/fonts";
 import { Onboarding } from "./components/Onboarding";
 import { CommandPalette } from "./components/CommandPalette";
+import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
 
 // Page Components (Code-split with React.lazy for instant startup)
-const Home     = React.lazy(() => import("./components/Home").then(m => ({ default: m.Home })));
-const Explorer = React.lazy(() => import("./components/Explorer").then(m => ({ default: m.Explorer })));
-const Settings = React.lazy(() => import("./components/Settings").then(m => ({ default: m.Settings })));
+const Home       = React.lazy(() => import("./components/Home").then(m => ({ default: m.Home })));
+const Explorer   = React.lazy(() => import("./components/Explorer").then(m => ({ default: m.Explorer })));
+const SearchView = React.lazy(() => import("./components/SearchView").then(m => ({ default: m.SearchView })));
+const RecentView = React.lazy(() => import("./components/RecentView").then(m => ({ default: m.RecentView })));
+const Settings   = React.lazy(() => import("./components/Settings").then(m => ({ default: m.Settings })));
 
 // ─────────────────────────────────────────────
 // Valid Pages
 // ─────────────────────────────────────────────
-const VALID_PAGES = ["Home", "Explorer", "Settings"];
+const VALID_PAGES = ["Home", "Explorer", "Search", "Recent", "Settings"];
 
 // ─────────────────────────────────────────────
-// Navigation definition (Overview, Files, Settings)
+// Navigation definition (Overview, Files, Search, Recent, Settings)
 // ─────────────────────────────────────────────
 const NAV_ITEMS = [
   { name: "Home",     label: "Overview", icon: <House        size={14} className="nav-icon-home"     /> },
   { name: "Explorer", label: "Files",    icon: <Folder       size={14} className="nav-icon-explorer" /> },
+  { name: "Search",   label: "Search",   icon: <Search       size={14} className="nav-icon-search"   /> },
+  { name: "Recent",   label: "Recent",   icon: <Clock        size={14} className="nav-icon-recent"   /> },
   { name: "Settings", label: "Settings", icon: <SettingsIcon size={14} className="nav-icon-settings" /> },
 ];
 
@@ -65,6 +72,8 @@ function App() {
   const [config,      setConfig]      = useState<AppConfig | null>(null);
   const [navLayout,   setNavLayout]   = useState<string>("sidebar");
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  const [isWorkspaceSwitcherOpen, setIsWorkspaceSwitcherOpen] = useState<boolean>(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
 
   type LoadingPhase = "loading" | "reveal-app" | "done";
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("loading");
@@ -311,6 +320,16 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleUnsavedStatus = (e: any) => {
+      if (e.detail && typeof e.detail.hasUnsaved === "boolean") {
+        setHasUnsavedChanges(e.detail.hasUnsaved);
+      }
+    };
+    window.addEventListener("composer:unsaved-changed", handleUnsavedStatus);
+    return () => window.removeEventListener("composer:unsaved-changed", handleUnsavedStatus);
+  }, []);
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -406,26 +425,38 @@ function App() {
 
   const handleNavigate = useCallback((page: string) => setActivePage(page), []);
 
+  const handleSelectWorkspace = useCallback(async (path: string) => {
+    try {
+      const updatedConfig = await openWorkspaceDir(path);
+      setConfig(updatedConfig);
+      applyTheme(updatedConfig);
+      await emit("config_updated", updatedConfig);
+      setActivePage("Home");
+    } catch (err: any) {
+      alert("Failed to switch workspace: " + (err?.toString() || "Unknown error"));
+    }
+  }, []);
+
+  const handleRemoveRecentWorkspace = useCallback(async (path: string) => {
+    try {
+      const updatedConfig = await removeRecentWorkspace(path);
+      setConfig(updatedConfig);
+      await emit("config_updated", updatedConfig);
+    } catch (err: any) {
+      console.error("Failed to remove recent workspace:", err);
+    }
+  }, []);
+
   const handleOpenProject = useCallback(async () => {
     try {
       const chosen: string | null = await invoke("pick_directory");
       if (chosen) {
-        const cfg: AppConfig = await invoke("get_app_config");
-        const nextConfig: AppConfig = {
-          ...cfg,
-          storage: {
-            ...cfg.storage,
-            workspace_path: chosen,
-          },
-        };
-        await invoke("save_app_config", { config: nextConfig });
-        await emit("config_updated", nextConfig);
-        setActivePage("Explorer");
+        await handleSelectWorkspace(chosen);
       }
     } catch (err) {
       console.error("Failed to select workspace directory:", err);
     }
-  }, []);
+  }, [handleSelectWorkspace]);
 
   // ── Helpers ──────────────────────────────────
   const iconOnly = config?.theme?.ui_overrides?.nav_icon_only === "true";
@@ -439,10 +470,8 @@ function App() {
         </div>
       }
     >
-      {/* PERF-2: inactive pages unmount so React.lazy only fetches their
-          chunks on demand. Explorer stays mounted (hidden) so open tabs,
-          drafts and sidebar state survive page switches, and its window
-          listeners keep serving the 40ms-delayed events from Home. */}
+      {/* Inactive pages unmount so React.lazy only fetches their chunks on demand.
+          Explorer stays mounted (hidden) so open tabs and drafts survive navigation. */}
       {activePage === "Home" && (
         <div className="h-full w-full">
           <Home
@@ -451,13 +480,43 @@ function App() {
             onNewFile={handleNewFile}
             onNewFolder={handleNewFolder}
             onImport={handleImport}
-            onOpenProject={handleOpenProject}
+            onOpenProject={() => setIsWorkspaceSwitcherOpen(true)}
+            recentWorkspaces={config?.storage?.recent_workspaces || []}
+            onSelectWorkspace={handleSelectWorkspace}
+            onRemoveRecentWorkspace={handleRemoveRecentWorkspace}
           />
         </div>
       )}
       <div className={`h-full w-full ${activePage === "Explorer" ? "block" : "hidden"}`}>
         <Explorer />
       </div>
+      {activePage === "Search" && (
+        <div className="h-full w-full">
+          <SearchView
+            onOpenFile={handleOpenRecentFile}
+            onOpenFolder={(path) => {
+              setActivePage("Explorer");
+              setTimeout(() => {
+                window.dispatchEvent(
+                  new CustomEvent("composer:open-file", { detail: { path, is_dir: true } })
+                );
+              }, 40);
+            }}
+            workspaceName={config?.storage?.workspace_path?.split(/[\\\/]/).filter(Boolean).pop() || "Workspace"}
+          />
+        </div>
+      )}
+      {activePage === "Recent" && (
+        <div className="h-full w-full">
+          <RecentView
+            onOpenFile={handleOpenRecentFile}
+            onSelectWorkspace={handleSelectWorkspace}
+            onRemoveRecentWorkspace={handleRemoveRecentWorkspace}
+            recentWorkspaces={config?.storage?.recent_workspaces || []}
+            currentWorkspace={config?.storage?.workspace_path || ""}
+          />
+        </div>
+      )}
       {activePage === "Settings" && (
         <div className="h-full w-full">
           <Settings />
@@ -598,14 +657,44 @@ function App() {
               pointerEvents: navLayout === "sidebar" ? "auto" : "none",
             }}
           >
-            {/* Brand */}
-            <div className="c2-sidebar-brand">
-              <img src="/icon.ico" alt="" draggable={false} />
-              <span className="c2-sidebar-brand-text">Composer</span>
+            {/* Brand Header */}
+            <div className="c2-sidebar-brand flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <img src="/icon.ico" alt="" draggable={false} />
+                <span className="c2-sidebar-brand-text">Composer</span>
+              </div>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-surface-elevated)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+                v0.3
+              </span>
+            </div>
+
+            {/* Active Workspace Selector Card */}
+            <div className="px-2 pt-2 pb-1">
+              <button
+                onClick={() => setIsWorkspaceSwitcherOpen(true)}
+                className="w-full flex items-center justify-between p-2 rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] hover:bg-[var(--sidebar-nav-hover-bg)] transition-colors text-left cursor-pointer group"
+                title="Click to switch or manage workspace"
+              >
+                <div className="flex items-center gap-2 min-w-0 pr-1">
+                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[var(--accent-soft)] text-[var(--accent)] shrink-0">
+                    <Folder size={11} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-semibold text-[var(--text-primary)] block truncate">
+                      {config?.storage?.workspace_path?.split(/[\\\/]/).filter(Boolean).pop() || "Active Workspace"}
+                    </span>
+                    <span className="text-[9.5px] text-[var(--text-muted)] block truncate font-mono">
+                      {config?.storage?.workspace_path ? "Local folder" : "No folder chosen"}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown size={11} className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0" />
+              </button>
             </div>
 
             {/* Navigation */}
             <nav className="c2-sidebar-nav">
+              <div className="c2-sidebar-section-label">Workspace</div>
               {NAV_ITEMS.map(item => (
                 <button
                   key={item.name}
@@ -626,7 +715,7 @@ function App() {
             <div className="c2-sidebar-footer">
               <button
                 onClick={toggleThemeMode}
-                className="c2-theme-toggle"
+                className="c2-theme-toggle cursor-pointer"
                 title="Toggle Light / Dark"
               >
                 <span className="c2-nav-item-icon">
@@ -642,10 +731,10 @@ function App() {
               <div className="c2-workspace-status">
                 <HardDrive size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                 <div className="c2-workspace-status-info">
-                  <span className="c2-workspace-label">Workspace</span>
+                  <span className="c2-workspace-label">Local Workspace</span>
                   <span className="c2-workspace-online">
                     <span className="c2-online-dot" />
-                    Online · <RamUsageText />% RAM
+                    Sandboxed · <RamUsageText /> RAM
                   </span>
                 </div>
               </div>
@@ -962,6 +1051,18 @@ function App() {
           emit("config_updated");
         }}
         isDarkMode={isDarkMode}
+      />
+
+      {/* ── Workspace Switcher Dialog ─────────────────────────── */}
+      <WorkspaceSwitcher
+        isOpen={isWorkspaceSwitcherOpen}
+        onClose={() => setIsWorkspaceSwitcherOpen(false)}
+        currentWorkspace={config?.storage?.workspace_path || ""}
+        recentWorkspaces={config?.storage?.recent_workspaces || []}
+        onSelectWorkspace={handleSelectWorkspace}
+        onOpenDirectory={handleOpenProject}
+        onRemoveRecent={handleRemoveRecentWorkspace}
+        hasUnsavedChanges={hasUnsavedChanges}
       />
 
     </div>

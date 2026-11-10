@@ -1,38 +1,22 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from "react";
 import { Marked, marked } from "marked";
 import DOMPurify from "dompurify";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   List,
   Type,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   Copy,
   Check,
   Printer,
   FileText,
   Clock,
   BookOpen,
-  ChevronRight,
-  ExternalLink,
-  Info,
-  Lightbulb,
-  AlertTriangle,
   AlertCircle,
-  ShieldAlert,
-  Hash,
   Sparkles,
-  AlignLeft,
-  Maximize2,
-  Minimize2,
   X,
   Download,
-  Sliders,
-  CheckCircle2,
-  FileDown
+  Sliders
 } from "lucide-react";
 
 interface MarkdownPreviewProps {
@@ -256,7 +240,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
     if (inst && typeof inst.use === "function") {
       inst.use({
         renderer: {
-          heading(arg, depth, raw) {
+          heading(this: any, arg: any, depth?: any, raw?: any) {
             const token = typeof arg === "object" && arg !== null ? arg : { text: arg, depth, raw };
             const textVal = token.text || "";
             const depthVal = token.depth || 1;
@@ -282,7 +266,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             `;
           },
 
-          image(arg, title, text) {
+          image(this: any, arg: any, title?: any, text?: any) {
             const token = typeof arg === "object" && arg !== null ? arg : { href: arg, title, text };
             const resolvedHref = resolveAssetSrc(token.href || "");
             const titleAttr = token.title ? `title="${escapeHtml(token.title)}"` : "";
@@ -290,7 +274,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             return `<img src="${escapeHtml(resolvedHref)}" ${altAttr} ${titleAttr} loading="lazy" />`;
           },
 
-          link(arg, title, text) {
+          link(this: any, arg: any, title?: any, text?: any) {
             const token = typeof arg === "object" && arg !== null ? arg : { href: arg, title, text };
             const hrefVal = token.href || "";
             const isExternal = hrefVal.startsWith("http://") || hrefVal.startsWith("https://") || hrefVal.startsWith("mailto:");
@@ -302,7 +286,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             return `<a href="${escapeHtml(hrefVal)}" ${titleAttr}>${textVal}</a>`;
           },
 
-          code(arg, lang) {
+          code(this: any, arg: any, lang?: any) {
             const token = typeof arg === "object" && arg !== null ? arg : { text: arg, lang };
             const codeText = token.text || "";
             const language = (token.lang || "text").toLowerCase();
@@ -339,7 +323,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       // Pre-process raw <img> tags inside HTML to resolve relative paths
       let processedContent = debouncedContent.replace(
         /<img\s+([^>]*?)src=["']([^"']+)["']([^>]*)>/gi,
-        (match, prefix, src, suffix) => {
+        (_match, prefix, src, suffix) => {
           const resolved = resolveAssetSrc(src);
           return `<img ${prefix}src="${escapeHtml(resolved)}"${suffix}>`;
         }
@@ -360,7 +344,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       // Transform GitHub Alerts: [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION]
       rawHtml = rawHtml.replace(
         /<blockquote>\s*<p>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:<br\s*\/?>)?([\s\S]*?)<\/p>\s*<\/blockquote>/gi,
-        (match, type, body) => {
+        (_match, type, body) => {
           const alertType = type.toLowerCase();
           const titles: Record<string, string> = {
             note: "Note",

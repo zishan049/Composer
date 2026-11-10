@@ -533,3 +533,159 @@
   max-width: 320px;
   line-height: 1.4;
 }
+
+/* ── Workspace Summary Metrics (v0.2 Nandi Style) ──────────── */
+.home-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.home-stat-card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--duration-fast), background-color var(--duration-fast);
+}
+
+.home-stat-card:hover {
+  border-color: var(--border-default);
+  background-color: var(--bg-surface-elevated);
+}
+
+.home-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.home-stat-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: -0.01em;
+}
+
+.home-stat-icon {
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+.home-stat-value {
+  font-family: var(--font-display, var(--font-ui));
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.home-stat-sub {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+
+/* ── Workspace Identity Header ─────────────────────────────── */
+.home-workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+
+.home-workspace-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.home-workspace-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.home-workspace-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.home-workspace-path {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+}
+
+.home-workspace-change-btn {
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast);
+}
+
+.home-workspace-change-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Dual Tab Header ───────────────────────────────────────── */
+.home-section-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-tab-pill {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.home-tab-pill:hover {
+  color: var(--text-primary);
+}
+
+.home-tab-pill.active {
+  background-color: var(--accent-soft);
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+

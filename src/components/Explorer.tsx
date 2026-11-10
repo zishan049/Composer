@@ -1,10 +1,9 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import {
   Folder, File, FileText, Image as ImageIcon, Table as TableIcon, 
   Search, Plus, Save, BookOpen,
   RotateCw, Columns, Code, FileCode, History, X, ChevronRight, ChevronDown,
-  Grid3x3, List, Upload, FolderPlus
+  Grid3x3, Upload, FolderPlus
 } from "lucide-react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -338,7 +337,6 @@ const ExplorerComponent: React.FC = () => {
   // PERF-16: cap for the in-memory version history (config max_versions_per_file)
   const [maxVersionsPerFile, setMaxVersionsPerFile] = useState<number>(DEFAULT_MAX_VERSIONS);
 
-  const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number }>>({});
   const [isPdfEditMode, setIsPdfEditMode] = useState<boolean>(false);
 
   const formatFileSize = (bytes?: number): string => {
@@ -631,7 +629,7 @@ const ExplorerComponent: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "w") {
         e.preventDefault();
         if (s.activeTabPath) {
-          const filtered = s.openTabs.filter(t => t.path !== s.activeTabPath);
+          const filtered = s.openTabs.filter((t: OpenTab) => t.path !== s.activeTabPath);
           setOpenTabs(filtered);
           setActiveTabPath(filtered.length > 0 ? filtered[filtered.length - 1].path : null);
         }
@@ -644,15 +642,15 @@ const ExplorerComponent: React.FC = () => {
       }
       if (e.key === "Delete" || e.key === "Del") {
         e.preventDefault();
-        const targets = s.selectedPaths.length > 0 ? s.selectedPaths : (s.activeTabPath ? [s.activeTabPath] : []);
-        const toDelete = targets.filter(p => !p.includes("composer.toml"));
+        const targets: string[] = s.selectedPaths.length > 0 ? s.selectedPaths : (s.activeTabPath ? [s.activeTabPath] : []);
+        const toDelete = targets.filter((p: string) => !p.includes("composer.toml"));
         if (toDelete.length > 0) {
           if (confirm(`Are you sure you want to delete ${toDelete.length} selected item(s)?`)) {
-            Promise.all(toDelete.map(path => invoke("delete_file_or_dir", { path })))
+            Promise.all(toDelete.map((path: string) => invoke("delete_file_or_dir", { path })))
               .then(() => {
                 setSelectedPaths([]);
                 s.loadDirectory(s.currentDirPath);
-                const remainingTabs = s.openTabs.filter(t => !toDelete.includes(t.path));
+                const remainingTabs = s.openTabs.filter((t: OpenTab) => !toDelete.includes(t.path));
                 setOpenTabs(remainingTabs);
                 if (s.activeTabPath && toDelete.includes(s.activeTabPath)) {
                   setActiveTabPath(remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].path : null);
@@ -662,7 +660,7 @@ const ExplorerComponent: React.FC = () => {
           }
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") { e.preventDefault(); setSelectedPaths(s.files.map(f => f.path)); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") { e.preventDefault(); setSelectedPaths(s.files.map((f: FileEntry) => f.path)); }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -671,7 +669,7 @@ const ExplorerComponent: React.FC = () => {
 
   const openFile = useCallback(async (entry: FileEntry) => {
     trackRecentFile(entry.path, entry.name);
-    if (latestRef.current && latestRef.current.openTabs.some(t => t.path === entry.path)) {
+    if (latestRef.current && latestRef.current.openTabs.some((t: OpenTab) => t.path === entry.path)) {
       setActiveTabPath(entry.path);
       return;
     }
@@ -847,8 +845,8 @@ const ExplorerComponent: React.FC = () => {
           if (entry.is_dir && currentSelection.length === 1) {
             s.loadDirectory(entry.path);
           } else {
-            currentSelection.forEach(async (path) => {
-              const fileObj = s.files.find(f => f.path === path);
+            currentSelection.forEach(async (path: string) => {
+              const fileObj = s.files.find((f: FileEntry) => f.path === path);
               if (fileObj && !fileObj.is_dir) s.openFile(fileObj);
             });
           }
@@ -858,15 +856,15 @@ const ExplorerComponent: React.FC = () => {
       { label: "Rename", shortcut: "F2", disabled: currentSelection.length > 1, onClick: () => latestRef.current.openRenameModal(entry.path) },
       {
         label: "Delete", shortcut: "Del",
-        disabled: currentSelection.some(p => p.includes("composer.toml")),
+        disabled: currentSelection.some((p: string) => p.includes("composer.toml")),
         onClick: () => {
           if (confirm(`Are you sure you want to delete ${currentSelection.length} selected item(s)?`)) {
-            Promise.all(currentSelection.map(path => invoke("delete_file_or_dir", { path })))
+            Promise.all(currentSelection.map((path: string) => invoke("delete_file_or_dir", { path })))
               .then(() => {
                 setSelectedPaths([]);
                 const s = latestRef.current;
                 s.loadDirectory(s.currentDirPath);
-                const remainingTabs = s.openTabs.filter(t => !currentSelection.includes(t.path));
+                const remainingTabs = s.openTabs.filter((t: OpenTab) => !currentSelection.includes(t.path));
                 setOpenTabs(remainingTabs);
                 if (s.activeTabPath && currentSelection.includes(s.activeTabPath)) {
                   setActiveTabPath(remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].path : null);

@@ -1,44 +1,44 @@
 /* ============================================================
-   COMPOSER 2.0 — DESIGN TOKENS
-   Black / White Minimalist (OLED Pitch Black + Monochrome Zinc)
+   COMPOSER V0.2 — DESIGN TOKENS
+   Minimal Local Workspace (Charcoal Dark + Restrained Teal + Crisp Light)
    ============================================================ */
 
 :root {
-  /* ── Application Backgrounds ─────────────────────────────── */
-  --bg-app:              #000000;
-  --bg-sidebar:          #000000;
-  --bg-surface:          #0F0F0F;
-  --bg-surface-elevated: #171717;
-  --bg-titlebar:         #000000;
+  /* ── Dark Palette (Default) ──────────────────────────────── */
+  --bg-app:              #0B0D0F;
+  --bg-sidebar:          #0B0D0F;
+  --bg-surface:          #111416;
+  --bg-surface-elevated: #171B1E;
+  --bg-titlebar:         #0B0D0F;
 
   /* ── Borders ─────────────────────────────────────────────── */
-  --border-subtle:  rgba(255, 255, 255, 0.07);
-  --border-default: rgba(255, 255, 255, 0.12);
-  --border-strong:  rgba(255, 255, 255, 0.20);
+  --border-subtle:  #252C30;
+  --border-default: #2D353A;
+  --border-strong:  #3D464D;
 
   /* ── Text ────────────────────────────────────────────────── */
-  --text-primary:   #FFFFFF;
-  --text-secondary: #D4D4D8;
-  --text-muted:     #A1A1AA;
-  --text-faint:     #71717A;
+  --text-primary:   #E8ECEF;
+  --text-secondary: #929CA3;
+  --text-muted:     #6C767E;
+  --text-faint:     #4D555C;
 
-  /* ── Accent (Pure Minimalist Monochrome White) ───────────── */
-  --accent:         #FFFFFF;
-  --accent-hover:   #E4E4E7;
-  --accent-dim:     #A1A1AA;
-  --accent-soft:    rgba(255, 255, 255, 0.10);
-  --accent-softer:  rgba(255, 255, 255, 0.05);
+  /* ── Accent (Restrained Teal) ────────────────────────────── */
+  --accent:         #39C6B0;
+  --accent-hover:   #55D8C3;
+  --accent-dim:     #2CA390;
+  --accent-soft:    rgba(57, 198, 176, 0.12);
+  --accent-softer:  rgba(57, 198, 176, 0.06);
 
   /* ── Sidebar specific ────────────────────────────────────── */
-  --sidebar-width:      136px;
-  --sidebar-nav-active-bg:   rgba(255, 255, 255, 0.10);
-  --sidebar-nav-active-border: var(--accent);
-  --sidebar-nav-hover-bg:    rgba(255, 255, 255, 0.05);
+  --sidebar-width:              150px;
+  --sidebar-nav-active-bg:      rgba(57, 198, 176, 0.10);
+  --sidebar-nav-active-border:  var(--accent);
+  --sidebar-nav-hover-bg:       rgba(255, 255, 255, 0.04);
 
   /* ── Surfaces / Panels ───────────────────────────────────── */
-  --surface-card:   rgba(15, 15, 15, 0.95);
-  --surface-glass:  rgba(10, 10, 10, 0.85);
-  --surface-overlay: rgba(0, 0, 0, 0.75);
+  --surface-card:    #111416;
+  --surface-glass:   rgba(17, 20, 22, 0.88);
+  --surface-overlay: rgba(11, 13, 15, 0.80);
 
   /* ── Radius ──────────────────────────────────────────────── */
   --radius-sm:  4px;
@@ -46,25 +46,23 @@
   --radius-lg:  12px;
   --radius-xl:  16px;
 
-  /* ── Shadows (Atmospheric Multi-Layered Soft Diffusion - Pitch Black) ──── */
+  /* ── Shadows ─────────────────────────────────────────────── */
   --shadow-sm:
-    0 1px 3px rgba(0, 0, 0, 0.40),
-    0 4px 12px -1px rgba(0, 0, 0, 0.50);
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 3px 8px -1px rgba(0, 0, 0, 0.45);
   --shadow-md:
-    0 2px 6px -1px rgba(0, 0, 0, 0.40),
-    0 8px 24px -3px rgba(0, 0, 0, 0.60),
-    0 20px 48px -6px rgba(0, 0, 0, 0.70);
+    0 2px 6px -1px rgba(0, 0, 0, 0.35),
+    0 8px 20px -3px rgba(0, 0, 0, 0.55),
+    0 16px 36px -6px rgba(0, 0, 0, 0.65);
   --shadow-lg:
-    0 2px 8px -1px rgba(0, 0, 0, 0.40),
-    0 10px 24px -3px rgba(0, 0, 0, 0.60),
-    0 24px 56px -6px rgba(0, 0, 0, 0.70),
-    0 40px 96px -12px rgba(0, 0, 0, 0.80);
+    0 2px 8px -1px rgba(0, 0, 0, 0.35),
+    0 10px 24px -3px rgba(0, 0, 0, 0.55),
+    0 24px 48px -6px rgba(0, 0, 0, 0.65);
   --shadow-dialog:
     0 4px 16px -2px rgba(0, 0, 0, 0.50),
     0 16px 40px -6px rgba(0, 0, 0, 0.70),
     0 36px 80px -10px rgba(0, 0, 0, 0.80),
-    0 64px 140px -18px rgba(0, 0, 0, 0.90),
-    0 0 0 1px rgba(255, 255, 255, 0.10);
+    0 0 0 1px #252C30;
 
   /* ── Typography ──────────────────────────────────────────── */
   --font-ui:      var(--theme-font-text, "Inter", "Segoe UI", system-ui, -apple-system, sans-serif);
@@ -78,16 +76,14 @@
   --duration-slow:   300ms;
   --ease-default:    cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* ── BACKWARD-COMPAT: Map new tokens → legacy theme vars ── */
-  /* These allow the existing JS applyTheme() to still function
-     while the app uses new token classes for the default theme */
+  /* ── Backward compatibility mappings ─────────────────────── */
   --theme-paper:      var(--bg-app);
   --theme-ink:        var(--text-primary);
   --theme-cream:      var(--bg-surface);
   --theme-muted:      var(--text-muted);
   --theme-accent:     var(--accent);
-  --theme-rule:       rgba(255, 255, 255, 0.10);
-  --theme-light-rule: rgba(255, 255, 255, 0.06);
+  --theme-rule:       var(--border-subtle);
+  --theme-light-rule: rgba(255, 255, 255, 0.05);
   --theme-accent-glow:      none;
   --theme-accent-text-glow: none;
   --theme-font-text:    "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -97,62 +93,57 @@
   --ui-edge-smoothness:     var(--radius-sm);
 }
 
-/* ── Brand New Minimalist White/Black Light Mode ─────────────── */
+/* ── Light Palette ─────────────────────────────────────────── */
 .theme-light {
-  --bg-app:              #FFFFFF;
-  --bg-sidebar:          #FAFAFA;
-  --bg-surface:          #F4F4F5;
-  --bg-surface-elevated: #E4E4E7;
+  --bg-app:              #F8FAFC;
+  --bg-sidebar:          #FFFFFF;
+  --bg-surface:          #FFFFFF;
+  --bg-surface-elevated: #F1F5F9;
   --bg-titlebar:         #FFFFFF;
 
-  --border-subtle:  rgba(0, 0, 0, 0.06);
-  --border-default: rgba(0, 0, 0, 0.12);
-  --border-strong:  rgba(0, 0, 0, 0.22);
+  --border-subtle:  #E2E8F0;
+  --border-default: #CBD5E1;
+  --border-strong:  #94A3B8;
 
-  --text-primary:   #000000;
-  --text-secondary: #27272A;
-  --text-muted:     #52525B;
-  --text-faint:     #71717A;
+  --text-primary:   #0F172A;
+  --text-secondary: #334155;
+  --text-muted:     #64748B;
+  --text-faint:     #94A3B8;
 
-  --accent:         #000000;
-  --accent-hover:   #27272A;
-  --accent-dim:     #52525B;
-  --accent-soft:    rgba(0, 0, 0, 0.08);
-  --accent-softer:  rgba(0, 0, 0, 0.04);
+  --accent:         #0D9488;
+  --accent-hover:   #0F766E;
+  --accent-dim:     #115E59;
+  --accent-soft:    rgba(13, 148, 136, 0.10);
+  --accent-softer:  rgba(13, 148, 136, 0.05);
 
-  --sidebar-nav-active-bg:     rgba(0, 0, 0, 0.07);
-  --sidebar-nav-active-border: #000000;
+  --sidebar-nav-active-bg:     rgba(13, 148, 136, 0.10);
+  --sidebar-nav-active-border: var(--accent);
   --sidebar-nav-hover-bg:      rgba(0, 0, 0, 0.04);
 
-  --surface-card:   rgba(244, 244, 245, 0.95);
-  --surface-glass:  rgba(255, 255, 255, 0.85);
-  --surface-overlay: rgba(0, 0, 0, 0.40);
+  --surface-card:    #FFFFFF;
+  --surface-glass:   rgba(255, 255, 255, 0.90);
+  --surface-overlay: rgba(15, 23, 42, 0.40);
 
-  /* Shadows (Minimalist Soft Diffusion - Light Mode) */
+  /* Shadows (Light Mode) */
   --shadow-sm:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 4px 12px -1px rgba(0, 0, 0, 0.08);
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-md:
-    0 2px 6px -1px rgba(0, 0, 0, 0.06),
-    0 8px 24px -3px rgba(0, 0, 0, 0.10),
-    0 20px 48px -6px rgba(0, 0, 0, 0.08);
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 6px 16px -2px rgba(0, 0, 0, 0.08);
   --shadow-lg:
-    0 2px 8px -1px rgba(0, 0, 0, 0.06),
-    0 10px 24px -3px rgba(0, 0, 0, 0.10),
-    0 24px 56px -6px rgba(0, 0, 0, 0.12);
+    0 4px 12px -2px rgba(0, 0, 0, 0.08),
+    0 16px 32px -4px rgba(0, 0, 0, 0.10);
   --shadow-dialog:
-    0 4px 16px -2px rgba(0, 0, 0, 0.10),
-    0 16px 40px -6px rgba(0, 0, 0, 0.14),
-    0 36px 80px -10px rgba(0, 0, 0, 0.18),
-    0 0 0 1px rgba(0, 0, 0, 0.10);
+    0 8px 24px -4px rgba(0, 0, 0, 0.12),
+    0 24px 48px -8px rgba(0, 0, 0, 0.16),
+    0 0 0 1px #E2E8F0;
 
-  /* Map to legacy theme vars */
   --theme-paper:  var(--bg-app);
   --theme-ink:    var(--text-primary);
   --theme-cream:  var(--bg-surface);
   --theme-muted:  var(--text-muted);
   --theme-accent: var(--accent);
-  --theme-rule:   rgba(0, 0, 0, 0.12);
-  --theme-light-rule: rgba(0, 0, 0, 0.06);
+  --theme-rule:   var(--border-subtle);
+  --theme-light-rule: rgba(0, 0, 0, 0.04);
 }
-

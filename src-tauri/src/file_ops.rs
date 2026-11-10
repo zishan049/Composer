@@ -9,6 +9,27 @@ pub struct FileEntry {
     pub path: String,
     pub is_dir: bool,
     pub size: u64,
+    pub modified_ms: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WorkspaceStats {
+    pub file_count: u32,
+    pub folder_count: u32,
+    pub total_size_bytes: u64,
+    pub workspace_path: String,
+    pub workspace_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct SearchResult {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub match_type: String, // "exact_filename" | "prefix_filename" | "substring_filename" | "path" | "content"
+    pub score: u8,          // 1: exact, 2: prefix, 3: substring, 4: path, 5: content
+    pub snippet: Option<String>,
+    pub line_number: Option<usize>,
 }
 
 // -------------------------------------------------------------
@@ -105,11 +126,17 @@ pub async fn list_directory_contents(dir_path: String) -> Result<Vec<FileEntry>,
         if let Ok(dir_entries) = fs::read_dir(target_path) {
             for entry in dir_entries.flatten() {
                 let metadata = entry.metadata().map_err(|e| e.to_string())?;
+                let modified_ms = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as u64);
                 entries.push(FileEntry {
                     name: entry.file_name().to_string_lossy().to_string(),
                     path: entry.path().to_string_lossy().to_string(),
                     is_dir: metadata.is_dir(),
                     size: metadata.len(),
+                    modified_ms,
                 });
             }
         }
@@ -167,11 +194,18 @@ fn walk_workspace_files(root_path: &Path) -> Vec<FileEntry> {
                     .unwrap_or_else(|_| name.clone())
                     .replace('\\', "/"); // standard slash format
 
+                let modified_ms = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as u64);
+
                 result.push(FileEntry {
                     name: rel_path.clone(),
                     path: path.to_string_lossy().to_string(),
                     is_dir,
                     size: metadata.len(),
+                    modified_ms,
                 });
 
                 if is_dir {
@@ -273,6 +307,40 @@ pub async fn read_text_file(file_path: String) -> Result<String, String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Atomically writes text `content` to `path`: the data is first written to
+/// a sibling temp file and then renamed over the target so a crash mid-write
+/// cannot leave a truncated or corrupt file behind.
+fn write_atomic_text(path: &Path, content: &str) -> Result<(), String> {
+    let dir = path
+        .parent()
+        .ok_or_else(|| "Invalid file path: no parent directory".to_string())?;
+    fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+
+    let file_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "file".to_string());
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp = dir.join(format!(
+        ".{}.{}.tmp-{}",
+        file_name,
+        std::process::id(),
+        unique
+    ));
+
+    fs::write(&tmp, content).map_err(|e| e.to_string())?;
+    match fs::rename(&tmp, path) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let _ = fs::remove_file(&tmp);
+            Err(e.to_string())
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn write_text_file(file_path: String, content: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -281,8 +349,269 @@ pub async fn write_text_file(file_path: String, content: String) -> Result<(), S
         if let Some(parent) = validated.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        fs::write(validated, content).map_err(|e| e.to_string())?;
+        write_atomic_text(&validated, &content)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Returns a quick shallow estimate of workspace statistics by reading only
+/// one level deep from the workspace root (no recursion). Fast and cheap.
+#[tauri::command]
+pub async fn get_workspace_stats() -> Result<WorkspaceStats, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let workspace_path = crate::config::get_active_workspace_path();
+        let workspace_path_str = workspace_path.to_string_lossy().to_string();
+        let workspace_name = workspace_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| workspace_path_str.clone());
+
+        if !workspace_path.exists() {
+            return Ok(WorkspaceStats {
+                file_count: 0,
+                folder_count: 0,
+                total_size_bytes: 0,
+                workspace_path: workspace_path_str,
+                workspace_name,
+            });
+        }
+
+        let mut file_count: u32 = 0;
+        let mut folder_count: u32 = 0;
+        let mut total_size_bytes: u64 = 0;
+
+        if let Ok(entries) = fs::read_dir(&workspace_path) {
+            for entry in entries.flatten() {
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.is_dir() {
+                        folder_count = folder_count.saturating_add(1);
+                    } else {
+                        file_count = file_count.saturating_add(1);
+                        total_size_bytes = total_size_bytes.saturating_add(metadata.len());
+                    }
+                }
+            }
+        }
+
+        Ok(WorkspaceStats {
+            file_count,
+            folder_count,
+            total_size_bytes,
+            workspace_path: workspace_path_str,
+            workspace_name,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Helper to delete `Cache/workspace_index.json` synchronously.
+pub fn invalidate_cache_file() {
+    let cache_dir = crate::config::get_cache_dir();
+    let index_path = cache_dir.join("workspace_index.json");
+    if index_path.exists() {
+        let _ = fs::remove_file(&index_path);
+    }
+}
+
+/// Deletes `Cache/workspace_index.json` so the next call to
+/// `get_cached_workspace_index` triggers a fresh directory walk.
+#[tauri::command]
+pub async fn invalidate_workspace_index() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        invalidate_cache_file();
         Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn is_searchable_text_file(path: &Path) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    matches!(
+        ext.as_str(),
+        "txt"
+            | "md"
+            | "markdown"
+            | "json"
+            | "toml"
+            | "csv"
+            | "yaml"
+            | "yml"
+            | "js"
+            | "jsx"
+            | "ts"
+            | "tsx"
+            | "html"
+            | "htm"
+            | "css"
+            | "scss"
+            | "rs"
+            | "py"
+            | "xml"
+            | "sh"
+            | "bash"
+            | "sql"
+            | "env"
+    )
+}
+
+/// Deterministic workspace search ranking:
+/// 1. Exact filename match
+/// 2. Filename prefix match
+/// 3. Filename substring match
+/// 4. Path match
+/// 5. Content match (for text files <= 1MB)
+/// Stable tie-breaking: score ascending, then alphabetical by name, then path.
+pub fn search_entries_with_ranking(
+    entries: &[FileEntry],
+    query: &str,
+    limit: usize,
+) -> Vec<SearchResult> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    let query_lower = trimmed.to_lowercase();
+    let mut results: Vec<SearchResult> = Vec::new();
+
+    for entry in entries {
+        let path_obj = Path::new(&entry.path);
+        let file_name = path_obj
+            .file_name()
+            .map(|f| f.to_string_lossy().to_string())
+            .unwrap_or_else(|| entry.name.clone());
+        let file_name_lower = file_name.to_lowercase();
+        let stem = path_obj
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| file_name.clone());
+        let stem_lower = stem.to_lowercase();
+        let rel_name_lower = entry.name.to_lowercase();
+
+        // 1. Exact filename match (matches either full filename or file stem)
+        if file_name_lower == query_lower || stem_lower == query_lower {
+            results.push(SearchResult {
+                name: entry.name.clone(),
+                path: entry.path.clone(),
+                is_dir: entry.is_dir,
+                match_type: "exact_filename".to_string(),
+                score: 1,
+                snippet: None,
+                line_number: None,
+            });
+            continue;
+        }
+
+        // 2. Filename prefix match
+        if file_name_lower.starts_with(&query_lower) {
+            results.push(SearchResult {
+                name: entry.name.clone(),
+                path: entry.path.clone(),
+                is_dir: entry.is_dir,
+                match_type: "prefix_filename".to_string(),
+                score: 2,
+                snippet: None,
+                line_number: None,
+            });
+            continue;
+        }
+
+        // 3. Filename substring match
+        if file_name_lower.contains(&query_lower) {
+            results.push(SearchResult {
+                name: entry.name.clone(),
+                path: entry.path.clone(),
+                is_dir: entry.is_dir,
+                match_type: "substring_filename".to_string(),
+                score: 3,
+                snippet: None,
+                line_number: None,
+            });
+            continue;
+        }
+
+        // 4. Path match
+        if rel_name_lower.contains(&query_lower) {
+            results.push(SearchResult {
+                name: entry.name.clone(),
+                path: entry.path.clone(),
+                is_dir: entry.is_dir,
+                match_type: "path".to_string(),
+                score: 4,
+                snippet: None,
+                line_number: None,
+            });
+            continue;
+        }
+
+        // 5. Content match: search within supported text files < 1MB
+        if !entry.is_dir && entry.size <= 1024 * 1024 && is_searchable_text_file(path_obj) {
+            if let Ok(file_content) = fs::read_to_string(&entry.path) {
+                for (idx, line) in file_content.lines().enumerate() {
+                    if line.to_lowercase().contains(&query_lower) {
+                        let trimmed_line = line.trim();
+                        let snippet = if trimmed_line.chars().count() > 140 {
+                            let snippet_str: String = trimmed_line.chars().take(140).collect();
+                            format!("{}...", snippet_str)
+                        } else {
+                            trimmed_line.to_string()
+                        };
+
+                        results.push(SearchResult {
+                            name: entry.name.clone(),
+                            path: entry.path.clone(),
+                            is_dir: false,
+                            match_type: "content".to_string(),
+                            score: 5,
+                            snippet: Some(snippet),
+                            line_number: Some(idx + 1),
+                        });
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    results.sort_by(|a, b| {
+        a.score
+            .cmp(&b.score)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+            .then_with(|| a.path.cmp(&b.path))
+    });
+
+    if results.len() > limit {
+        results.truncate(limit);
+    }
+
+    results
+}
+
+#[tauri::command]
+pub async fn search_workspace(query: String) -> Result<Vec<SearchResult>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root_path = crate::config::get_active_workspace_path();
+        if !root_path.exists() {
+            return Ok(Vec::new());
+        }
+
+        let entries = {
+            let cache_dir = crate::config::get_cache_dir();
+            let index_path = cache_dir.join("workspace_index.json");
+            if let Ok(content) = fs::read_to_string(&index_path) {
+                serde_json::from_str::<Vec<FileEntry>>(&content).unwrap_or_else(|_| walk_workspace_files(&root_path))
+            } else {
+                walk_workspace_files(&root_path)
+            }
+        };
+
+        Ok(search_entries_with_ranking(&entries, &query, 50))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -306,6 +635,7 @@ pub async fn create_new_file(parent_dir: String, name: String) -> Result<String,
             return Err("File already exists".to_string());
         }
         fs::write(&validated, "").map_err(|e| e.to_string())?;
+        invalidate_cache_file();
         Ok(validated.to_string_lossy().to_string())
     })
     .await
@@ -330,6 +660,7 @@ pub async fn create_new_folder(parent_dir: String, name: String) -> Result<Strin
             return Err("Folder already exists".to_string());
         }
         fs::create_dir_all(&validated).map_err(|e| e.to_string())?;
+        invalidate_cache_file();
         Ok(validated.to_string_lossy().to_string())
     })
     .await
@@ -355,6 +686,7 @@ pub async fn delete_file_or_dir(path: String) -> Result<(), String> {
         } else {
             fs::remove_file(validated).map_err(|e| e.to_string())?;
         }
+        invalidate_cache_file();
         Ok(())
     })
     .await
@@ -385,6 +717,7 @@ pub async fn rename_file_or_dir(old_path: String, new_name: String) -> Result<St
             return Err(format!("'{}' already exists", new_name));
         }
         fs::rename(old_validated, &new_validated).map_err(|e| e.to_string())?;
+        invalidate_cache_file();
         Ok(new_validated.to_string_lossy().to_string())
     })
     .await
@@ -457,11 +790,17 @@ pub async fn inspect_paths(
                 let path = Path::new(&p);
                 if path.exists() {
                     let meta = path.metadata().ok()?;
+                    let modified_ms = meta
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_millis() as u64);
                     Some(FileEntry {
                         name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
                         path: p,
                         is_dir: meta.is_dir(),
                         size: meta.len(),
+                        modified_ms,
                     })
                 } else {
                     None
@@ -528,6 +867,7 @@ mod tests {
             path: "/ws/a.md".to_string(),
             is_dir: false,
             size: 3,
+            modified_ms: None,
         }];
 
         write_workspace_index(&dir, &entries);
@@ -542,6 +882,96 @@ mod tests {
         write_workspace_index(&dir, &entries);
         let second_mtime = fs::metadata(&index_path).unwrap().modified().unwrap();
         assert_eq!(first_mtime, second_mtime, "unchanged index must not be rewritten");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_write_text_file_atomic_does_not_corrupt_on_overwrite() {
+        let dir = std::env::temp_dir().join("composer_test_atomic_text");
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+        // Write initial content
+        let file = dir.join("test.txt");
+        fs::write(&file, "initial").unwrap();
+        // Overwrite atomically by using the write_atomic pattern
+        // (this tests the helper function logic, since write_text_file needs Tauri runtime)
+        write_atomic_text(&file, "updated").unwrap();
+        assert_eq!(fs::read_to_string(&file).unwrap(), "updated");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_deterministic_search_ranking() {
+        let dir = std::env::temp_dir().join("composer_test_search_ranking");
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+
+        let file_exact = dir.join("readme.md");
+        let file_prefix = dir.join("readme_notes.md");
+        let file_sub = dir.join("project_readme.md");
+        let file_path = dir.join("docs").join("architecture.md");
+        let file_content = dir.join("content.txt");
+
+        let _ = fs::create_dir_all(dir.join("docs"));
+        fs::write(&file_exact, "Hello world").unwrap();
+        fs::write(&file_prefix, "Hello notes").unwrap();
+        fs::write(&file_sub, "Hello project").unwrap();
+        fs::write(&file_path, "Hello architecture").unwrap();
+        fs::write(&file_content, "Here is a guide with the term readme inside the body").unwrap();
+
+        let entries = vec![
+            FileEntry {
+                name: "docs/architecture.md".to_string(),
+                path: file_path.to_string_lossy().to_string(),
+                is_dir: false,
+                size: 20,
+                modified_ms: None,
+            },
+            FileEntry {
+                name: "project_readme.md".to_string(),
+                path: file_sub.to_string_lossy().to_string(),
+                is_dir: false,
+                size: 20,
+                modified_ms: None,
+            },
+            FileEntry {
+                name: "readme.md".to_string(),
+                path: file_exact.to_string_lossy().to_string(),
+                is_dir: false,
+                size: 20,
+                modified_ms: None,
+            },
+            FileEntry {
+                name: "readme_notes.md".to_string(),
+                path: file_prefix.to_string_lossy().to_string(),
+                is_dir: false,
+                size: 20,
+                modified_ms: None,
+            },
+            FileEntry {
+                name: "content.txt".to_string(),
+                path: file_content.to_string_lossy().to_string(),
+                is_dir: false,
+                size: 50,
+                modified_ms: None,
+            },
+        ];
+
+        let results = search_entries_with_ranking(&entries, "readme", 10);
+        assert!(!results.is_empty());
+        // Rank 1: exact filename match
+        assert_eq!(results[0].match_type, "exact_filename");
+        assert_eq!(results[0].name, "readme.md");
+        // Rank 2: prefix filename match
+        assert_eq!(results[1].match_type, "prefix_filename");
+        assert_eq!(results[1].name, "readme_notes.md");
+        // Rank 3: substring filename match
+        assert_eq!(results[2].match_type, "substring_filename");
+        assert_eq!(results[2].name, "project_readme.md");
+        // Rank 5: content match (file_content has "readme" inside content)
+        assert_eq!(results[3].match_type, "content");
+        assert_eq!(results[3].name, "content.txt");
 
         let _ = fs::remove_dir_all(&dir);
     }

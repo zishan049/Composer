@@ -2,11 +2,11 @@
 
 <img src="src-tauri/icons/icon.ico" alt="Composer app icon" width="72" />
 
-# Composer
+# Composer v0.2
 
-**A focused desktop workspace for your files.**
+**A minimal, fast, local-first desktop workspace.**
 
-Create, inspect, and edit code, documents, vectors, images, and data — in one minimal, local-first app.
+Create, edit, organize, search, and preview project files without the complexity of a full IDE.
 
 <br />
 
@@ -17,164 +17,141 @@ Create, inspect, and edit code, documents, vectors, images, and data — in one 
 
 <br />
 
-[**Download**](https://github.com/zishan049/Composer/releases/latest) · [**Features**](#what-you-can-do) · [**Build from source**](#run-locally) · [**Report an issue**](https://github.com/zishan049/Composer/issues)
+[**Download**](https://github.com/zishan049/Composer/releases/latest) · [**Features**](#what-you-can-do) · [**Architecture**](#architecture) · [**Run locally**](#run-locally) · [**Report an issue**](https://github.com/zishan049/Composer/issues)
 
 </div>
 
 ---
 
-## A workspace that stays out of the way
+## Workspace-first design
 
-Composer brings everyday creative and technical file workflows into a single desktop application. Instead of switching between separate tools to inspect a document, edit code, preview an SVG, or review an image, work from one consistent workspace.
+Composer v0.2 provides a calm, focused environment designed around local files and folders. Rather than being an editor surrounded by unrelated panels or an overloaded IDE, Composer prioritizes workspace clarity, rapid search, and smooth previews.
 
-- **Local-first by design** — work with files on your machine.
-- **One focused interface** — a compact shell and familiar navigation across tools.
-- **Your preferred setup** — customize themes, typography, accents, and navigation.
+- **Local-first by design** — Your project files live entirely on your machine in a strictly sandboxed directory.
+- **Real Workspace Overview** — Answers *"What is in this workspace, and what should I open next?"* with real file/folder counts, volume stats, recent file history, and deterministically sorted recently modified files.
+- **Deterministic Search & Indexing** — Fast, local search ranked strictly:
+  1. Exact filename match (matches full name or stem)
+  2. Filename prefix match
+  3. Filename substring match
+  4. Relative path match
+  5. File content match (for supported text/markdown files $\le$ 1MB) with stable alphabetical tie-breaking.
+- **Command Palette (`Ctrl/Cmd + K`)** — Jump to views, create documents, switch workspaces, toggle themes, and find files instantly from any screen.
+- **Atomic file operations** — Text saves use atomic sibling-temporary writes to prevent data corruption during unexpected halts or power interruptions.
+- **Unified Design System** — Dark-first charcoal surfaces (`#0B0D0F`, `#111416`, `#171B1E`) with a restrained teal accent (`#39C6B0`) and a complete, matching light theme.
 
-## The interface
-
-<table>
-  <tr>
-    <td width="50%">
-      <strong>Home dashboard</strong><br />
-      <sub>Search, quick actions, and recent work.</sub><br /><br />
-      <img src="docs/screenshots/home.svg" alt="Composer Home dashboard UI preview" width="100%" />
-    </td>
-    <td width="50%">
-      <strong>Code workspace</strong><br />
-      <sub>File tree, editor tabs, and source editing.</sub><br /><br />
-      <img src="docs/screenshots/code-studio.svg" alt="Composer code workspace UI preview" width="100%" />
-    </td>
-  </tr>
-</table>
-
-> **Screenshot note:** These are source-derived UI previews based on the current React components and CSS design tokens. They communicate the intended layout, but are not pixel captures from a running application.
+---
 
 ## What you can do
 
-| Tool | Capabilities |
+| Area | Capabilities |
 | --- | --- |
-| **Code** | Monaco-based editing, syntax highlighting, multi-tab workflows, and Vim keybindings. |
-| **Markdown** | Write and preview Markdown with code, split, and preview modes. |
-| **PDF** | View PDFs and edit supported text on the document canvas. |
-| **SVG** | Inspect vector files, edit SVG/XML source, and preview changes. |
-| **Images** | Zoom, rotate, flip, inspect metadata, and sample pixel colors. |
-| **Structured data** | Work with supported CSV and other data files in text or grid views. |
-| **Workspace** | Browse folders, search files, revisit recent work, and create or import items. |
-| **Appearance** | Adjust themes, typography, accent colors, and navigation layouts. |
+| **Workspace Overview** | Summary metrics (files, folders, shallow volume), switch workspaces, quick action cards, and tabbed recent/modified file activity. |
+| **Explorer & Files** | Compact tree navigation, recursive expansion, file and folder creation, rename, delete with confirmation, and external asset import. |
+| **Code & Markdown** | Monaco-based editor, Markdown preview (split, code, and preview modes), syntax highlighting, and tabs with dirty-state tracking. |
+| **Command Palette** | Accessible with `Ctrl/Cmd + K` or titlebar search for keyboard-driven navigation, file opening, and theme toggling. |
+| **Previews** | Native vector rendering for SVG, text/canvas viewer for PDF, color sampling and metadata inspection for images, and table views for CSV/JSON/TOML. |
+| **Security & Sandbox** | Canonicalized workspace root enforcement, traversal (`..`) rejection, and session allowlisting. |
 
-## Get Composer
+---
 
-### Windows
+## Architecture
 
-Download the latest available installer from **[GitHub Releases](https://github.com/zishan049/Composer/releases/latest)**.
+Composer separates native desktop concerns from UI rendering through a typed boundary:
 
-1. Open the latest release.
-2. Download the Windows `.exe` installer from its assets.
-3. Run the installer and launch Composer.
-
-If no release assets are available, build the application from source using the steps below.
-
-## Run locally
-
-### Requirements
-
-- Node.js (20 or 22 recommended)
-- npm
-- Rust and Cargo
-- Platform-specific prerequisites from the [Tauri setup guide](https://tauri.app/start/prerequisites/)
-
-### Development build
-
-```bash
-git clone https://github.com/zishan049/Composer.git
-cd Composer
-npm install
-npm run tauri dev
+```text
+┌────────────────────────────────────────────────────────┐
+│                      React 19 UI                       │
+│  Overview · Explorer · Monaco Editor · Command Palette  │
+└───────────────────────────┬────────────────────────────┘
+                            │ Typed IPC Boundary (src/lib/api.ts)
+┌───────────────────────────▼────────────────────────────┐
+│                   Tauri 2 Native Core                  │
+│    Path Sandboxing · Atomic File Ops · Search Index    │
+└────────────────────────────────────────────────────────┘
 ```
 
-### Production build
+- **Frontend API Boundary (`src/lib/api.ts`)**: Centralizes all `invoke` calls into typed, promise-based functions with normalized error handling and consistent TypeScript interfaces (`AppConfig`, `FileEntry`, `WorkspaceStats`, `SearchResult`).
+- **Security Sandboxing (`src-tauri/src/file_ops.rs`)**: Every path is validated against the active workspace root using canonicalization to prevent escapes, symlink traversal, or directory breakout.
+- **Workspace Index & Invalidation**: High-speed indexing caches workspace file metadata in a compact JSON cache, automatically invalidated upon file creation, rename, or deletion.
 
-```bash
-npm run tauri build
-```
-
-Tauri bundle artifacts are typically generated under `src-tauri/target/release/bundle/`.
+---
 
 ## Keyboard shortcuts
 
 | Shortcut | Action |
 | --- | --- |
-| `Ctrl/Cmd + K` | Open quick search |
-| `Ctrl/Cmd + S` | Save the active document |
-| `Ctrl/Cmd + F` | Focus file search where supported |
-| `F11` | Toggle fullscreen |
-| `Esc` | Close the active dialog or overlay |
+| `Ctrl/Cmd + K` | Open Command Palette / Quick Search |
+| `Ctrl/Cmd + S` | Save active file (atomic write) |
+| `Ctrl/Cmd + W` | Close active editor tab |
+| `Ctrl/Cmd + N` | Create new file |
+| `F2` | Rename selected item |
+| `Delete` | Delete selected item(s) with confirmation |
+| `F11` | Toggle fullscreen window |
+| `Esc` | Close active dialog or dismiss command palette |
 
-Shortcut behavior may vary by view and operating system.
+---
 
 ## Technology
 
 | Layer | Stack |
 | --- | --- |
 | Desktop shell | Tauri 2 |
-| Native backend | Rust |
-| UI | React 19 + TypeScript |
-| Build | Vite 7 |
-| Styling | Tailwind CSS 4 and modular CSS |
-| Code editor | Monaco Editor |
-| PDF | PDF.js and pdf-lib |
-
-## Repository layout
-
-```text
-Composer/
-├── .github/          # CI and release workflows
-├── public/           # Static assets
-├── docs/screenshots/ # README UI previews
-├── src/
-│   ├── components/   # Home, Explorer, Settings, and studio views
-│   ├── styles/       # Design tokens and component styling
-│   ├── utils/        # Shared utilities
-│   ├── App.tsx       # App shell and navigation
-│   └── types.ts      # Shared TypeScript types
-├── src-tauri/
-│   └── src/          # Rust commands and native integrations
-├── PRD.md            # Product requirements
-└── package.json
-```
-
-## Project status
-
-- [x] Desktop shell and workspace navigation
-- [x] Local file browsing and quick search
-- [x] Code, Markdown, PDF, SVG, image, and structured-data workflows
-- [x] Theme and navigation customization
-- [ ] Replace source-derived previews with screenshots captured from the running app
-- [ ] Expand automated testing and cross-platform release coverage
-
-## Contributing
-
-Bug reports, feature ideas, and focused improvements are welcome.
-
-1. Search [existing issues](https://github.com/zishan049/Composer/issues) before opening a new one.
-2. For bugs, include your operating system, reproduction steps, and expected behavior.
-3. Keep changes focused and consistent with the project's minimal, local-first direction.
-
-## Privacy
-
-Composer is designed around local file workflows. Optional capabilities such as update checks or dynamically loaded fonts may require network access. Consult the source and the behavior of the build you install if you need to verify a specific privacy or security property.
-
-## License
-
-See [LICENSE](LICENSE) for licensing terms.
+| Native backend | Rust 2021 |
+| UI Framework | React 19 + TypeScript (Strict) |
+| Build Tool | Vite 7 |
+| Styling | Tailwind CSS 4 + Design Token CSS Variables |
+| Editor | Monaco Editor (Lazy loaded) |
+| Previews | PDF.js, pdf-lib, DOMPurify, Marked |
 
 ---
 
-<div align="center">
+## Run locally
 
-**Made for focused work. Built to stay out of the way.**
+### Requirements
 
-[⭐ Star Composer on GitHub](https://github.com/zishan049/Composer)
+- Node.js (v20 or v22 recommended)
+- npm
+- Rust stable and Cargo
+- Platform prerequisites from the [Tauri setup guide](https://tauri.app/start/prerequisites/)
 
-</div>
+### Setup and Development
+
+```bash
+git clone https://github.com/zishan049/Composer.git
+cd Composer
+npm install
+npm test
+npm run dev
+```
+
+To run the desktop application in dev mode with Tauri:
+
+```bash
+npm run tauri dev
+```
+
+### Verification Checks
+
+```bash
+# Typecheck
+npx tsc --noEmit
+
+# Frontend Unit Tests
+npm test
+
+# Rust Checks
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+---
+
+## Privacy & Network
+
+Composer is local-first. Normal creation, editing, file operations, searching, and previewing occur entirely offline on your machine. Optional background update checks (configured in Settings) connect to GitHub Releases to inspect release tags.
+
+---
+
+## License
+
+Licensing terms will be specified upon public release. All rights reserved.

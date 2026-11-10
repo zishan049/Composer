@@ -63,10 +63,35 @@ export interface FileEntry {
   path: string;
   is_dir: boolean;
   size: number;
+  modified_ms?: number;
+}
+
+// -------------------------------------------------------------
+// WORKSPACE STATS
+// -------------------------------------------------------------
+export interface WorkspaceStats {
+  file_count: number;
+  folder_count: number;
+  total_size_bytes: number;
+  workspace_path: string;
+  workspace_name: string;
 }
 
 export interface RecentFile {
   path: string;
   filename: string;
   lastOpened: number;
+}
+
+// -------------------------------------------------------------
+// SEARCH TYPES
+// -------------------------------------------------------------
+export interface SearchResult {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  match_type: "exact_filename" | "prefix_filename" | "substring_filename" | "path" | "content";
+  score: number;
+  snippet?: string;
+  line_number?: number;
 }

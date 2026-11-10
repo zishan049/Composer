@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   House, Folder, Settings as SettingsIcon,
   RefreshCw, Sun, Moon, Minus, Square, X,
-  HardDrive, ArrowUpCircle, Download
+  HardDrive, ArrowUpCircle, Download, Search
 } from "lucide-react";
 
 import { invoke } from "@tauri-apps/api/core";
@@ -11,6 +11,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "./types";
 import { applyTypographyToRoot } from "./utils/fonts";
 import { Onboarding } from "./components/Onboarding";
+import { CommandPalette } from "./components/CommandPalette";
 
 // Page Components (Code-split with React.lazy for instant startup)
 const Home     = React.lazy(() => import("./components/Home").then(m => ({ default: m.Home })));
@@ -23,11 +24,11 @@ const Settings = React.lazy(() => import("./components/Settings").then(m => ({ d
 const VALID_PAGES = ["Home", "Explorer", "Settings"];
 
 // ─────────────────────────────────────────────
-// Navigation definition (Home, Explorer, Settings)
+// Navigation definition (Overview, Files, Settings)
 // ─────────────────────────────────────────────
 const NAV_ITEMS = [
-  { name: "Home",     label: "Home",     icon: <House        size={14} className="nav-icon-home"     /> },
-  { name: "Explorer", label: "Explorer", icon: <Folder       size={14} className="nav-icon-explorer" /> },
+  { name: "Home",     label: "Overview", icon: <House        size={14} className="nav-icon-home"     /> },
+  { name: "Explorer", label: "Files",    icon: <Folder       size={14} className="nav-icon-explorer" /> },
   { name: "Settings", label: "Settings", icon: <SettingsIcon size={14} className="nav-icon-settings" /> },
 ];
 
@@ -63,6 +64,7 @@ function App() {
   const [activePage,  setActivePage]  = useState<string>("Home");
   const [config,      setConfig]      = useState<AppConfig | null>(null);
   const [navLayout,   setNavLayout]   = useState<string>("sidebar");
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
 
   type LoadingPhase = "loading" | "reveal-app" | "done";
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("loading");
@@ -88,11 +90,11 @@ function App() {
     const ov   = cfg.theme.ui_overrides ?? {};
 
     // Map user-customized colors to CSS variables
-    const paperColor  = ov.nav_background     || "#000000";
-    const inkColor    = ov.text_color         || "#FFFFFF";
-    const creamColor  = ov.card_background    || "#0F0F0F";
-    const ruleColor   = ov.card_border        || "rgba(255,255,255,0.10)";
-    const accentColor = ov.border_accent      || "#FFFFFF";
+    const paperColor  = ov.nav_background     || "#0B0D0F";
+    const inkColor    = ov.text_color         || "#E8ECEF";
+    const creamColor  = ov.card_background    || "#111416";
+    const ruleColor   = ov.card_border        || "#252C30";
+    const accentColor = ov.border_accent      || "#39C6B0";
 
     root.style.setProperty("--theme-paper",  paperColor);
     root.style.setProperty("--theme-ink",    inkColor);
@@ -104,18 +106,30 @@ function App() {
     root.style.setProperty("--bg-app",              paperColor);
     root.style.setProperty("--bg-sidebar",          paperColor);
     root.style.setProperty("--bg-surface",          creamColor);
-    const isLight = (paperColor === "#FFFFFF" || paperColor === "#ffffff" || paperColor === "#FAFAFA" || paperColor === "#fafafa" || paperColor.toLowerCase().startsWith("#f") || inkColor === "#000000");
+    const isLight = (
+      paperColor === "#FFFFFF" || paperColor === "#ffffff" ||
+      paperColor === "#FAFAFA" || paperColor === "#fafafa" ||
+      paperColor === "#F8FAFC" || paperColor === "#f8fafc" ||
+      paperColor.toLowerCase().startsWith("#f") ||
+      inkColor === "#000000" || inkColor === "#0F172A" || inkColor === "#0f172a"
+    );
 
-    const textSec = isLight ? "#27272A" : "#D4D4D8";
-    const textMut = isLight ? "#52525B" : "#A1A1AA";
-    const textFnt = isLight ? "#71717A" : "#71717A";
-    const elevatedBg = isLight ? "#E4E4E7" : (creamColor === "#0F0F0F" ? "#171717" : creamColor);
-    const borderSubtle = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.07)";
-    const borderDefault = isLight ? "rgba(0, 0, 0, 0.14)" : "rgba(255, 255, 255, 0.12)";
-    const borderStrong = isLight ? "rgba(0, 0, 0, 0.24)" : "rgba(255, 255, 255, 0.20)";
-    const accentSoft = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.10)";
-    const navHoverBg = isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.05)";
-    const navActiveBg = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.10)";
+    if (isLight) {
+      root.classList.add("theme-light");
+    } else {
+      root.classList.remove("theme-light");
+    }
+
+    const textSec = isLight ? "#334155" : "#929CA3";
+    const textMut = isLight ? "#64748B" : "#6C767E";
+    const textFnt = isLight ? "#94A3B8" : "#4D555C";
+    const elevatedBg = isLight ? "#F1F5F9" : (creamColor === "#0F0F0F" || creamColor === "#111416" ? "#171B1E" : creamColor);
+    const borderSubtle = isLight ? "#E2E8F0" : "#252C30";
+    const borderDefault = isLight ? "#CBD5E1" : "#2D353A";
+    const borderStrong = isLight ? "#94A3B8" : "#3D464D";
+    const accentSoft = isLight ? "rgba(13, 148, 136, 0.10)" : "rgba(57, 198, 176, 0.12)";
+    const navHoverBg = isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.04)";
+    const navActiveBg = isLight ? "rgba(13, 148, 136, 0.10)" : "rgba(57, 198, 176, 0.10)";
 
     root.style.setProperty("--bg-surface-elevated", elevatedBg);
     root.style.setProperty("--text-secondary",      textSec);
@@ -235,10 +249,10 @@ function App() {
 
   // ── Toggle dark / light ─────────────────────
   const isDarkMode = (() => {
-    const bg = (config?.theme?.ui_overrides?.nav_background ?? "#000000").trim().toLowerCase();
-    if (bg === "#ffffff" || bg === "#fafafa" || bg === "#f4f4f5" || bg === "#f5f1eb" || bg === "#f6f2ea") return false;
-    const ink = (config?.theme?.ui_overrides?.text_color ?? "#FFFFFF").trim().toLowerCase();
-    return !(ink === "#000000" || ink === "#18140f" || ink === "#1a1510" || ink.startsWith("#0") || ink.startsWith("#1") || ink.startsWith("#2") || ink.startsWith("#3"));
+    const bg = (config?.theme?.ui_overrides?.nav_background ?? "#0B0D0F").trim().toLowerCase();
+    if (bg === "#ffffff" || bg === "#fafafa" || bg === "#f8fafc" || bg === "#f4f4f5" || bg === "#f5f1eb" || bg === "#f6f2ea") return false;
+    const ink = (config?.theme?.ui_overrides?.text_color ?? "#E8ECEF").trim().toLowerCase();
+    return !(ink === "#000000" || ink === "#0f172a" || ink === "#18140f" || ink === "#1a1510" || ink.startsWith("#0") || ink.startsWith("#1") || ink.startsWith("#2") || ink.startsWith("#3"));
   })();
 
   const toggleThemeMode = async () => {
@@ -248,19 +262,19 @@ function App() {
           ...config.theme.ui_overrides,
           nav_background:     "#FFFFFF",
           content_background: "#FFFFFF",
-          card_background:    "#F4F4F5",
-          card_border:        "rgba(0, 0, 0, 0.12)",
-          text_color:         "#000000",
-          border_accent:      "#000000",
+          card_background:    "#F8FAFC",
+          card_border:        "#E2E8F0",
+          text_color:         "#0F172A",
+          border_accent:      "#0D9488",
         }
       : {
           ...config.theme.ui_overrides,
-          nav_background:     "#000000",
-          content_background: "#000000",
-          card_background:    "#0F0F0F",
-          card_border:        "rgba(255, 255, 255, 0.12)",
-          text_color:         "#FFFFFF",
-          border_accent:      "#FFFFFF",
+          nav_background:     "#0B0D0F",
+          content_background: "#0B0D0F",
+          card_background:    "#111416",
+          card_border:        "#252C30",
+          text_color:         "#E8ECEF",
+          border_accent:      "#39C6B0",
         };
 
     const nextConfig = { ...config, theme: { ...config.theme, ui_overrides: nextOv } };
@@ -317,17 +331,7 @@ function App() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         if (target?.closest(".monaco-editor")) return;
         e.preventDefault();
-        if (activePage !== "Home") {
-          setActivePage("Home");
-        }
-        // PERF-2: Home mounts on demand — retry briefly in case its chunk
-        // is still loading on the very first navigation.
-        const focusHomeSearch = (attempts: number) => {
-          const input = document.getElementById("home-search-input") as HTMLInputElement | null;
-          if (input) { input.focus(); input.select(); }
-          else if (attempts > 0) setTimeout(() => focusHomeSearch(attempts - 1), 50);
-        };
-        setTimeout(() => focusHomeSearch(10), 50);
+        setIsCommandPaletteOpen(prev => !prev);
       }
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
@@ -491,8 +495,18 @@ function App() {
             <span className="c2-titlebar-brand-text">Composer</span>
           </div>
 
-          {/* Drag fill */}
-          <div className="c2-titlebar-drag" data-tauri-drag-region />
+          {/* Drag fill & Quick search trigger */}
+          <div className="c2-titlebar-drag flex items-center justify-center" data-tauri-drag-region>
+            <button
+              onClick={() => setIsCommandPaletteOpen(true)}
+              className="c2-titlebar-search-btn"
+              title="Command Palette & Quick Search (Ctrl+K)"
+            >
+              <Search size={11} style={{ color: "var(--accent)" }} />
+              <span>Search or jump to...</span>
+              <kbd className="c2-titlebar-kbd">Ctrl K</kbd>
+            </button>
+          </div>
 
           {/* Window controls */}
           <div className="c2-titlebar-controls">
@@ -931,6 +945,24 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* ── Command Palette (Ctrl+K) ─────────────────────────── */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={setActivePage}
+        onOpenFile={handleOpenRecentFile}
+        onNewFile={handleNewFile}
+        onNewFolder={handleNewFolder}
+        onImport={handleImport}
+        onOpenProject={handleOpenProject}
+        onToggleTheme={toggleThemeMode}
+        onRefreshIndex={async () => {
+          await invoke("invalidate_workspace_index");
+          emit("config_updated");
+        }}
+        isDarkMode={isDarkMode}
+      />
 
     </div>
   );

@@ -1,6 +1,8 @@
 pub mod config;
 pub mod file_ops;
+pub mod intelligence;
 pub mod session;
+pub mod worktrees;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -165,7 +167,10 @@ async fn import_to_directory(
     let dest = validated_dest_dir.join(&name);
     let validated_dest = file_ops::validate_path_in_workspace(&dest, &workspace_root)?;
     if validated_dest.exists() {
-        return Err(format!("'{}' already exists in workspace", name.to_string_lossy()));
+        return Err(format!(
+            "'{}' already exists in workspace",
+            name.to_string_lossy()
+        ));
     }
 
     let return_path = validated_dest.to_string_lossy().to_string();
@@ -205,20 +210,136 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
 // SYSTEM INFO
 // -------------------------------------------------------------
 
-/// Dynamic physical CPU system RAM utilization percentage query.
+/// Dynamic physical system RAM utilization percentage query.
 #[tauri::command]
 async fn get_system_ram_usage() -> u8 {
     tauri::async_runtime::spawn_blocking(|| {
         if let Ok(mem) = sys_info::mem_info() {
             if mem.total > 0 {
                 let used = mem.total.saturating_sub(mem.free);
-                return ((used as f64 / mem.total as f64) * 100.0).round() as u8;
+                return ((used as f64 / mem.total as f64) * 100.0)
+                    .round()
+                    .clamp(0.0, 100.0) as u8;
             }
         }
         50
     })
     .await
     .unwrap_or(50)
+}
+
+#[cfg(windows)]
+fn sample_system_cpu_usage() -> u8 {
+    use std::sync::Mutex;
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct FileTime {
+        dw_low_date_time: u32,
+        dw_high_date_time: u32,
+    }
+
+    #[derive(Clone, Copy)]
+    struct CpuSampleState {
+        idle: u64,
+        kernel: u64,
+        user: u64,
+        last_pct: u8,
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetSystemTimes(
+            idle_time: *mut FileTime,
+            kernel_time: *mut FileTime,
+            user_time: *mut FileTime,
+        ) -> i32;
+    }
+
+    fn read_times() -> Option<(u64, u64, u64)> {
+        let mut idle = FileTime {
+            dw_low_date_time: 0,
+            dw_high_date_time: 0,
+        };
+        let mut kernel = FileTime {
+            dw_low_date_time: 0,
+            dw_high_date_time: 0,
+        };
+        let mut user = FileTime {
+            dw_low_date_time: 0,
+            dw_high_date_time: 0,
+        };
+        let ok = unsafe { GetSystemTimes(&mut idle, &mut kernel, &mut user) };
+        if ok == 0 {
+            return None;
+        }
+        let to_u64 =
+            |ft: FileTime| ((ft.dw_high_date_time as u64) << 32) | (ft.dw_low_date_time as u64);
+        Some((to_u64(idle), to_u64(kernel), to_u64(user)))
+    }
+
+    static CPU_STATE: Mutex<Option<CpuSampleState>> = Mutex::new(None);
+    let mut guard = CPU_STATE.lock().unwrap_or_else(|e| e.into_inner());
+
+    let (prev, curr, fallback_pct) = match *guard {
+        Some(state) => match read_times() {
+            Some(now) => ((state.idle, state.kernel, state.user), now, state.last_pct),
+            None => return state.last_pct,
+        },
+        None => {
+            let Some(t0) = read_times() else {
+                return 0;
+            };
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            let Some(t1) = read_times() else {
+                *guard = Some(CpuSampleState {
+                    idle: t0.0,
+                    kernel: t0.1,
+                    user: t0.2,
+                    last_pct: 0,
+                });
+                return 0;
+            };
+            (t0, t1, 0)
+        }
+    };
+
+    let idle_delta = curr.0.saturating_sub(prev.0);
+    let kernel_delta = curr.1.saturating_sub(prev.1);
+    let user_delta = curr.2.saturating_sub(prev.2);
+    let total = kernel_delta.saturating_add(user_delta);
+    if total == 0 {
+        return fallback_pct;
+    }
+
+    let busy = total.saturating_sub(idle_delta);
+    let pct = ((busy as f64 / total as f64) * 100.0)
+        .round()
+        .clamp(0.0, 100.0) as u8;
+    *guard = Some(CpuSampleState {
+        idle: curr.0,
+        kernel: curr.1,
+        user: curr.2,
+        last_pct: pct,
+    });
+    pct
+}
+
+#[cfg(not(windows))]
+fn sample_system_cpu_usage() -> u8 {
+    let cores = sys_info::cpu_num().unwrap_or(1).max(1) as f64;
+    if let Ok(load) = sys_info::loadavg() {
+        return ((load.one / cores) * 100.0).round().clamp(0.0, 100.0) as u8;
+    }
+    0
+}
+
+/// Dynamic physical system CPU utilization percentage query.
+#[tauri::command]
+async fn get_system_cpu_usage() -> u8 {
+    tauri::async_runtime::spawn_blocking(sample_system_cpu_usage)
+        .await
+        .unwrap_or(0)
 }
 
 // -------------------------------------------------------------
@@ -243,9 +364,8 @@ pub fn refresh_asset_protocol_scope(app: &tauri::AppHandle, workspace: &Path) {
         // Forbid roots that are disjoint from the new workspace. Overlapping
         // roots cannot be revoked without also blocking the new workspace,
         // because deny patterns take precedence over allowed ones.
-        let disjoint = *old != canonical
-            && !canonical.starts_with(old)
-            && !old.starts_with(&canonical);
+        let disjoint =
+            *old != canonical && !canonical.starts_with(old) && !old.starts_with(&canonical);
         if disjoint {
             let _ = scope.forbid_directory(old, true);
         }
@@ -299,9 +419,12 @@ pub fn run() {
             save_file_dialog,
             import_to_directory,
             get_system_ram_usage,
+            get_system_cpu_usage,
             // Config commands
             config::get_app_config,
             config::save_app_config,
+            config::open_workspace_dir,
+            config::remove_recent_workspace,
             config::export_theme_toml,
             config::import_theme_toml,
             config::get_app_install_path,
@@ -311,6 +434,10 @@ pub fn run() {
             file_ops::list_directory_contents,
             file_ops::list_all_workspace_files,
             file_ops::get_cached_workspace_index,
+            file_ops::get_workspace_stats,
+            file_ops::invalidate_workspace_index,
+            file_ops::search_workspace,
+            file_ops::open_in_file_manager,
             file_ops::read_text_file,
             file_ops::read_binary_file_base64,
             file_ops::write_text_file,
@@ -320,6 +447,17 @@ pub fn run() {
             file_ops::delete_file_or_dir,
             file_ops::rename_file_or_dir,
             file_ops::inspect_paths,
+            // Worktree commands (v0.4)
+            worktrees::get_parent_workspace,
+            worktrees::create_worktree,
+            worktrees::rename_worktree,
+            worktrees::set_active_worktree,
+            worktrees::remove_worktree,
+            worktrees::save_worktree_state,
+            worktrees::load_worktree_state,
+            // File intelligence commands (v0.4)
+            intelligence::get_file_intelligence,
+            intelligence::get_file_relationships,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

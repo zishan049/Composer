@@ -1,38 +1,22 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from "react";
 import { Marked, marked } from "marked";
 import DOMPurify from "dompurify";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   List,
   Type,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   Copy,
   Check,
   Printer,
   FileText,
   Clock,
   BookOpen,
-  ChevronRight,
-  ExternalLink,
-  Info,
-  Lightbulb,
-  AlertTriangle,
   AlertCircle,
-  ShieldAlert,
-  Hash,
   Sparkles,
-  AlignLeft,
-  Maximize2,
-  Minimize2,
   X,
   Download,
-  Sliders,
-  CheckCircle2,
-  FileDown
+  Sliders
 } from "lucide-react";
 
 interface MarkdownPreviewProps {
@@ -256,7 +240,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
     if (inst && typeof inst.use === "function") {
       inst.use({
         renderer: {
-          heading(arg, depth, raw) {
+          heading(this: any, arg: any, depth?: any, raw?: any) {
             const token = typeof arg === "object" && arg !== null ? arg : { text: arg, depth, raw };
             const textVal = token.text || "";
             const depthVal = token.depth || 1;
@@ -282,7 +266,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             `;
           },
 
-          image(arg, title, text) {
+          image(this: any, arg: any, title?: any, text?: any) {
             const token = typeof arg === "object" && arg !== null ? arg : { href: arg, title, text };
             const resolvedHref = resolveAssetSrc(token.href || "");
             const titleAttr = token.title ? `title="${escapeHtml(token.title)}"` : "";
@@ -290,7 +274,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             return `<img src="${escapeHtml(resolvedHref)}" ${altAttr} ${titleAttr} loading="lazy" />`;
           },
 
-          link(arg, title, text) {
+          link(this: any, arg: any, title?: any, text?: any) {
             const token = typeof arg === "object" && arg !== null ? arg : { href: arg, title, text };
             const hrefVal = token.href || "";
             const isExternal = hrefVal.startsWith("http://") || hrefVal.startsWith("https://") || hrefVal.startsWith("mailto:");
@@ -302,7 +286,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             return `<a href="${escapeHtml(hrefVal)}" ${titleAttr}>${textVal}</a>`;
           },
 
-          code(arg, lang) {
+          code(this: any, arg: any, lang?: any) {
             const token = typeof arg === "object" && arg !== null ? arg : { text: arg, lang };
             const codeText = token.text || "";
             const language = (token.lang || "text").toLowerCase();
@@ -339,7 +323,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       // Pre-process raw <img> tags inside HTML to resolve relative paths
       let processedContent = debouncedContent.replace(
         /<img\s+([^>]*?)src=["']([^"']+)["']([^>]*)>/gi,
-        (match, prefix, src, suffix) => {
+        (_match, prefix, src, suffix) => {
           const resolved = resolveAssetSrc(src);
           return `<img ${prefix}src="${escapeHtml(resolved)}"${suffix}>`;
         }
@@ -360,7 +344,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
       // Transform GitHub Alerts: [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION]
       rawHtml = rawHtml.replace(
         /<blockquote>\s*<p>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:<br\s*\/?>)?([\s\S]*?)<\/p>\s*<\/blockquote>/gi,
-        (match, type, body) => {
+        (_match, type, body) => {
           const alertType = type.toLowerCase();
           const titles: Record<string, string> = {
             note: "Note",
@@ -816,7 +800,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
           <button
             onClick={() => setShowToc(!showToc)}
             className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer ${
-              showToc ? "bg-accent text-paper" : "text-muted hover:text-ink hover:bg-cream/50"
+              showToc ? "bg-accent text-white" : "text-muted hover:text-ink hover:bg-cream/50"
             }`}
             title="Table of Contents Outline"
           >
@@ -824,7 +808,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             <span>Outline</span>
             {tocItems.length > 0 && (
               <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
-                showToc ? "bg-paper/20 text-paper" : "bg-cream text-muted"
+                showToc ? "bg-white/20 text-white" : "bg-cream text-muted"
               }`}>
                 {tocItems.length}
               </span>
@@ -871,7 +855,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                       onClick={() => setFontFamily("serif")}
                       className={`px-2 py-1 rounded border text-[11px] font-serif cursor-pointer ${
                         fontFamily === "serif"
-                          ? "border-accent bg-accent text-paper font-semibold"
+                          ? "border-accent bg-accent text-white font-semibold"
                           : "border-rule/50 hover:bg-cream text-ink"
                       }`}
                     >
@@ -881,7 +865,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                       onClick={() => setFontFamily("sans")}
                       className={`px-2 py-1 rounded border text-[11px] font-sans cursor-pointer ${
                         fontFamily === "sans"
-                          ? "border-accent bg-accent text-paper font-semibold"
+                          ? "border-accent bg-accent text-white font-semibold"
                           : "border-rule/50 hover:bg-cream text-ink"
                       }`}
                     >
@@ -891,7 +875,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                       onClick={() => setFontFamily("mono")}
                       className={`px-2 py-1 rounded border text-[11px] font-mono cursor-pointer ${
                         fontFamily === "mono"
-                          ? "border-accent bg-accent text-paper font-semibold"
+                          ? "border-accent bg-accent text-white font-semibold"
                           : "border-rule/50 hover:bg-cream text-ink"
                       }`}
                     >
@@ -911,7 +895,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                         onClick={() => setFontSize(sz)}
                         className={`px-2 py-1 rounded border text-[10px] uppercase font-semibold cursor-pointer ${
                           fontSize === sz
-                            ? "border-accent bg-accent text-paper"
+                            ? "border-accent bg-accent text-white"
                             : "border-rule/50 hover:bg-cream text-ink"
                         }`}
                       >
@@ -1052,7 +1036,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             {/* Modal Header */}
             <div className="px-5 py-3.5 bg-cream/35 border-b border-rule flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded bg-accent text-paper">
+                <div className="p-1.5 rounded bg-accent text-white">
                   <Printer size={16} />
                 </div>
                 <div>
@@ -1104,7 +1088,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                         onClick={() => setPrintConfig({ ...printConfig, orientation: "portrait" })}
                         className={`py-1.5 px-2 rounded border text-center font-semibold transition-all cursor-pointer ${
                           printConfig.orientation === "portrait"
-                            ? "border-accent bg-accent text-paper"
+                            ? "border-accent bg-accent text-white"
                             : "border-rule/60 hover:bg-cream text-ink"
                         }`}
                       >
@@ -1114,7 +1098,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                         onClick={() => setPrintConfig({ ...printConfig, orientation: "landscape" })}
                         className={`py-1.5 px-2 rounded border text-center font-semibold transition-all cursor-pointer ${
                           printConfig.orientation === "landscape"
-                            ? "border-accent bg-accent text-paper"
+                            ? "border-accent bg-accent text-white"
                             : "border-rule/60 hover:bg-cream text-ink"
                         }`}
                       >
@@ -1129,7 +1113,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                           onClick={() => setPrintConfig({ ...printConfig, pageSize: sz })}
                           className={`py-1 px-2 rounded border text-[10px] uppercase font-semibold text-center transition-all cursor-pointer ${
                             printConfig.pageSize === sz
-                              ? "border-accent bg-accent text-paper"
+                              ? "border-accent bg-accent text-white"
                               : "border-rule/60 hover:bg-cream text-ink"
                           }`}
                         >
@@ -1166,7 +1150,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                         onClick={() => setPrintConfig({ ...printConfig, font: "serif" })}
                         className={`py-1.5 px-2 rounded border text-[11px] font-serif transition-all cursor-pointer ${
                           printConfig.font === "serif"
-                            ? "border-accent bg-accent text-paper font-semibold"
+                            ? "border-accent bg-accent text-white font-semibold"
                             : "border-rule/60 hover:bg-cream text-ink"
                         }`}
                       >
@@ -1176,7 +1160,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                         onClick={() => setPrintConfig({ ...printConfig, font: "sans" })}
                         className={`py-1.5 px-2 rounded border text-[11px] font-sans transition-all cursor-pointer ${
                           printConfig.font === "sans"
-                            ? "border-accent bg-accent text-paper font-semibold"
+                            ? "border-accent bg-accent text-white font-semibold"
                             : "border-rule/60 hover:bg-cream text-ink"
                         }`}
                       >
@@ -1186,7 +1170,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                         onClick={() => setPrintConfig({ ...printConfig, font: "mono" })}
                         className={`py-1.5 px-2 rounded border text-[11px] font-mono transition-all cursor-pointer ${
                           printConfig.font === "mono"
-                            ? "border-accent bg-accent text-paper font-semibold"
+                            ? "border-accent bg-accent text-white font-semibold"
                             : "border-rule/60 hover:bg-cream text-ink"
                         }`}
                       >
@@ -1263,7 +1247,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                 <div className="pt-4 border-t border-rule/60 space-y-2">
                   <button
                     onClick={() => executeIsolatedPrint(printConfig)}
-                    className="w-full py-2.5 px-4 bg-accent hover:bg-accent/90 text-paper font-bold rounded flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer text-xs"
+                    className="w-full py-2.5 px-4 bg-accent hover:bg-accent/90 text-white font-bold rounded flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer text-xs"
                     title="Open Windows print & save dialog for this document"
                   >
                     <Printer size={15} />

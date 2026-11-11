@@ -159,8 +159,8 @@
 }
 .dlg-type-btn.active {
   background-color: var(--accent-soft);
-  border-color: rgba(229, 180, 95, 0.3);
-  color: var(--accent);
+  border-color: var(--border-strong);
+  color: var(--accent-text, var(--accent));
 }
 
 /* ── Import queue ────────────────────────────────────────────── */
@@ -247,7 +247,7 @@
 .dlg-browse-zone.dragging {
   border-color: var(--accent);
   background-color: var(--accent-softer);
-  box-shadow: 0 0 0 2px var(--accent-softer), 0 0 20px rgba(229, 180, 95, 0.2);
+  box-shadow: 0 0 0 2px var(--accent-softer), 0 0 20px rgba(36, 87, 255, 0.2);
   transform: scale(1.01);
 }
 .dlg-queue.dragging {
@@ -271,9 +271,9 @@
 .dlg-queue-add-btn {
   font-size: 11px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   background: var(--accent-soft);
-  border: 1px solid rgba(229, 180, 95, 0.25);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 3px 8px;
   cursor: pointer;
@@ -284,7 +284,7 @@
 }
 .dlg-queue-add-btn:hover {
   background: var(--accent);
-  color: #121212;
+  color: #FFFFFF;
 }
 .dlg-queue-clear-btn {
   font-size: 11px;
@@ -307,11 +307,11 @@
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  background-color: rgba(229, 180, 95, 0.08);
-  border: 1px solid rgba(229, 180, 95, 0.2);
+  background-color: rgba(248, 113, 113, 0.10);
+  border: 1px solid rgba(248, 113, 113, 0.25);
   border-radius: var(--radius-sm);
   font-size: 11px;
-  color: var(--accent);
+  color: var(--color-danger);
   line-height: 1.5;
 }
 
@@ -347,7 +347,7 @@
   background-color: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
-  color: #1A1510;
+  color: #FFFFFF;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;

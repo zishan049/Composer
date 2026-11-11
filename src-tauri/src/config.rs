@@ -18,11 +18,20 @@ pub struct GeneralConfig {
     pub onboarding_completed: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct RecentWorkspace {
+    pub path: String,
+    pub name: String,
+    pub last_opened: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StorageConfig {
     pub root_path: String,
     #[serde(default)]
     pub workspace_path: String,
+    #[serde(default)]
+    pub recent_workspaces: Vec<RecentWorkspace>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -47,7 +56,7 @@ pub struct ThemeConfig {
     pub compact_mode: bool,
     pub reduce_motion: bool,
     // Custom overrides mapping for Editorial and layout properties
-    pub nav_layout: String, // "sidebar" | "vertical_pills" | "top_navbar"
+    pub nav_layout: String,     // "sidebar" | "vertical_pills" | "top_navbar"
     pub nav_sidebar_width: u32, // 200 to 280
     pub nav_show_app_label: bool,
     pub nav_show_status_bar: bool,
@@ -90,7 +99,10 @@ pub fn create_default_config(_storage_root: &Path) -> AppConfig {
     ui_overrides.insert("nav_background".to_string(), "#000000".to_string());
     ui_overrides.insert("content_background".to_string(), "#000000".to_string());
     ui_overrides.insert("card_background".to_string(), "#0F0F0F".to_string());
-    ui_overrides.insert("card_border".to_string(), "rgba(255,255,255,0.12)".to_string());
+    ui_overrides.insert(
+        "card_border".to_string(),
+        "rgba(255,255,255,0.12)".to_string(),
+    );
     ui_overrides.insert("text_color".to_string(), "#FFFFFF".to_string());
     ui_overrides.insert("border_accent".to_string(), "#FFFFFF".to_string());
 
@@ -106,6 +118,7 @@ pub fn create_default_config(_storage_root: &Path) -> AppConfig {
         storage: StorageConfig {
             root_path: get_app_install_dir().to_string_lossy().to_string(),
             workspace_path: "".to_string(),
+            recent_workspaces: Vec::new(),
         },
         editor: EditorConfig {
             font_family: "EB Garamond".to_string(),
@@ -118,14 +131,14 @@ pub fn create_default_config(_storage_root: &Path) -> AppConfig {
             total_version_storage_limit_mb: 100,
         },
         theme: ThemeConfig {
-            theme_preset: "dark".to_string(), // Minimalist B&W default
-            accent_color: "#FFFFFF".to_string(),
+            theme_preset: "dark".to_string(),
+            accent_color: "#E6D5C3".to_string(),
             background_override: "".to_string(),
             font_family_ui: "modern_sans".to_string(),
             font_size_ui: 14,
             compact_mode: false,
             reduce_motion: false,
-            nav_layout: "sidebar".to_string(),
+            nav_layout: "top_navbar".to_string(),
             nav_sidebar_width: 240,
             nav_show_app_label: true,
             nav_show_status_bar: true,
@@ -267,7 +280,12 @@ fn load_config_from_disk() -> AppConfig {
     let legacy_toml = legacy_path
         .parent()
         .map(|p| p.join("config").join("composer.toml"))
-        .unwrap_or_else(|| get_app_install_dir().join("storage").join("config").join("composer.toml"));
+        .unwrap_or_else(|| {
+            get_app_install_dir()
+                .join("storage")
+                .join("config")
+                .join("composer.toml")
+        });
     if legacy_toml.exists() {
         if let Ok(content) = fs::read_to_string(&legacy_toml) {
             if let Ok(cfg) = toml::from_str::<AppConfig>(&content) {
@@ -304,7 +322,7 @@ fn finalize_loaded_config(mut config: AppConfig) -> AppConfig {
     // Ensure required storage sub-directories exist in root_path
     let root_str = config.storage.root_path.trim().to_string();
     if !root_str.is_empty() {
-        ensure_storage_dirs(&PathBuf::from(&root_str));
+        ensure_storage_dirs(Path::new(&root_str));
     } else {
         ensure_storage_dirs(&get_app_install_dir());
     }
@@ -343,7 +361,9 @@ fn get_active_workspace_path_internal(cfg: &AppConfig) -> PathBuf {
 /// temporary file first and then renamed over the target, so a crash
 /// mid-write can never leave a truncated or corrupt file behind.
 fn write_atomic(path: &Path, content: &str) -> Result<(), String> {
-    let dir = path.parent().ok_or_else(|| "Invalid config path".to_string())?;
+    let dir = path
+        .parent()
+        .ok_or_else(|| "Invalid config path".to_string())?;
     fs::create_dir_all(dir).map_err(|e| e.to_string())?;
 
     let file_name = path
@@ -354,7 +374,12 @@ fn write_atomic(path: &Path, content: &str) -> Result<(), String> {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    let tmp = dir.join(format!(".{}.{}.tmp-{}", file_name, std::process::id(), unique));
+    let tmp = dir.join(format!(
+        ".{}.{}.tmp-{}",
+        file_name,
+        std::process::id(),
+        unique
+    ));
 
     fs::write(&tmp, content).map_err(|e| e.to_string())?;
     match fs::rename(&tmp, path) {
@@ -437,6 +462,89 @@ pub async fn save_app_config(app: tauri::AppHandle, config: AppConfig) -> Result
 }
 
 #[tauri::command]
+pub async fn open_workspace_dir(app: tauri::AppHandle, path: String) -> Result<AppConfig, String> {
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err(format!("Workspace directory does not exist: {}", path));
+    }
+    if !p.is_dir() {
+        return Err(format!("Workspace path is not a directory: {}", path));
+    }
+
+    let canonical = crate::session::canonicalize_best_effort(p);
+    let canonical_str = canonical.to_string_lossy().to_string();
+
+    // Register path in session allowlist
+    app.state::<crate::session::SessionPaths>()
+        .register(&canonical);
+
+    let mut cfg = load_config();
+    cfg.storage.workspace_path = canonical_str.clone();
+
+    // Determine friendly name for workspace
+    let ws_name = canonical
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| canonical_str.clone());
+
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+
+    // Update recent_workspaces list (avoid duplicates, prepend current, limit to 20)
+    cfg.storage.recent_workspaces.retain(|item| {
+        let item_p = crate::session::canonicalize_best_effort(Path::new(&item.path));
+        item_p != canonical && item.path != canonical_str
+    });
+
+    cfg.storage.recent_workspaces.insert(
+        0,
+        RecentWorkspace {
+            path: canonical_str.clone(),
+            name: ws_name,
+            last_opened: now_ms,
+        },
+    );
+
+    if cfg.storage.recent_workspaces.len() > 20 {
+        cfg.storage.recent_workspaces.truncate(20);
+    }
+
+    let config_to_save = cfg.clone();
+    tauri::async_runtime::spawn_blocking(move || save_config(&config_to_save))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    update_cached_config(&cfg);
+    crate::refresh_asset_protocol_scope(&app, &canonical);
+    crate::file_ops::invalidate_cache_file();
+
+    Ok(cfg)
+}
+
+#[tauri::command]
+pub async fn remove_recent_workspace(path: String) -> Result<AppConfig, String> {
+    let target_path = PathBuf::from(&path);
+    let target_canonical = crate::session::canonicalize_best_effort(&target_path);
+
+    let mut cfg = load_config();
+    cfg.storage.recent_workspaces.retain(|item| {
+        let item_p = crate::session::canonicalize_best_effort(Path::new(&item.path));
+        item_p != target_canonical && item.path != path
+    });
+
+    let config_to_save = cfg.clone();
+    tauri::async_runtime::spawn_blocking(move || save_config(&config_to_save))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    update_cached_config(&cfg);
+    Ok(cfg)
+}
+
+#[tauri::command]
 pub async fn export_theme_toml(
     app: tauri::AppHandle,
     theme: ThemeConfig,
@@ -451,7 +559,10 @@ pub async fn export_theme_toml(
     let dest = match crate::file_ops::validate_path_in_workspace(&path, &workspace_root) {
         Ok(validated) => validated,
         Err(_) => {
-            if app.state::<crate::session::SessionPaths>().is_allowed(&path) {
+            if app
+                .state::<crate::session::SessionPaths>()
+                .is_allowed(&path)
+            {
                 path
             } else {
                 return Err(
@@ -470,12 +581,14 @@ pub async fn export_theme_toml(
         ));
     }
 
-    let toml_str = toml::to_string_pretty(&theme)
-        .map_err(|_| "Failed to serialize theme".to_string())?;
+    let toml_str =
+        toml::to_string_pretty(&theme).map_err(|_| "Failed to serialize theme".to_string())?;
 
-    tauri::async_runtime::spawn_blocking(move || fs::write(&dest, toml_str).map_err(|e| e.to_string()))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        fs::write(&dest, toml_str).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -489,7 +602,9 @@ pub async fn import_theme_toml(
     // workspace or produced by a native file picker this session.
     let workspace_root = get_active_workspace_path();
     let allowed = crate::file_ops::validate_path_in_workspace(&path, &workspace_root).is_ok()
-        || app.state::<crate::session::SessionPaths>().is_allowed(&path);
+        || app
+            .state::<crate::session::SessionPaths>()
+            .is_allowed(&path);
     if !allowed {
         return Err(
             "Theme file must be inside the active workspace or chosen through the native file picker"
@@ -498,7 +613,8 @@ pub async fn import_theme_toml(
     }
 
     tauri::async_runtime::spawn_blocking(move || {
-        let content = fs::read_to_string(&path).map_err(|_| "Failed to read theme file".to_string())?;
+        let content =
+            fs::read_to_string(&path).map_err(|_| "Failed to read theme file".to_string())?;
         // Deliberately generic error: raw parser errors echo file contents
         // back to the caller and turn this into a content-disclosure oracle.
         toml::from_str::<ThemeConfig>(&content)
@@ -530,7 +646,7 @@ pub async fn get_workspace_path() -> String {
 /// Creates the required sub-directories inside the storage root.
 /// Currently creates: Cache
 /// Call this whenever the storage root is set or changed.
-pub fn ensure_storage_dirs(root: &PathBuf) {
+pub fn ensure_storage_dirs(root: &Path) {
     let dirs = ["Cache"];
     for dir in &dirs {
         let path = root.join(dir);
@@ -599,5 +715,37 @@ mod tests {
         assert_eq!(leftovers, vec!["config.json".to_string()]);
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_recent_workspace_serialization_and_retention() {
+        let mut cfg = create_default_config(&std::env::temp_dir());
+        assert!(cfg.storage.recent_workspaces.is_empty());
+
+        cfg.storage.recent_workspaces.push(RecentWorkspace {
+            path: "/path/to/project_a".to_string(),
+            name: "project_a".to_string(),
+            last_opened: 1000,
+        });
+        cfg.storage.recent_workspaces.push(RecentWorkspace {
+            path: "/path/to/project_b".to_string(),
+            name: "project_b".to_string(),
+            last_opened: 2000,
+        });
+
+        let json = serde_json::to_string(&cfg).expect("serialize");
+        let parsed: AppConfig = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed.storage.recent_workspaces.len(), 2);
+        assert_eq!(parsed.storage.recent_workspaces[0].name, "project_a");
+
+        // Removing project_a must leave project_b untouched
+        let remaining: Vec<RecentWorkspace> = parsed
+            .storage
+            .recent_workspaces
+            .into_iter()
+            .filter(|w| w.path != "/path/to/project_a")
+            .collect();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].name, "project_b");
     }
 }

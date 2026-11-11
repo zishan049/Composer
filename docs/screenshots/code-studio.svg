@@ -1,34 +1,198 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768">
-<defs><style>text{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#f4f4f5}.muted{fill:#a1a1aa}.faint{fill:#71717a}.line{stroke:#fff;stroke-opacity:.09}.icon{fill:none;stroke:#a1a1aa;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}.mono{font-family:'SFMono-Regular',Consolas,monospace;font-size:12px}</style></defs>
-<rect width="1024" height="768" fill="#000"/><rect width="1024" height="32" fill="#050505"/><path d="M0 31.5H1024" class="line"/><rect x="13" y="9" width="13" height="13" rx="3" fill="#f4f4f5"/><path d="M16 15h7M19.5 12v7" stroke="#111" stroke-width="1.2"/><text x="34" y="20" font-size="11" font-weight="600" fill="#d4d4d8">Composer</text><path d="M936 16h10M962 11v10M979 11l10 10M989 11l-10 10" stroke="#a1a1aa" stroke-width="1.2" fill="none"/>
-<rect width="136" height="736" y="32" fill="#000"/><path d="M135.5 32V768" class="line"/><rect x="14" y="47" width="18" height="18" rx="4" fill="#f4f4f5"/><path d="M19 56l4 4 5-7" stroke="#111" stroke-width="1.5" fill="none"/><text x="41" y="60" font-size="13" font-weight="700">Composer</text><path d="M8 76H127" class="line"/><text x="17" y="98" font-size="9" font-weight="700" letter-spacing="1.3" class="faint">WORKSPACE</text><path d="M20 120h12v10H20zM22 117h8" class="icon"/><text x="41" y="129" font-size="12" class="muted">Home</text><rect x="8" y="140" width="120" height="32" rx="6" fill="#fff" fill-opacity=".1"/><rect x="8" y="140" width="2" height="32" rx="1" fill="#fff"/><path d="M20 150h12l4 4v11H20zM20 154h16" class="icon"/><text x="41" y="160" font-size="12" font-weight="600">Explorer</text><path d="M25 194a6 6 0 1 0 0 12a6 6 0 1 0 0-12" class="icon"/><text x="41" y="204" font-size="12" class="muted">Settings</text><path d="M8 724H127" class="line"/><circle cx="20" cy="744" r="3" fill="#86efac"/><text x="30" y="748" font-size="9" class="muted">LOCAL WORKSPACE</text>
-<rect x="136" y="32" width="888" height="42" fill="#050505"/><text x="156" y="57" font-size="13" font-weight="600">Explorer</text><text x="223" y="57" font-size="11" class="muted">/ Users / workspace</text><path d="M136 73.5H1024" class="line"/>
-<rect x="136" y="74" width="228" height="694" fill="#050505"/><path d="M364 74V768" class="line"/><text x="154" y="100" font-size="10" font-weight="700" letter-spacing="1.1" class="muted">WORKSPACE</text><rect x="150" y="112" width="200" height="31" rx="6" fill="#0f0f0f" stroke="#fff" stroke-opacity=".12"/><circle cx="165" cy="127" r="4" class="icon"/><path d="M168 130l3 3" class="icon"/><text x="180" y="131" font-size="11" class="muted">Search files...</text>
-<path d="M158 164l4 4 4-4" class="icon"/><path d="M171 161h12l4 4v9h-16z" stroke="#d4d4d8" fill="none"/><text x="195" y="173" font-size="12" font-weight="600">composer</text>
-<path d="M177 191l3 3 3-3" class="icon"/><path d="M190 188h11l3 3v8h-14z" stroke="#a1a1aa" fill="none"/><text x="211" y="199" font-size="11" class="muted">src</text>
-<path d="M196 216h10v13h-10z" stroke="#a1a1aa" fill="none"/><text x="216" y="226" font-size="11" class="muted">App.tsx</text>
-<rect x="188" y="237" width="162" height="27" rx="4" fill="#fff" fill-opacity=".09"/><path d="M196 245h10v13h-10z" stroke="#fff" fill="none"/><text x="216" y="254" font-size="11" font-weight="600">Home.tsx</text>
-<path d="M196 275h10v13h-10z" stroke="#a1a1aa" fill="none"/><text x="216" y="284" font-size="11" class="muted">Explorer.tsx</text><path d="M196 304h10v13h-10z" stroke="#a1a1aa" fill="none"/><text x="216" y="313" font-size="11" class="muted">Settings.tsx</text>
-<path d="M177 337l3 3 3-3" class="icon"/><path d="M190 334h12l4 4v9h-16z" stroke="#a1a1aa" fill="none"/><text x="211" y="346" font-size="11" class="muted">styles</text><path d="M196 363h10v13h-10z" stroke="#a1a1aa" fill="none"/><text x="216" y="372" font-size="11" class="muted">tokens.css</text><path d="M196 392h10v13h-10z" stroke="#a1a1aa" fill="none"/><text x="216" y="401" font-size="11" class="muted">shell.css</text><path d="M158 427h12v14h-12z" stroke="#a1a1aa" fill="none"/><text x="180" y="438" font-size="11" class="muted">package.json</text><path d="M158 456h12v14h-12z" stroke="#a1a1aa" fill="none"/><text x="180" y="467" font-size="11" class="muted">README.md</text>
-<rect x="364" y="74" width="660" height="36" fill="#070707"/><rect x="364" y="74" width="144" height="36" fill="#000" stroke="#fff" stroke-opacity=".08"/><path d="M378 85h10v13h-10z" stroke="#d4d4d8" fill="none"/><text x="396" y="96" font-size="11">Home.tsx</text><circle cx="493" cy="92" r="3" fill="#a1a1aa"/><text x="526" y="96" font-size="11" class="muted">App.tsx</text><path d="M364 109.5H1024" class="line"/>
-<rect x="364" y="110" width="660" height="658" fill="#000"/><rect x="364" y="110" width="44" height="658" fill="#050505"/><text x="388" y="143" text-anchor="middle" font-size="10" class="faint">1</text><text x="388" y="166" text-anchor="middle" font-size="10" class="faint">2</text><text x="388" y="189" text-anchor="middle" font-size="10" class="faint">3</text><text x="388" y="212" text-anchor="middle" font-size="10" class="faint">4</text><text x="388" y="235" text-anchor="middle" font-size="10" class="faint">5</text><text x="388" y="258" text-anchor="middle" font-size="10" class="faint">6</text><text x="388" y="281" text-anchor="middle" font-size="10" class="faint">7</text><text x="388" y="304" text-anchor="middle" font-size="10" class="faint">8</text><text x="388" y="327" text-anchor="middle" font-size="10" class="faint">9</text><text x="388" y="350" text-anchor="middle" font-size="10" class="faint">10</text><text x="388" y="373" text-anchor="middle" font-size="10" class="faint">11</text><text x="388" y="396" text-anchor="middle" font-size="10" class="faint">12</text><text x="388" y="419" text-anchor="middle" font-size="10" class="faint">13</text><text x="388" y="442" text-anchor="middle" font-size="10" class="faint">14</text><text x="388" y="465" text-anchor="middle" font-size="10" class="faint">15</text>
-<g class="mono"><text x="426" y="143" fill="#c792ea">import</text><text x="471" y="143" fill="#f4f4f5"> React, { useState, useEffect } </text><text x="688" y="143" fill="#c792ea">from</text><text x="724" y="143" fill="#a5d6ff"> "react";</text>
-<text x="426" y="166" fill="#c792ea">import</text><text x="471" y="166" fill="#f4f4f5"> { FileText, Search, Plus } </text><text x="664" y="166" fill="#c792ea">from</text><text x="700" y="166" fill="#a5d6ff"> "lucide-react";</text>
-<text x="426" y="212" fill="#c792ea">interface</text><text x="501" y="212" fill="#f4f4f5"> HomeProps {</text>
-<text x="445" y="235" fill="#79c0ff"> onNavigate</text><text x="520" y="235" fill="#f4f4f5">: (page: string) =&gt; void;</text>
-<text x="445" y="258" fill="#79c0ff"> onOpenRecentFile</text><text x="562" y="258" fill="#f4f4f5">: (path: string) =&gt; void;</text>
-<text x="426" y="281" fill="#f4f4f5">}</text>
-<text x="426" y="327" fill="#c792ea">const</text><text x="465" y="327" fill="#d2a8ff"> HomeComponent</text><text x="579" y="327" fill="#f4f4f5"> = () =&gt; {</text>
-<text x="445" y="350" fill="#c792ea">const</text><text x="484" y="350" fill="#f4f4f5"> [recentFiles, setRecentFiles] = </text><text x="746" y="350" fill="#d2a8ff">useState</text><text x="805" y="350" fill="#f4f4f5">([]);</text>
-<text x="445" y="396" fill="#c792ea">return</text><text x="490" y="396" fill="#f4f4f5"> (</text>
-<text x="464" y="419" fill="#f4f4f5">&lt;div className=</text><text x="566" y="419" fill="#a5d6ff">"home-root"</text><text x="650" y="419" fill="#f4f4f5">&gt;</text>
-<text x="483" y="442" fill="#f4f4f5">&lt;div className=</text><text x="585" y="442" fill="#a5d6ff">"home-container"</text><text x="696" y="442" fill="#f4f4f5">&gt;</text>
-<text x="483" y="465" fill="#f4f4f5">&lt;HomeClock /&gt;</text>
-<text x="483" y="488" fill="#f4f4f5">&lt;div className=</text><text x="585" y="488" fill="#a5d6ff">"home-hero"</text><text x="674" y="488" fill="#f4f4f5">&gt;</text>
-<text x="502" y="511" fill="#f4f4f5">&lt;span className=</text><text x="610" y="511" fill="#a5d6ff">"home-greeting"</text><text x="729" y="511" fill="#f4f4f5">&gt;{greeting}</text>
-<text x="483" y="557" fill="#f4f4f5">&lt;div className=</text><text x="585" y="557" fill="#a5d6ff">"home-search-wrapper"</text><text x="748" y="557" fill="#f4f4f5">&gt;</text>
-<text x="483" y="603" fill="#f4f4f5">&lt;div className=</text><text x="585" y="603" fill="#a5d6ff">"home-actions-grid"</text><text x="729" y="603" fill="#f4f4f5">&gt;</text>
-<text x="483" y="649" fill="#f4f4f5">&lt;div className=</text><text x="585" y="649" fill="#a5d6ff">"home-recent-section"</text><text x="756" y="649" fill="#f4f4f5">&gt;</text>
-<text x="426" y="695" fill="#c792ea">export</text><text x="478" y="695" fill="#c792ea">const</text><text x="518" y="695" fill="#d2a8ff"> Home</text><text x="559" y="695" fill="#f4f4f5"> = React.memo(HomeComponent);</text></g>
-<rect x="136" y="746" width="888" height="22" fill="#050505"/><path d="M136 746H1024" class="line"/><circle cx="151" cy="757" r="3" fill="#86efac"/><text x="162" y="761" font-size="9" class="muted">Ready</text><text x="1006" y="761" text-anchor="end" font-size="9" class="muted">TypeScript · UTF-8 · LF</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="768" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#070B14" />
+      <stop offset="55%" stop-color="#0B101D" />
+      <stop offset="100%" stop-color="#0E1730" />
+    </linearGradient>
+    <radialGradient id="bloom" cx="880" cy="180" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2457FF" stop-opacity="0.3" />
+      <stop offset="60%" stop-color="#00D4FF" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#2457FF" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="checker" width="20" height="20" patternUnits="userSpaceOnUse">
+      <rect width="20" height="20" fill="#101522" />
+      <rect width="10" height="10" fill="#161D2E" />
+      <rect x="10" y="10" width="10" height="10" fill="#161D2E" />
+    </pattern>
+    <linearGradient id="logoGrad" x1="0" y1="0" x2="18" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#DFF7FF" />
+      <stop offset="55%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#2457FF" />
+    </linearGradient>
+    <style>
+      text { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+    </style>
+  </defs>
+
+  <rect width="1024" height="768" fill="url(#bg)" />
+  <rect width="1024" height="768" fill="url(#bloom)" />
+
+  <!-- Custom Titlebar -->
+  <rect x="0" y="0" width="1024" height="40" fill="#0B0F1A" fill-opacity="0.86" />
+  <line x1="0" y1="40" x2="1024" y2="40" stroke="#DFF7FF" stroke-opacity="0.08" />
+
+  <rect x="14" y="10" width="20" height="20" rx="5" fill="#0D1631" stroke="#60A5FA" stroke-opacity="0.55" />
+  <path d="M 28.2 15.6 C 26.2 13.8 22.8 13.8 20.6 15.8 C 18.4 17.8 18.4 21.8 20.6 23.8 C 22.8 25.8 26.2 25.8 28.2 24.0" stroke="url(#logoGrad)" stroke-width="2.6" stroke-linecap="round" />
+  <text x="42" y="24" fill="#E5EEFA" font-size="12" font-weight="600">Composer</text>
+
+  <rect x="372" y="5.5" width="280" height="29" rx="14.5" fill="#141C2E" stroke="#DFF7FF" stroke-opacity="0.14" />
+  <text x="404" y="24" fill="#95A7C6" font-size="11.5">Search or jump to...</text>
+  <rect x="605" y="11.5" width="40" height="17" rx="6" fill="#0B1120" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <text x="625" y="23" text-anchor="middle" fill="#CBD7EC" font-size="9.5" class="mono">Ctrl K</text>
+
+  <!-- Glassmorphic Top Navbar (Files active) -->
+  <rect x="0" y="40" width="1024" height="52" fill="#0D1322" fill-opacity="0.62" />
+  <line x1="0" y1="92" x2="1024" y2="92" stroke="#DFF7FF" stroke-opacity="0.08" />
+
+  <rect x="16" y="50" width="132" height="32" rx="16" fill="#131D34" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <text x="49" y="70" fill="#F0F4F8" font-size="11.5" font-weight="600">Downloads</text>
+  <rect x="156" y="50" width="136" height="32" rx="16" fill="#131D34" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <text x="184" y="70" fill="#E2ECFC" font-size="11.5" font-weight="600">+ branch-ui</text>
+
+  <rect x="366" y="49" width="292" height="34" rx="17" fill="#121A2E" fill-opacity="0.78" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <text x="418" y="70" text-anchor="middle" fill="#9FB0CD" font-size="11.5" font-weight="500">Overview</text>
+  <rect x="466" y="52.5" width="96" height="27" rx="13.5" fill="#2457FF" fill-opacity="0.2" stroke="#2457FF" stroke-opacity="0.82" />
+  <text x="514" y="70" text-anchor="middle" fill="#FFFFFF" font-size="11.5" font-weight="600">Files</text>
+  <text x="606" y="70" text-anchor="middle" fill="#9FB0CD" font-size="11.5" font-weight="500">Settings</text>
+
+  <!-- Left Explorer Tree Sidebar -->
+  <rect x="0" y="92" width="236" height="646" fill="#0B101E" fill-opacity="0.84" />
+  <line x1="236" y1="92" x2="236" y2="738" stroke="#DFF7FF" stroke-opacity="0.08" />
+
+  <text x="14" y="114" fill="#8FA2C2" font-size="10.5" font-weight="700" letter-spacing="1.2">FILES</text>
+  <text x="216" y="115" text-anchor="end" fill="#8FA2C2" font-size="15">+</text>
+  <rect x="12" y="126" width="212" height="26" rx="7" fill="#121A2D" stroke="#DFF7FF" stroke-opacity="0.1" />
+  <text x="22" y="143" fill="#7D91B3" font-size="11">Filter files...</text>
+
+  <!-- File Tree Rows -->
+  <text x="16" y="176" fill="#9FB0CD" font-size="11.5">v  brand-assets</text>
+  <text x="28" y="200" fill="#CBD7EC" font-size="11.5">README.md</text>
+  <text x="28" y="224" fill="#CBD7EC" font-size="11.5">App.tsx</text>
+
+  <!-- Selected Media Files for Compare -->
+  <rect x="8" y="236" width="220" height="25" rx="6" fill="#2457FF" fill-opacity="0.22" stroke="#2457FF" stroke-opacity="0.45" />
+  <text x="28" y="253" fill="#FFFFFF" font-size="11.5" font-weight="500">hero-dark-v1.png</text>
+  <rect x="8" y="264" width="220" height="25" rx="6" fill="#2457FF" fill-opacity="0.22" stroke="#2457FF" stroke-opacity="0.45" />
+  <text x="28" y="281" fill="#FFFFFF" font-size="11.5" font-weight="500">hero-dark-v2.png</text>
+  <rect x="8" y="292" width="220" height="25" rx="6" fill="#2457FF" fill-opacity="0.22" stroke="#2457FF" stroke-opacity="0.45" />
+  <text x="28" y="309" fill="#FFFFFF" font-size="11.5" font-weight="500">mark-quantum.svg</text>
+
+  <text x="28" y="338" fill="#8FA2C2" font-size="11.5">spec-2026.pdf</text>
+  <text x="28" y="362" fill="#8FA2C2" font-size="11.5">theme.toml</text>
+
+  <!-- Multi-Select Action Strip at Bottom of Explorer -->
+  <line x1="0" y1="678" x2="236" y2="678" stroke="#DFF7FF" stroke-opacity="0.08" />
+  <text x="14" y="696" fill="#60A5FA" font-size="10.5" font-weight="600">3 selected</text>
+  <rect x="12" y="704" width="96" height="24" rx="6" fill="#2457FF" />
+  <text x="60" y="720" text-anchor="middle" fill="#FFFFFF" font-size="10.5" font-weight="600">Compare (3)</text>
+  <rect x="114" y="704" width="64" height="24" rx="6" fill="#EF4444" fill-opacity="0.18" stroke="#EF4444" stroke-opacity="0.4" />
+  <text x="146" y="720" text-anchor="middle" fill="#FCA5A5" font-size="10.5" font-weight="600">Delete</text>
+  <text x="206" y="720" text-anchor="middle" fill="#8FA2C2" font-size="10.5">Clear</text>
+
+  <!-- Right Workspace Area: Tabs -->
+  <rect x="236" y="92" width="788" height="36" fill="#0B101D" />
+  <line x1="236" y1="128" x2="1024" y2="128" stroke="#DFF7FF" stroke-opacity="0.08" />
+
+  <rect x="242" y="96" width="136" height="28" rx="7" fill="#131C32" stroke="#2457FF" stroke-opacity="0.55" />
+  <text x="256" y="114" fill="#F0F4F8" font-size="11.5" font-weight="600">Compare (3)</text>
+  <text x="364" y="114" fill="#8FA2C2" font-size="11">x</text>
+
+  <text x="410" y="114" fill="#8FA2C2" font-size="11.5">App.tsx</text>
+
+  <!-- Unified Multi-Image / SVG Compare Viewer Header & Controls -->
+  <rect x="236" y="128" width="788" height="44" fill="#10182B" />
+  <line x1="236" y1="172" x2="1024" y2="172" stroke="#DFF7FF" stroke-opacity="0.08" />
+
+  <rect x="248" y="136" width="268" height="28" rx="8" fill="#0A0F1D" stroke="#DFF7FF" stroke-opacity="0.1" />
+  <rect x="251" y="139" width="46" height="22" rx="6" fill="#2457FF" />
+  <text x="274" y="154" text-anchor="middle" fill="#FFFFFF" font-size="10.5" font-weight="600">Row</text>
+  <text x="322" y="154" text-anchor="middle" fill="#9FB0CD" font-size="10.5">Stack</text>
+  <text x="372" y="154" text-anchor="middle" fill="#9FB0CD" font-size="10.5">Board</text>
+  <text x="420" y="154" text-anchor="middle" fill="#9FB0CD" font-size="10.5">Split</text>
+  <text x="476" y="154" text-anchor="middle" fill="#9FB0CD" font-size="10.5">Overlay</text>
+
+  <rect x="524" y="138" width="72" height="24" rx="6" fill="#2457FF" fill-opacity="0.16" stroke="#2457FF" stroke-opacity="0.55" />
+  <text x="560" y="154" text-anchor="middle" fill="#8CC5FF" font-size="10.5" font-weight="600">Match Size</text>
+
+  <rect x="604" y="138" width="60" height="24" rx="6" fill="#2457FF" fill-opacity="0.16" stroke="#2457FF" stroke-opacity="0.55" />
+  <text x="634" y="154" text-anchor="middle" fill="#8CC5FF" font-size="10.5" font-weight="600">+ Add (3)</text>
+
+  <!-- Right Viewer Controls -->
+  <rect x="748" y="138" width="74" height="24" rx="6" fill="#141F36" stroke="#DFF7FF" stroke-opacity="0.1" />
+  <text x="785" y="154" text-anchor="middle" fill="#CBD7EC" font-size="10.5" class="mono">100% Fit</text>
+
+  <rect x="830" y="138" width="180" height="24" rx="6" fill="#0B1120" stroke="#DFF7FF" stroke-opacity="0.1" />
+  <rect x="833" y="140" width="46" height="20" rx="5" fill="#2457FF" />
+  <text x="856" y="154" text-anchor="middle" fill="#FFFFFF" font-size="10">Checker</text>
+  <text x="896" y="154" text-anchor="middle" fill="#8FA2C2" font-size="10">Grid</text>
+  <text x="932" y="154" text-anchor="middle" fill="#8FA2C2" font-size="10">Dark</text>
+  <text x="974" y="154" text-anchor="middle" fill="#8FA2C2" font-size="10">Paper</text>
+
+  <!-- Unified Single Shared Compare Viewport Canvas -->
+  <rect x="236" y="172" width="788" height="566" fill="url(#checker)" />
+
+  <!-- Item A in Unified Canvas -->
+  <g transform="translate(268 232)">
+    <rect width="224" height="390" rx="10" fill="#0A101E" stroke="#60A5FA" stroke-opacity="0.45" stroke-width="1.5" />
+    <rect x="10" y="10" width="20" height="16" rx="4" fill="#2457FF" />
+    <text x="20" y="21" text-anchor="middle" fill="#FFFFFF" font-size="9.5" font-weight="700">A</text>
+    <text x="36" y="22" fill="#DCE9FF" font-size="10.5" font-weight="600">hero-dark-v1.png</text>
+    <!-- Mocked UI Art -->
+    <rect x="20" y="46" width="184" height="320" rx="8" fill="#0F172C" stroke="#DFF7FF" stroke-opacity="0.08" />
+    <rect x="34" y="66" width="110" height="12" rx="4" fill="#2457FF" fill-opacity="0.65" />
+    <rect x="34" y="92" width="156" height="8" rx="3" fill="#CBD7EC" fill-opacity="0.22" />
+    <rect x="34" y="110" width="132" height="8" rx="3" fill="#CBD7EC" fill-opacity="0.16" />
+    <rect x="34" y="144" width="156" height="196" rx="8" fill="#141F3A" stroke="#2457FF" stroke-opacity="0.3" />
+    <text x="112" y="250" text-anchor="middle" fill="#60A5FA" font-size="11" class="mono">960 x 1280</text>
+  </g>
+
+  <!-- Item B in Unified Canvas -->
+  <g transform="translate(518 232)">
+    <rect width="224" height="390" rx="10" fill="#0A101E" stroke="#00D4FF" stroke-opacity="0.5" stroke-width="1.5" />
+    <rect x="10" y="10" width="20" height="16" rx="4" fill="#00D4FF" />
+    <text x="20" y="21" text-anchor="middle" fill="#081020" font-size="9.5" font-weight="700">B</text>
+    <text x="36" y="22" fill="#DCE9FF" font-size="10.5" font-weight="600">hero-dark-v2.png</text>
+    <rect x="20" y="46" width="184" height="320" rx="8" fill="#0F172C" stroke="#DFF7FF" stroke-opacity="0.08" />
+    <rect x="34" y="66" width="156" height="44" rx="6" fill="#2457FF" fill-opacity="0.2" stroke="#2457FF" stroke-opacity="0.4" />
+    <rect x="34" y="124" width="72" height="58" rx="6" fill="#15223E" />
+    <rect x="118" y="124" width="72" height="58" rx="6" fill="#15223E" />
+    <rect x="34" y="196" width="156" height="144" rx="8" fill="#141F3A" stroke="#00D4FF" stroke-opacity="0.35" />
+    <text x="112" y="274" text-anchor="middle" fill="#00D4FF" font-size="11" class="mono">Bento v2</text>
+  </g>
+
+  <!-- Item C (SVG) in Unified Canvas -->
+  <g transform="translate(768 232)">
+    <rect width="224" height="390" rx="10" fill="#0A101E" stroke="#60A5FA" stroke-opacity="0.4" stroke-width="1.5" />
+    <rect x="10" y="10" width="20" height="16" rx="4" fill="#60A5FA" />
+    <text x="20" y="21" text-anchor="middle" fill="#081020" font-size="9.5" font-weight="700">C</text>
+    <text x="36" y="22" fill="#DCE9FF" font-size="10.5" font-weight="600">mark-quantum.svg</text>
+    <rect x="52" y="128" width="120" height="120" rx="28" fill="#0D1631" stroke="#60A5FA" stroke-opacity="0.6" stroke-width="2" />
+    <path d="M 134 162 C 120 148, 96 148, 84 162 C 72 176, 72 204, 84 218 C 96 232, 120 232, 134 218" stroke="url(#logoGrad)" stroke-width="15" stroke-linecap="round" />
+    <text x="112" y="346" text-anchor="middle" fill="#8FA2C2" font-size="10.5" class="mono">Vector · viewBox 64x64</text>
+  </g>
+
+  <!-- Bottom Status Bar with CPU & RAM Rings -->
+  <rect x="0" y="738" width="1024" height="30" fill="#090D18" fill-opacity="0.94" />
+  <line x1="0" y1="738" x2="1024" y2="738" stroke="#DFF7FF" stroke-opacity="0.08" />
+  <text x="16" y="757" fill="#8FA2C2" font-size="10.5" class="mono">C:\Users\Dell\Downloads</text>
+  <text x="512" y="757" text-anchor="middle" fill="#7D91B3" font-size="10.5">Ctrl+K Command Palette   ·   Ctrl+S Save</text>
+
+  <circle cx="808" cy="753" r="3" fill="#2457FF" />
+  <text x="817" y="757" fill="#CBD7EC" font-size="10.5">Sandboxed</text>
+  <text x="875" y="757" fill="#7D91B3" font-size="10.5">·</text>
+
+  <circle cx="892" cy="753" r="6" stroke="#DFF7FF" stroke-opacity="0.18" stroke-width="2" />
+  <circle cx="892" cy="753" r="6" stroke="#00D4FF" stroke-width="2" stroke-dasharray="16 22" stroke-linecap="round" transform="rotate(-90 892 753)" />
+  <circle cx="892" cy="753" r="1.4" fill="#00D4FF" />
+  <text x="903" y="757" fill="#8FA2C2" font-size="10" class="mono">CPU</text>
+
+  <circle cx="934" cy="753" r="6" stroke="#DFF7FF" stroke-opacity="0.18" stroke-width="2" />
+  <circle cx="934" cy="753" r="6" stroke="#2457FF" stroke-width="2" stroke-dasharray="28 10" stroke-linecap="round" transform="rotate(-90 934 753)" />
+  <circle cx="934" cy="753" r="1.4" fill="#2457FF" />
+  <text x="945" y="757" fill="#8FA2C2" font-size="10" class="mono">RAM</text>
+
+  <text x="973" y="757" fill="#7D91B3" font-size="10.5">·</text>
+  <text x="1008" y="757" text-anchor="end" fill="#8FA2C2" font-size="10" class="mono">v0.4.0</text>
 </svg>

@@ -1,35 +1,224 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768">
-<defs><style>
-text{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#f4f4f5}.muted{fill:#a1a1aa}.faint{fill:#71717a}.line{stroke:#ffffff;stroke-opacity:.09}.panel{fill:#0f0f0f;stroke:#ffffff;stroke-opacity:.12}.small{font-size:11px}.tiny{font-size:9px}.label{font-size:10px;letter-spacing:1.3px;font-weight:700}.body{font-size:12px}.icon{fill:none;stroke:#a1a1aa;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-</style></defs>
-<rect width="1024" height="768" fill="#000"/>
-<rect x="0" y="0" width="1024" height="32" fill="#050505"/><path d="M0 31.5H1024" class="line"/>
-<rect x="13" y="9" width="13" height="13" rx="3" fill="#f4f4f5"/><path d="M16 15h7M19.5 12v7" stroke="#111" stroke-width="1.2"/>
-<text x="34" y="20" font-size="11" font-weight="600" fill="#d4d4d8">Composer</text>
-<path d="M936 16h10M962 11v10M979 11l10 10M989 11l-10 10" stroke="#a1a1aa" stroke-width="1.2" fill="none"/>
-<path d="M0 32H136V768H0Z" fill="#000"/><path d="M135.5 32V768" class="line"/>
-<rect x="14" y="47" width="18" height="18" rx="4" fill="#f4f4f5"/><path d="M19 56l4 4 5-7" stroke="#111" stroke-width="1.5" fill="none"/>
-<text x="41" y="60" font-size="13" font-weight="700">Composer</text>
-<path d="M8 76H127" class="line"/>
-<text x="17" y="98" class="label faint">WORKSPACE</text>
-<rect x="8" y="109" width="120" height="32" rx="6" fill="#fff" fill-opacity=".1"/><rect x="8" y="109" width="2" height="32" rx="1" fill="#fff"/>
-<path d="M20 120h12v10H20zM22 117h8" class="icon" stroke="#fff"/><text x="41" y="129" font-size="12" font-weight="600">Home</text>
-<path d="M20 158h12l4 4v9H20zM20 162h16" class="icon"/><text x="41" y="168" class="body muted">Explorer</text>
-<path d="M25 194a6 6 0 1 0 0 12a6 6 0 1 0 0-12M25 191v3M25 206v3M18 200h-3M35 200h3" class="icon"/><text x="41" y="204" class="body muted">Settings</text>
-<path d="M8 724H127" class="line"/><circle cx="20" cy="744" r="3" fill="#86efac"/><text x="30" y="748" class="tiny muted">LOCAL WORKSPACE</text>
-<text x="166" y="76" font-size="12" font-weight="600" fill="#d4d4d8">Thu, 15 Oct</text><text x="166" y="94" class="small muted">Your workspace, at a glance</text>
-<text x="946" y="75" text-anchor="end" font-size="12" font-weight="600" fill="#d4d4d8">Thu, 15 Oct</text><text x="946" y="92" text-anchor="end" class="small muted">04:45 PM</text>
-<text x="166" y="151" font-size="15" fill="#fff">Good Afternoon,</text><text x="166" y="201" font-size="40" font-weight="700" letter-spacing="-1.4">Let's create something.</text><text x="166" y="229" font-size="14" class="muted">Manage your files and workspace — all in one place.</text>
-<rect x="166" y="260" width="780" height="48" rx="10" class="panel"/><circle cx="187" cy="284" r="5.5" class="icon"/><path d="M191 288l4 4" class="icon"/><text x="207" y="288" font-size="13" class="muted">Search files, folders or type a command...</text><rect x="887" y="273" width="44" height="22" rx="5" fill="#191919" stroke="#fff" stroke-opacity=".14"/><text x="909" y="287" text-anchor="middle" class="tiny muted">Ctrl K</text>
-<g transform="translate(166 332)">
-<rect width="186" height="104" rx="9" class="panel"/><rect x="14" y="14" width="30" height="30" rx="7" fill="#fff" fill-opacity=".08"/><path d="M29 21v16M21 29h16" stroke="#f4f4f5" stroke-width="1.5"/><text x="14" y="65" font-size="13" font-weight="600">New File</text><text x="14" y="83" class="small muted">Create text or markdown</text>
-<rect x="198" width="186" height="104" rx="9" class="panel"/><rect x="212" y="14" width="30" height="30" rx="7" fill="#fff" fill-opacity=".08"/><path d="M219 24h16v12h-16zM219 24l4-4h8l4 4" class="icon"/><text x="212" y="65" font-size="13" font-weight="600">New Folder</text><text x="212" y="83" class="small muted">Organize your directory</text>
-<rect x="396" width="186" height="104" rx="9" class="panel"/><rect x="410" y="14" width="30" height="30" rx="7" fill="#fff" fill-opacity=".08"/><path d="M416 29h17M424 21v16M419 24l-3 5 3 5M429 24l4 5-4 5" class="icon"/><text x="410" y="65" font-size="13" font-weight="600">Import</text><text x="410" y="83" class="small muted">Add external assets</text>
-<rect x="594" width="186" height="104" rx="9" class="panel"/><rect x="608" y="14" width="30" height="30" rx="7" fill="#fff" fill-opacity=".08"/><path d="M614 24h15v13h-15zM614 24l7 6 8-6" class="icon"/><text x="608" y="65" font-size="13" font-weight="600">Open Project</text><text x="608" y="83" class="small muted">Select workspace root</text>
-</g>
-<path d="M166 465H946" class="line"/><text x="166" y="494" font-size="15" font-weight="600">Recent Files</text><text x="946" y="494" text-anchor="end" class="small muted">Your recently opened work</text>
-<rect x="166" y="515" width="780" height="160" rx="10" fill="#080808" stroke="#fff" stroke-opacity=".08"/>
-<circle cx="556" cy="558" r="15" fill="#fff" fill-opacity=".05"/><circle cx="556" cy="558" r="7" class="icon"/><path d="M556 554v5l4 2" class="icon"/>
-<text x="556" y="594" text-anchor="middle" font-size="13" font-weight="600">No recent files yet</text><text x="556" y="616" text-anchor="middle" class="small muted">Files you open and edit in Explorer will appear here</text><text x="556" y="632" text-anchor="middle" class="small muted">for quick access.</text>
-<path d="M136 32H1024" stroke="#fff" stroke-opacity=".04"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="768" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#070B14" />
+      <stop offset="55%" stop-color="#0B101D" />
+      <stop offset="100%" stop-color="#0E1730" />
+    </linearGradient>
+    <radialGradient id="bloomTopRight" cx="840" cy="140" r="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2457FF" stop-opacity="0.34" />
+      <stop offset="55%" stop-color="#00D4FF" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#2457FF" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bloomBottomLeft" cx="180" cy="640" r="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2457FF" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#2457FF" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="fiberCyan" x1="80" y1="700" x2="980" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2457FF" stop-opacity="0.08" />
+      <stop offset="45%" stop-color="#00D4FF" stop-opacity="0.45" />
+      <stop offset="80%" stop-color="#DFF7FF" stop-opacity="0.55" />
+      <stop offset="100%" stop-color="#2457FF" stop-opacity="0.12" />
+    </linearGradient>
+    <linearGradient id="logoGrad" x1="0" y1="0" x2="18" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#DFF7FF" />
+      <stop offset="55%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#2457FF" />
+    </linearGradient>
+    <style>
+      text { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+    </style>
+  </defs>
+
+  <!-- App Background + Quantum Ghost Fiber Backdrop -->
+  <rect width="1024" height="768" fill="url(#bg)" />
+  <rect width="1024" height="768" fill="url(#bloomTopRight)" />
+  <rect width="1024" height="768" fill="url(#bloomBottomLeft)" />
+
+  <path d="M -30 620 C 210 510, 360 330, 590 315 C 790 300, 880 175, 1050 90" stroke="url(#fiberCyan)" stroke-width="26" stroke-opacity="0.14" stroke-linecap="round" />
+  <path d="M 10 660 C 235 530, 390 350, 610 330 C 805 312, 895 190, 1060 115" stroke="url(#fiberCyan)" stroke-width="2" stroke-opacity="0.55" stroke-dasharray="1 10" stroke-linecap="round" />
+  <path d="M 90 710 C 310 570, 440 390, 650 365 C 835 342, 920 225, 1060 155" stroke="#60A5FA" stroke-width="1.5" stroke-opacity="0.4" stroke-dasharray="1 12" stroke-linecap="round" />
+
+  <!-- Custom Titlebar -->
+  <rect x="0" y="0" width="1024" height="40" fill="#0B0F1A" fill-opacity="0.82" />
+  <line x1="0" y1="40" x2="1024" y2="40" stroke="#DFF7FF" stroke-opacity="0.08" />
+
+  <!-- App Icon & Title -->
+  <rect x="14" y="10" width="20" height="20" rx="5" fill="#0D1631" stroke="#60A5FA" stroke-opacity="0.55" />
+  <path d="M 28.2 15.6 C 26.2 13.8 22.8 13.8 20.6 15.8 C 18.4 17.8 18.4 21.8 20.6 23.8 C 22.8 25.8 26.2 25.8 28.2 24.0" stroke="url(#logoGrad)" stroke-width="2.6" stroke-linecap="round" />
+  <text x="42" y="24" fill="#E5EEFA" font-size="12" font-weight="600">Composer</text>
+
+  <!-- Centered Thickened Search Pill -->
+  <rect x="372" y="5.5" width="280" height="29" rx="14.5" fill="#141C2E" fill-opacity="0.9" stroke="#DFF7FF" stroke-opacity="0.14" />
+  <circle cx="390" cy="20" r="4.5" stroke="#8FA2C2" stroke-width="1.4" />
+  <line x1="393.5" y1="23.5" x2="396.5" y2="26.5" stroke="#8FA2C2" stroke-width="1.4" stroke-linecap="round" />
+  <text x="404" y="24" fill="#95A7C6" font-size="11.5">Search or jump to...</text>
+  <rect x="605" y="11.5" width="40" height="17" rx="6" fill="#0B1120" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <text x="625" y="23" text-anchor="middle" fill="#CBD7EC" font-size="9.5" class="mono">Ctrl K</text>
+
+  <!-- Window Controls -->
+  <line x1="924" y1="20" x2="934" y2="20" stroke="#8FA2C2" stroke-width="1.3" />
+  <rect x="955" y="15" width="9" height="9" rx="1.2" stroke="#8FA2C2" stroke-width="1.3" />
+  <line x1="988" y1="15" x2="997" y2="24" stroke="#8FA2C2" stroke-width="1.3" />
+  <line x1="997" y1="15" x2="988" y2="24" stroke="#8FA2C2" stroke-width="1.3" />
+
+  <!-- Glassmorphic Top Navbar -->
+  <rect x="0" y="40" width="1024" height="52" fill="#0D1322" fill-opacity="0.56" />
+  <line x1="0" y1="92" x2="1024" y2="92" stroke="#DFF7FF" stroke-opacity="0.08" />
+
+  <!-- Left Workspace & Worktree Pills -->
+  <rect x="16" y="50" width="132" height="32" rx="16" fill="#131D34" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <path d="M 29 61 h 6 l 2 2 h 6 v 9 h -14 z" stroke="#2457FF" stroke-width="1.4" fill="none" />
+  <text x="49" y="70" fill="#F0F4F8" font-size="11.5" font-weight="600">Downloads</text>
+  <path d="M 129 64 l 3.5 3.5 l 3.5 -3.5" stroke="#8FA2C2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+
+  <rect x="156" y="50" width="136" height="32" rx="16" fill="#131D34" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <path d="M 171 60 v 12 M 165 66 h 12" stroke="#2457FF" stroke-width="1.6" stroke-linecap="round" />
+  <text x="184" y="70" fill="#E2ECFC" font-size="11.5" font-weight="600">Add worktree...</text>
+
+  <!-- Center Navigation Pills -->
+  <rect x="366" y="49" width="292" height="34" rx="17" fill="#121A2E" fill-opacity="0.78" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <rect x="370" y="52.5" width="96" height="27" rx="13.5" fill="#2457FF" fill-opacity="0.18" stroke="#2457FF" stroke-opacity="0.78" />
+  <text x="424" y="70" text-anchor="middle" fill="#FFFFFF" font-size="11.5" font-weight="600">Overview</text>
+  <text x="514" y="70" text-anchor="middle" fill="#9FB0CD" font-size="11.5" font-weight="500">Files</text>
+  <text x="606" y="70" text-anchor="middle" fill="#9FB0CD" font-size="11.5" font-weight="500">Settings</text>
+
+  <!-- Right Theme Button -->
+  <rect x="974" y="50" width="32" height="32" rx="10" fill="#131D34" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <circle cx="990" cy="66" r="4" stroke="#00D4FF" stroke-width="1.4" />
+
+  <!-- Dashboard Header -->
+  <text x="56" y="138" fill="#F0F4F8" font-size="22" font-weight="700">Dashboard</text>
+  <text x="56" y="158" fill="#8FA2C2" font-size="12">Workspace overview and recent activity for Downloads.</text>
+  <text x="968" y="136" text-anchor="end" fill="#E2ECFC" font-size="11" font-weight="600">Wed, 11 Nov, 2026</text>
+  <text x="968" y="154" text-anchor="end" fill="#8FA2C2" font-size="11" class="mono">07:28 am</text>
+
+  <!-- Unified Bento Overview Hero Card -->
+  <rect x="56" y="178" width="912" height="320" rx="16" fill="#0F1627" fill-opacity="0.86" stroke="#DFF7FF" stroke-opacity="0.11" />
+
+  <!-- Hero Top Row: Workspace Identity -->
+  <rect x="78" y="198" width="868" height="64" rx="12" fill="#141E34" fill-opacity="0.65" stroke="#DFF7FF" stroke-opacity="0.09" />
+  <rect x="94" y="212" width="36" height="36" rx="10" fill="#2457FF" fill-opacity="0.16" stroke="#2457FF" stroke-opacity="0.45" />
+  <path d="M 105 224 h 6 l 2 2 h 6 v 9 h -14 z" stroke="#60A5FA" stroke-width="1.5" fill="none" />
+  <text x="144" y="227" fill="#F0F4F8" font-size="13.5" font-weight="700">Downloads</text>
+  <rect x="224" y="214" width="68" height="17" rx="8.5" fill="#2457FF" fill-opacity="0.18" stroke="#60A5FA" stroke-opacity="0.35" />
+  <text x="258" y="226" text-anchor="middle" fill="#8CC5FF" font-size="9.5" font-weight="600">Local-First</text>
+  <text x="144" y="246" fill="#8FA2C2" font-size="11.5" class="mono">C:\Users\Dell\Downloads</text>
+
+  <rect x="752" y="214" width="70" height="30" rx="8" fill="#18233C" stroke="#DFF7FF" stroke-opacity="0.14" />
+  <text x="787" y="233" text-anchor="middle" fill="#E2ECFC" font-size="11" font-weight="600">Reveal</text>
+  <rect x="830" y="214" width="102" height="30" rx="8" fill="#2457FF" />
+  <text x="881" y="233" text-anchor="middle" fill="#FFFFFF" font-size="11" font-weight="600">Switch Workspace</text>
+
+  <!-- 4 Integrated Metrics Inside Hero Card -->
+  <g transform="translate(78 278)">
+    <!-- Stat 1 -->
+    <rect width="206" height="106" rx="11" fill="#131D32" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.09" />
+    <text x="16" y="26" fill="#8FA2C2" font-size="11" font-weight="600">Indexed Files</text>
+    <text x="16" y="64" fill="#F0F4F8" font-size="28" font-weight="700">296</text>
+    <text x="16" y="88" fill="#7D91B3" font-size="11">Indexed in project</text>
+
+    <!-- Stat 2 -->
+    <rect x="220" width="206" height="106" rx="11" fill="#131D32" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.09" />
+    <text x="236" y="26" fill="#8FA2C2" font-size="11" font-weight="600">Directories</text>
+    <text x="236" y="64" fill="#F0F4F8" font-size="28" font-weight="700">6</text>
+    <text x="236" y="88" fill="#7D91B3" font-size="11">Subdirectories</text>
+
+    <!-- Stat 3 -->
+    <rect x="440" width="206" height="106" rx="11" fill="#131D32" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.09" />
+    <text x="456" y="26" fill="#8FA2C2" font-size="11" font-weight="600">Storage Volume</text>
+    <text x="456" y="64" fill="#F0F4F8" font-size="26" font-weight="700">839.1 MB</text>
+    <text x="456" y="88" fill="#7D91B3" font-size="11">Total size on disk</text>
+
+    <!-- Stat 4 -->
+    <rect x="660" width="208" height="106" rx="11" fill="#131D32" fill-opacity="0.72" stroke="#DFF7FF" stroke-opacity="0.09" />
+    <text x="676" y="26" fill="#8FA2C2" font-size="11" font-weight="600">Composition</text>
+    <rect x="676" y="40" width="78" height="20" rx="5" fill="#1D2B4B" stroke="#2457FF" stroke-opacity="0.35" />
+    <text x="715" y="54" text-anchor="middle" fill="#DCE9FF" font-size="10" class="mono">.jpg 147</text>
+    <rect x="762" y="40" width="78" height="20" rx="5" fill="#1D2B4B" stroke="#2457FF" stroke-opacity="0.35" />
+    <text x="801" y="54" text-anchor="middle" fill="#DCE9FF" font-size="10" class="mono">.pdf 90</text>
+    <rect x="676" y="66" width="78" height="20" rx="5" fill="#1D2B4B" stroke="#2457FF" stroke-opacity="0.35" />
+    <text x="715" y="80" text-anchor="middle" fill="#DCE9FF" font-size="10" class="mono">.jpeg 33</text>
+    <rect x="762" y="66" width="78" height="20" rx="5" fill="#1D2B4B" stroke="#2457FF" stroke-opacity="0.35" />
+    <text x="801" y="80" text-anchor="middle" fill="#DCE9FF" font-size="10" class="mono">.docx 14</text>
+  </g>
+
+  <!-- Quick Actions Strip -->
+  <text x="78" y="410" fill="#7D91B3" font-size="10" font-weight="700" letter-spacing="1.2">QUICK ACTIONS</text>
+  <rect x="78" y="424" width="128" height="48" rx="10" fill="#152038" stroke="#DFF7FF" stroke-opacity="0.1" />
+  <text x="142" y="452" text-anchor="middle" fill="#F0F4F8" font-size="11.5" font-weight="600">+ New File</text>
+
+  <rect x="218" y="424" width="136" height="48" rx="10" fill="#152038" stroke="#DFF7FF" stroke-opacity="0.1" />
+  <text x="286" y="452" text-anchor="middle" fill="#F0F4F8" font-size="11.5" font-weight="600">New Folder</text>
+
+  <rect x="366" y="424" width="144" height="48" rx="10" fill="#152038" stroke="#DFF7FF" stroke-opacity="0.1" />
+  <text x="438" y="452" text-anchor="middle" fill="#F0F4F8" font-size="11.5" font-weight="600">New Worktree</text>
+
+  <text x="944" y="452" text-anchor="end" fill="#60A5FA" font-size="11.5" font-weight="600">Open Files -></text>
+
+  <!-- Recent Files Bento Card -->
+  <rect x="56" y="518" width="912" height="196" rx="16" fill="#0F1627" fill-opacity="0.86" stroke="#DFF7FF" stroke-opacity="0.11" />
+  <text x="78" y="550" fill="#F0F4F8" font-size="13.5" font-weight="700">Recent Files</text>
+  <rect x="166" y="535" width="28" height="20" rx="10" fill="#192542" stroke="#DFF7FF" stroke-opacity="0.12" />
+  <text x="180" y="549" text-anchor="middle" fill="#9FB0CD" font-size="10.5" font-weight="600">12</text>
+
+  <!-- GlideSelect Category Filter -->
+  <rect x="716" y="531" width="150" height="28" rx="8" fill="#141F36" stroke="#2457FF" stroke-opacity="0.45" />
+  <text x="730" y="549" fill="#E5EEFA" font-size="11" font-weight="500">All Categories</text>
+  <path d="M 847 543 l 3.5 3.5 l 3.5 -3.5" stroke="#60A5FA" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="944" y="549" text-anchor="end" fill="#60A5FA" font-size="11.5" font-weight="600">View Files -></text>
+
+  <!-- Recent File Grid Cards -->
+  <g transform="translate(78 574)">
+    <rect width="206" height="118" rx="12" fill="#131E34" stroke="#DFF7FF" stroke-opacity="0.09" />
+    <rect x="14" y="14" width="28" height="28" rx="7" fill="#2457FF" fill-opacity="0.16" />
+    <text x="192" y="30" text-anchor="end" fill="#7D91B3" font-size="10">4m ago</text>
+    <text x="14" y="76" fill="#F0F4F8" font-size="12" font-weight="600">brand-hero.svg</text>
+    <text x="14" y="96" fill="#7D91B3" font-size="10.5" class="mono">Downloads/assets</text>
+
+    <rect x="220" width="206" height="118" rx="12" fill="#131E34" stroke="#DFF7FF" stroke-opacity="0.09" />
+    <rect x="234" y="14" width="28" height="28" rx="7" fill="#2457FF" fill-opacity="0.16" />
+    <text x="412" y="30" text-anchor="end" fill="#7D91B3" font-size="10">18m ago</text>
+    <text x="234" y="76" fill="#F0F4F8" font-size="12" font-weight="600">roadmap.md</text>
+    <text x="234" y="96" fill="#7D91B3" font-size="10.5" class="mono">Downloads/docs</text>
+
+    <rect x="440" width="206" height="118" rx="12" fill="#131E34" stroke="#DFF7FF" stroke-opacity="0.09" />
+    <rect x="454" y="14" width="28" height="28" rx="7" fill="#2457FF" fill-opacity="0.16" />
+    <text x="632" y="30" text-anchor="end" fill="#7D91B3" font-size="10">42m ago</text>
+    <text x="454" y="76" fill="#F0F4F8" font-size="12" font-weight="600">release-notes.pdf</text>
+    <text x="454" y="96" fill="#7D91B3" font-size="10.5" class="mono">Downloads</text>
+
+    <rect x="660" width="208" height="118" rx="12" fill="#131E34" stroke="#DFF7FF" stroke-opacity="0.09" />
+    <rect x="674" y="14" width="28" height="28" rx="7" fill="#2457FF" fill-opacity="0.16" />
+    <text x="854" y="30" text-anchor="end" fill="#7D91B3" font-size="10">1h ago</text>
+    <text x="674" y="76" fill="#F0F4F8" font-size="12" font-weight="600">palette.toml</text>
+    <text x="674" y="96" fill="#7D91B3" font-size="10.5" class="mono">Downloads/themes</text>
+  </g>
+
+  <!-- Status Bar with Circular CPU & RAM Telemetry Rings -->
+  <rect x="0" y="738" width="1024" height="30" fill="#090D18" fill-opacity="0.92" />
+  <line x1="0" y1="738" x2="1024" y2="738" stroke="#DFF7FF" stroke-opacity="0.08" />
+  <text x="16" y="757" fill="#8FA2C2" font-size="10.5" class="mono">C:\Users\Dell\Downloads</text>
+
+  <text x="512" y="757" text-anchor="middle" fill="#7D91B3" font-size="10.5">Ctrl+K Command Palette   ·   Ctrl+S Save</text>
+
+  <circle cx="808" cy="753" r="3" fill="#2457FF" />
+  <text x="817" y="757" fill="#CBD7EC" font-size="10.5">Sandboxed</text>
+  <text x="875" y="757" fill="#7D91B3" font-size="10.5">·</text>
+
+  <!-- CPU Circular Progress Ring -->
+  <circle cx="892" cy="753" r="6" stroke="#DFF7FF" stroke-opacity="0.18" stroke-width="2" />
+  <circle cx="892" cy="753" r="6" stroke="#00D4FF" stroke-width="2" stroke-dasharray="14 24" stroke-linecap="round" transform="rotate(-90 892 753)" />
+  <circle cx="892" cy="753" r="1.4" fill="#00D4FF" />
+  <text x="903" y="757" fill="#8FA2C2" font-size="10" class="mono">CPU</text>
+
+  <!-- RAM Circular Progress Ring -->
+  <circle cx="934" cy="753" r="6" stroke="#DFF7FF" stroke-opacity="0.18" stroke-width="2" />
+  <circle cx="934" cy="753" r="6" stroke="#2457FF" stroke-width="2" stroke-dasharray="28 10" stroke-linecap="round" transform="rotate(-90 934 753)" />
+  <circle cx="934" cy="753" r="1.4" fill="#2457FF" />
+  <text x="945" y="757" fill="#8FA2C2" font-size="10" class="mono">RAM</text>
+
+  <text x="973" y="757" fill="#7D91B3" font-size="10.5">·</text>
+  <text x="1008" y="757" text-anchor="end" fill="#8FA2C2" font-size="10" class="mono">v0.4.0</text>
 </svg>

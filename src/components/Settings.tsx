@@ -1,49 +1,48 @@
-// @ts-nocheck
 import React, { useState, useEffect } from "react";
-import { Sliders, RefreshCw, ChevronDown, Save, Dices, X, ArrowUpCircle, CheckCircle, AlertCircle, Download, Keyboard } from "lucide-react";
+import { Sliders, RefreshCw, Save, Dices, X, ArrowUpCircle, CheckCircle, AlertCircle, Download, Keyboard, Sparkles, Sun, Moon, Check } from "lucide-react";
+import GlideSelect from "./GlideSelect";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
 import { AppConfig } from "../types";
 import { useCustomContextMenu } from "./ContextMenu";
-import { FONT_PRESETS, getFontPreset, applyTypographyToRoot } from "../utils/fonts";
+import { FONT_PRESETS, getFontPreset } from "../utils/fonts";
+import {
+  applyThemeToDocument,
+  QUANTUM_DARK_OVERRIDES,
+  QUANTUM_LIGHT_OVERRIDES,
+  QUANTUM_GHOST_FIBER_DEFAULTS,
+  THEME_VERSION,
+} from "../utils/theme";
 import { useUpdater } from "../utils/useUpdater";
 
 
 // ─────────────────────────────────────────────────────────────
-// Constants (identical to original)
+// Constants (Quantum Blue Default Theme — Light & Dark)
 // ─────────────────────────────────────────────────────────────
 
 const DEFAULT_THEME = {
   theme_preset: "dark",
-  accent_color: "#FFFFFF",
+  accent_color: "#2457FF",
   background_override: "",
   font_family_ui: "modern_sans",
   font_size_ui: 14,
   compact_mode: false,
   reduce_motion: false,
-  nav_layout: "sidebar",
+  nav_layout: "top_navbar",
   nav_sidebar_width: 240,
   nav_show_app_label: true,
   nav_show_status_bar: true,
   nav_separator_line: true,
-  nav_separator_color: "rgba(255,255,255,0.08)",
+  nav_separator_color: "rgba(223, 247, 255, 0.08)",
   nav_glass_effect: false,
-  ui_overrides: {
-    nav_background: "#000000",
-    content_background: "#000000",
-    card_background: "#0F0F0F",
-    card_border: "rgba(255,255,255,0.12)",
-    text_color: "#FFFFFF",
-    border_accent: "#FFFFFF",
-    navbar_edge_smoothness: "4px",
-  }
+  ui_overrides: { ...QUANTUM_DARK_OVERRIDES },
 };
 
 const PRESETS: Record<string, string[]> = {
-  nav_background: ["#000000", "#0A0A0A", "#121212", "#18181B", "#F4F4F5", "#FAFAFA", "#FFFFFF"],
-  text_color:     ["#FFFFFF", "#F4F4F5", "#E4E4E7", "#A1A1AA", "#71717A", "#27272A", "#000000"],
-  card_background:["#0F0F0F", "#171717", "#27272A", "#E4E4E7", "#F4F4F5", "#FAFAFA", "#FFFFFF"],
-  border_accent:  ["#FFFFFF", "#E4E4E7", "#A1A1AA", "#71717A", "#3F3F46", "#18181B", "#000000"],
+  nav_background: ["#0B0F19", "#121829", "#0D1117", "#18181B", "#F0F4F8", "#F8FAFC", "#FFFFFF"],
+  text_color:     ["#F0F4F8", "#FFFFFF", "#CBD5E1", "#94A3B8", "#334155", "#0A1128", "#000000"],
+  card_background:["#121829", "#161F33", "#1E293B", "#DFF7FF", "#F0F4F8", "#F8FAFC", "#FFFFFF"],
+  border_accent:  ["#2457FF", "#00D4FF", "#DFF7FF", "#3B6CFF", "#60A5FA", "#1B45CC", "#0A1128"],
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -163,7 +162,6 @@ export const Settings: React.FC = () => {
   const [config, setConfig] = useState<AppConfig | null>(null);
 
   const [activeColorKey, setActiveColorKey] = useState<string | null>(null);
-  const [layoutDropdownOpen, setLayoutDropdownOpen] = useState(false);
   const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const colorDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -175,9 +173,7 @@ export const Settings: React.FC = () => {
   const [newThemeName, setNewThemeName] = useState("");
   const [saveError, setSaveError] = useState("");
   const [rollDegrees, setRollDegrees] = useState(0);
-  const [presetsDropdownOpen, setPresetsDropdownOpen] = useState(false);
 
-  const [localGlowBrightness, setLocalGlowBrightness] = useState<number>(1.0);
   const [localUiSmoothness, setLocalUiSmoothness] = useState<number>(4);
   const [localNavSmoothness, setLocalNavSmoothness] = useState<number>(4);
 
@@ -198,7 +194,7 @@ export const Settings: React.FC = () => {
   const handleSliderDrag = (key: string, val: string) => {
     if (!config) return;
     const overrides = { ...config.theme.ui_overrides, [key]: val };
-    applyTheme(overrides, config.theme.font_family_ui);
+    applyTheme(overrides, config.theme.font_family_ui, config.theme.theme_preset);
     patchOverrideDebounced(key, val);
   };
 
@@ -237,7 +233,7 @@ export const Settings: React.FC = () => {
     ];
     const EXCLUDED_BACKGROUNDS = new Set(["#f6f2ea", "#181410", "#141310", "#000000", "#0e1117"]);
     customPresets.forEach(p => { if (p.colors?.nav_background) EXCLUDED_BACKGROUNDS.add(p.colors.nav_background.toLowerCase()); });
-    const currentPaper = (config.theme.ui_overrides.nav_background || "#000000").toLowerCase();
+    const currentPaper = (config.theme.ui_overrides.nav_background || "#0B0F19").toLowerCase();
     EXCLUDED_BACKGROUNDS.add(currentPaper);
     const available = RANDOM_PALETTES.filter(p => !EXCLUDED_BACKGROUNDS.has(p.nav_background.toLowerCase()));
     const pool = available.length > 0 ? available : RANDOM_PALETTES.filter(p => p.nav_background.toLowerCase() !== currentPaper);
@@ -249,9 +245,19 @@ export const Settings: React.FC = () => {
       card_border: randomPalette.card_border,
       text_color: randomPalette.text_color,
       border_accent: randomPalette.border_accent,
+      theme_version: THEME_VERSION,
     };
+    const bgLower = randomPalette.nav_background.toLowerCase();
+    const isLightBg = bgLower.startsWith("#f");
     const overrides = { ...config.theme.ui_overrides, ...targetColors };
-    const next = { ...config, theme: { ...config.theme, ui_overrides: overrides } };
+    const next = {
+      ...config,
+      theme: {
+        ...config.theme,
+        theme_preset: isLightBg ? "light" : "dark",
+        ui_overrides: overrides,
+      },
+    };
     await saveConfig(next);
   };
 
@@ -278,46 +284,90 @@ export const Settings: React.FC = () => {
     } catch (err) { setCustomPresets([]); }
   };
 
+  const handleSetThemeMode = async (mode: "dark" | "light") => {
+    if (!config) return;
+    const baseOv = mode === "light" ? QUANTUM_LIGHT_OVERRIDES : QUANTUM_DARK_OVERRIDES;
+    const curOv = config.theme.ui_overrides || {};
+    const nextOverrides: Record<string, string> = {
+      ...curOv,
+      ...baseOv,
+      ghost_fiber_glow: curOv.ghost_fiber_glow || baseOv.ghost_fiber_glow,
+      ghost_fiber_secondary: curOv.ghost_fiber_secondary || baseOv.ghost_fiber_secondary,
+      ghost_fiber_line: curOv.ghost_fiber_line || baseOv.ghost_fiber_line,
+      ghost_fiber_opacity: curOv.ghost_fiber_opacity || baseOv.ghost_fiber_opacity,
+      ghost_fiber_style: curOv.ghost_fiber_style || baseOv.ghost_fiber_style,
+      ghost_fiber_enabled: curOv.ghost_fiber_enabled || baseOv.ghost_fiber_enabled,
+      navbar_edge_smoothness: curOv.navbar_edge_smoothness || "8px",
+      ui_edge_smoothness: curOv.ui_edge_smoothness || "8px",
+      theme_version: THEME_VERSION,
+    };
+    const next = {
+      ...config,
+      theme: {
+        ...config.theme,
+        theme_preset: mode,
+        accent_color: "#2457FF",
+        ui_overrides: nextOverrides,
+      },
+    };
+    await saveConfig(next);
+  };
+
   const handleSelectPreset = async (presetName: string) => {
     if (!config) return;
     setSelectedPresetName(presetName);
     let targetColors: Record<string, string> = {};
-    if (presetName === "system_default_bw") {
+    let nextPresetMode = config.theme.theme_preset;
+
+    if (presetName === "system_default_quantum_dark") {
+      nextPresetMode = "dark";
       targetColors = {
-        nav_background: "#000000",
-        content_background: "#000000",
-        card_background: "#0F0F0F",
-        card_border: "rgba(255,255,255,0.12)",
-        text_color: "#FFFFFF",
-        border_accent: "#FFFFFF",
+        ...QUANTUM_DARK_OVERRIDES,
+        ghost_fiber_opacity: config.theme.ui_overrides?.ghost_fiber_opacity || "0.45",
+        ghost_fiber_style: config.theme.ui_overrides?.ghost_fiber_style || "dots",
+        ghost_fiber_enabled: config.theme.ui_overrides?.ghost_fiber_enabled || "true",
       };
-    } else if (presetName === "system_default_wb") {
+    } else if (presetName === "system_default_quantum_light") {
+      nextPresetMode = "light";
       targetColors = {
-        nav_background: "#FFFFFF",
-        content_background: "#FFFFFF",
-        card_background: "#F4F4F5",
-        card_border: "rgba(0,0,0,0.12)",
-        text_color: "#000000",
-        border_accent: "#000000",
+        ...QUANTUM_LIGHT_OVERRIDES,
+        ghost_fiber_opacity: config.theme.ui_overrides?.ghost_fiber_opacity || "0.45",
+        ghost_fiber_style: config.theme.ui_overrides?.ghost_fiber_style || "dots",
+        ghost_fiber_enabled: config.theme.ui_overrides?.ghost_fiber_enabled || "true",
       };
     } else {
       const preset = customPresets.find(p => p.name === presetName);
-      if (preset) targetColors = preset.colors;
+      if (preset) targetColors = { ...preset.colors, theme_version: THEME_VERSION };
       else return;
     }
     const overrides = { ...config.theme.ui_overrides, ...targetColors };
-    const next = { ...config, theme: { ...config.theme, ui_overrides: overrides } };
+    const next = {
+      ...config,
+      theme: {
+        ...config.theme,
+        theme_preset: nextPresetMode,
+        accent_color: targetColors.border_accent || "#2457FF",
+        ui_overrides: overrides,
+      },
+    };
     await saveConfig(next);
   };
 
   useEffect(() => {
     if (!config) return;
     const ov = config.theme.ui_overrides || {};
-    const bg = (ov.nav_background || "#000000").trim().toLowerCase();
-    const isWb = bg === "#ffffff" || bg === "#fafafa" || bg === "#f4f4f5" || ov.text_color === "#000000";
-    if (isWb) { setSelectedPresetName("system_default_wb"); return; }
-    const isBw = (bg === "#000000" || bg === "#0a0a0a") || ov.text_color === "#FFFFFF" || ov.border_accent === "#FFFFFF";
-    if (isBw) { setSelectedPresetName("system_default_bw"); return; }
+    const isLight = config.theme.theme_preset === "light";
+    const bg = (ov.content_background || ov.nav_background || "").trim().toLowerCase();
+    const accent = (ov.border_accent || "#2457FF").trim().toLowerCase();
+
+    if (isLight && (bg === "#f0f4f8" || bg === "#ffffff" || bg === "") && accent === "#2457ff") {
+      setSelectedPresetName("system_default_quantum_light");
+      return;
+    }
+    if (!isLight && (bg === "#0b0f19" || bg === "") && accent === "#2457ff") {
+      setSelectedPresetName("system_default_quantum_dark");
+      return;
+    }
     const matchedCustom = customPresets.find(p =>
       p.colors?.nav_background?.toLowerCase() === ov.nav_background?.toLowerCase() &&
       p.colors?.text_color?.toLowerCase() === ov.text_color?.toLowerCase() &&
@@ -325,88 +375,21 @@ export const Settings: React.FC = () => {
       p.colors?.border_accent?.toLowerCase() === ov.border_accent?.toLowerCase()
     );
     setSelectedPresetName(matchedCustom ? matchedCustom.name : "custom_select");
-  }, [config?.theme?.ui_overrides, customPresets]);
+  }, [config?.theme?.theme_preset, config?.theme?.ui_overrides, customPresets]);
 
   const loadAll = async () => {
     try {
       const cfg: AppConfig = await invoke("get_app_config");
       setConfig(cfg);
-      applyTheme(cfg.theme.ui_overrides, cfg.theme.font_family_ui);
-      setLocalGlowBrightness(parseFloat(cfg.theme.ui_overrides.accent_glow_brightness || "1.0"));
-      setLocalUiSmoothness(parseInt(cfg.theme.ui_overrides.ui_edge_smoothness || "4"));
-      setLocalNavSmoothness(parseInt(cfg.theme.ui_overrides.navbar_edge_smoothness || "4"));
+      applyTheme(cfg.theme.ui_overrides, cfg.theme.font_family_ui, cfg.theme.theme_preset);
+      setLocalUiSmoothness(parseInt(cfg.theme.ui_overrides.ui_edge_smoothness || "8"));
+      setLocalNavSmoothness(parseInt(cfg.theme.ui_overrides.navbar_edge_smoothness || "8"));
       await loadCustomPresets(cfg.storage.root_path);
     } catch (e) { console.error(e); }
   };
 
-  const applyTheme = (overrides: Record<string, string>, fontFamily?: string) => {
-    const r = document.documentElement;
-    const paperColor  = overrides.nav_background || "#000000";
-    const inkColor    = overrides.text_color || "#FFFFFF";
-    const creamColor  = overrides.card_background || "#0F0F0F";
-    const ruleColor   = overrides.card_border || "rgba(255,255,255,0.10)";
-    const accentColor = overrides.border_accent || "#FFFFFF";
-
-    const isLight = (paperColor === "#FFFFFF" || paperColor === "#ffffff" || paperColor === "#FAFAFA" || paperColor === "#fafafa" || paperColor.toLowerCase().startsWith("#f") || inkColor === "#000000");
-
-    const textSec = isLight ? "#27272A" : "#D4D4D8";
-    const textMut = isLight ? "#52525B" : "#A1A1AA";
-    const textFnt = isLight ? "#71717A" : "#71717A";
-    const elevatedBg = isLight ? "#E4E4E7" : (creamColor === "#0F0F0F" ? "#171717" : creamColor);
-    const borderSubtle = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.07)";
-    const borderDefault = isLight ? "rgba(0, 0, 0, 0.14)" : "rgba(255, 255, 255, 0.12)";
-    const borderStrong = isLight ? "rgba(0, 0, 0, 0.24)" : "rgba(255, 255, 255, 0.20)";
-    const accentSoft = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.10)";
-    const navHoverBg = isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.05)";
-    const navActiveBg = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.10)";
-
-    r.style.setProperty("--theme-paper",  paperColor);
-    r.style.setProperty("--theme-ink",    inkColor);
-    r.style.setProperty("--theme-cream",  creamColor);
-    r.style.setProperty("--theme-rule",   ruleColor);
-    r.style.setProperty("--theme-accent", accentColor);
-    r.style.setProperty("--bg-app",              paperColor);
-    r.style.setProperty("--bg-sidebar",          paperColor);
-    r.style.setProperty("--bg-surface",          creamColor);
-    r.style.setProperty("--bg-surface-elevated", elevatedBg);
-    r.style.setProperty("--bg-titlebar",         paperColor);
-    r.style.setProperty("--text-primary",        inkColor);
-    r.style.setProperty("--text-secondary",      textSec);
-    r.style.setProperty("--text-muted",          textMut);
-    r.style.setProperty("--theme-muted",         textMut);
-    r.style.setProperty("--text-faint",          textFnt);
-    r.style.setProperty("--accent",              accentColor);
-    r.style.setProperty("--border-subtle",       borderSubtle);
-    r.style.setProperty("--border-default",      borderDefault);
-    r.style.setProperty("--border-strong",       borderStrong);
-    r.style.setProperty("--accent-soft",         accentSoft);
-    r.style.setProperty("--sidebar-nav-hover-bg", navHoverBg);
-    r.style.setProperty("--sidebar-nav-active-bg", navActiveBg);
-
-    const glowEnabled = overrides.accent_glow === "true";
-    const brightness = parseFloat(overrides.accent_glow_brightness || "1.0");
-    const accentColorVal = overrides.border_accent || "#E5B45F";
-    const borderGlowRadius = Math.round(10 * brightness);
-    const textGlowRadius = Math.round(5 * brightness);
-    const baseAlpha = Math.min(1.0, brightness);
-    const borderAlphaHex = Math.round(baseAlpha * 255).toString(16).padStart(2, "0");
-    const textAlphaHex = Math.round(baseAlpha * 0.5 * 255).toString(16).padStart(2, "0");
-    const borderGlowColor = accentColorVal.startsWith("#") && accentColorVal.length === 7 ? `${accentColorVal}${borderAlphaHex}` : accentColorVal;
-    const textGlowColor = accentColorVal.startsWith("#") && accentColorVal.length === 7 ? `${accentColorVal}${textAlphaHex}` : `${accentColorVal}80`;
-    r.style.setProperty("--theme-accent-glow",      glowEnabled ? `0 0 ${borderGlowRadius}px ${borderGlowColor}` : "none");
-    r.style.setProperty("--theme-accent-text-glow", glowEnabled ? `0 0 ${textGlowRadius}px ${textGlowColor}` : "none");
-
-    // Typography System
-    applyTypographyToRoot(r, fontFamily);
-    // Smoothness / Border Radius
-    const navSmooth = overrides.navbar_edge_smoothness !== undefined && overrides.navbar_edge_smoothness !== ""
-      ? overrides.navbar_edge_smoothness
-      : "4px";
-    const uiSmooth = overrides.ui_edge_smoothness !== undefined && overrides.ui_edge_smoothness !== ""
-      ? overrides.ui_edge_smoothness
-      : "4px";
-    r.style.setProperty("--navbar-edge-smoothness", navSmooth);
-    r.style.setProperty("--ui-edge-smoothness",     uiSmooth);
+  const applyTheme = (overrides: Record<string, string>, fontFamily?: string, themePreset?: string) => {
+    applyThemeToDocument(overrides, fontFamily, themePreset ?? configRef.current?.theme?.theme_preset);
   };
 
   useEffect(() => {
@@ -415,17 +398,15 @@ export const Settings: React.FC = () => {
       const cfg = e.payload;
       if (cfg && cfg.theme) {
         setConfig(cfg);
-        applyTheme(cfg.theme.ui_overrides, cfg.theme.font_family_ui);
-        setLocalGlowBrightness(parseFloat(cfg.theme.ui_overrides.accent_glow_brightness || "1.0"));
-        setLocalUiSmoothness(parseInt(cfg.theme.ui_overrides.ui_edge_smoothness || "4"));
-        setLocalNavSmoothness(parseInt(cfg.theme.ui_overrides.navbar_edge_smoothness || "4"));
+        applyTheme(cfg.theme.ui_overrides, cfg.theme.font_family_ui, cfg.theme.theme_preset);
+        setLocalUiSmoothness(parseInt(cfg.theme.ui_overrides.ui_edge_smoothness || "8"));
+        setLocalNavSmoothness(parseInt(cfg.theme.ui_overrides.navbar_edge_smoothness || "8"));
       } else {
         invoke<AppConfig>("get_app_config").then(fresh => {
           setConfig(fresh);
-          applyTheme(fresh.theme.ui_overrides, fresh.theme.font_family_ui);
-          setLocalGlowBrightness(parseFloat(fresh.theme.ui_overrides.accent_glow_brightness || "1.0"));
-          setLocalUiSmoothness(parseInt(fresh.theme.ui_overrides.ui_edge_smoothness || "4"));
-          setLocalNavSmoothness(parseInt(fresh.theme.ui_overrides.navbar_edge_smoothness || "4"));
+          applyTheme(fresh.theme.ui_overrides, fresh.theme.font_family_ui, fresh.theme.theme_preset);
+          setLocalUiSmoothness(parseInt(fresh.theme.ui_overrides.ui_edge_smoothness || "8"));
+          setLocalNavSmoothness(parseInt(fresh.theme.ui_overrides.navbar_edge_smoothness || "8"));
         }).catch(() => {});
       }
     });
@@ -442,7 +423,7 @@ export const Settings: React.FC = () => {
     configRef.current = next;
     setConfig(next);
     await invoke("save_app_config", { config: next });
-    applyTheme(next.theme.ui_overrides, next.theme.font_family_ui);
+    applyTheme(next.theme.ui_overrides, next.theme.font_family_ui, next.theme.theme_preset);
     await emit("config_updated", next);
   };
 
@@ -471,10 +452,10 @@ export const Settings: React.FC = () => {
 
   const patchOverride = async (key: string, val: string) => {
     if (!config) return;
-    const overrides = { ...config.theme.ui_overrides, [key]: val };
+    const overrides = { ...config.theme.ui_overrides, [key]: val, theme_version: THEME_VERSION };
     const next = { ...config, theme: { ...config.theme, ui_overrides: overrides } };
     setConfig(next);
-    applyTheme(overrides, config.theme.font_family_ui);
+    applyTheme(overrides, config.theme.font_family_ui, config.theme.theme_preset);
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(async () => {
       await invoke("save_app_config", { config: next });
@@ -549,7 +530,7 @@ export const Settings: React.FC = () => {
         <div className="stt-grid">
 
           {/* ── LEFT COLUMN: General & Storage ─────────────────── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className="stt-col-stack">
 
             {/* Card: General & Storage */}
             <div className="stt-section">
@@ -611,67 +592,39 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div className="stt-subgrid-2">
                 <div className="stt-field">
                   <span className="stt-label">Launch Page</span>
-                  <select
+                  <GlideSelect
+                    fullWidth
+                    ariaLabel="Launch Page"
                     value={config.general.launch_page}
-                    onChange={e => saveConfig({ ...config, general: { ...config.general, launch_page: e.target.value } })}
-                    className="stt-select"
-                  >
-                    <option value="Home">Home</option>
-                    <option value="Explorer">Explorer</option>
-                    <option value="Settings">Settings</option>
-                  </select>
+                    onChange={val => saveConfig({ ...config, general: { ...config.general, launch_page: val } })}
+                    options={[
+                      { value: "Home", label: "Overview" },
+                      { value: "Explorer", label: "Files" },
+                      { value: "Settings", label: "Settings" },
+                    ]}
+                  />
                 </div>
 
                 <div className="stt-field" style={{ position: "relative" }}>
                   <span className="stt-label">Nav Layout</span>
-                  <button
-                    onClick={() => setLayoutDropdownOpen(!layoutDropdownOpen)}
-                    className="stt-dropdown-trigger"
-                  >
-                    <span>
-                      {config.theme.nav_layout === "sidebar"               && "Left Sidebar"}
-                      {config.theme.nav_layout === "right_sidebar"         && "Right Sidebar"}
-                      {config.theme.nav_layout === "vertical_pills"        && "Left Vertical Pill"}
-                      {config.theme.nav_layout === "right_vertical_pills"  && "Right Vertical Pill"}
-                      {config.theme.nav_layout === "top_navbar"            && "Top Navbar"}
-                      {config.theme.nav_layout === "bottom_navbar"         && "Bottom Navbar"}
-                    </span>
-                    <ChevronDown size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-                  </button>
-
-                  {layoutDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setLayoutDropdownOpen(false)} />
-                      <div className="stt-dropdown-menu">
-                        {[
-                          { value: "sidebar",               label: "Left Sidebar"          },
-                          { value: "right_sidebar",         label: "Right Sidebar"         },
-                          { value: "vertical_pills",        label: "Left Vertical Pill"    },
-                          { value: "right_vertical_pills",  label: "Right Vertical Pill"   },
-                          { value: "top_navbar",            label: "Top Navbar"            },
-                          { value: "bottom_navbar",         label: "Bottom Navbar"         },
-                        ].map(opt => (
-                          <button
-                            key={opt.value}
-                            onClick={async () => {
-                              setLayoutDropdownOpen(false);
-                              await emit("nav_layout_changed", opt.value);
-                              const next = { ...config, theme: { ...config.theme, nav_layout: opt.value } };
-                              await saveConfig(next);
-                              await emit("config_updated", next);
-                            }}
-                            className={`stt-dropdown-item ${config.theme.nav_layout === opt.value ? "active" : ""}`}
-                          >
-                            <span>{opt.label}</span>
-                            {config.theme.nav_layout === opt.value && <span style={{ fontSize: "10px" }}>✓</span>}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  <GlideSelect
+                    fullWidth
+                    ariaLabel="Nav Layout"
+                    value={config.theme.nav_layout || "top_navbar"}
+                    onChange={async val => {
+                      await emit("nav_layout_changed", val);
+                      const next = { ...config, theme: { ...config.theme, nav_layout: val } };
+                      await saveConfig(next);
+                      await emit("config_updated", next);
+                    }}
+                    options={[
+                      { value: "top_navbar", label: "Top Navbar (Default)" },
+                      { value: "bottom_navbar", label: "Bottom Navbar" },
+                    ]}
+                  />
                 </div>
               </div>
             </div>
@@ -860,7 +813,7 @@ export const Settings: React.FC = () => {
                           gap: "6px",
                           padding: "8px 12px",
                           backgroundColor: "var(--accent)",
-                          color: "#000000",
+                          color: "#FFFFFF",
                           borderRadius: "var(--radius-sm)",
                           fontWeight: 600,
                           fontSize: "12px",
@@ -882,7 +835,7 @@ export const Settings: React.FC = () => {
 
 
           {/* ── RIGHT COLUMN: Visual Palette ──────────────────── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className="stt-col-stack">
 
             {/* Card: Visual Palette Overrides */}
             <div className="stt-section" style={{ position: "relative", zIndex: activeColorKey ? 30 : 10 }}>
@@ -906,21 +859,60 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
 
+              {/* Appearance Mode (Quantum Blue Light / Dark) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <span className="stt-label" style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                  Appearance Mode
+                </span>
+                <div className="stt-subgrid-2" style={{ gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSetThemeMode("dark")}
+                    className="glass-card flex items-center justify-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-all"
+                    style={{
+                      border: config.theme.theme_preset !== "light" ? "1px solid var(--accent)" : "1px solid var(--border-subtle)",
+                      backgroundColor: config.theme.theme_preset !== "light" ? "var(--accent-soft)" : "var(--bg-surface-elevated)",
+                      color: config.theme.theme_preset !== "light" ? "var(--accent-text, var(--accent))" : "var(--text-secondary)",
+                      fontSize: "11.5px",
+                      fontWeight: config.theme.theme_preset !== "light" ? 700 : 500,
+                    }}
+                  >
+                    <Moon size={13} />
+                    <span>Dark Mode</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetThemeMode("light")}
+                    className="glass-card flex items-center justify-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-all"
+                    style={{
+                      border: config.theme.theme_preset === "light" ? "1px solid var(--accent)" : "1px solid var(--border-subtle)",
+                      backgroundColor: config.theme.theme_preset === "light" ? "var(--accent-soft)" : "var(--bg-surface-elevated)",
+                      color: config.theme.theme_preset === "light" ? "var(--accent)" : "var(--text-secondary)",
+                      fontSize: "11.5px",
+                      fontWeight: config.theme.theme_preset === "light" ? 700 : 500,
+                    }}
+                  >
+                    <Sun size={13} />
+                    <span>Light Mode</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Preset selector */}
-              <div style={{ display: "flex", gap: "8px" }}>
-                <select
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <GlideSelect
+                  fullWidth
+                  ariaLabel="Theme Preset"
                   value={selectedPresetName}
-                  onChange={e => handleSelectPreset(e.target.value)}
-                  className="stt-select"
+                  onChange={handleSelectPreset}
                   style={{ flex: 1 }}
-                >
-                  <option value="system_default_bw">Minimalist B&W (Dark)</option>
-                  <option value="system_default_wb">Minimalist W&B (Light)</option>
-                  {customPresets.map(p => (
-                    <option key={p.name} value={p.name}>Preset: {p.name}</option>
-                  ))}
-                  <option value="custom_select" disabled>— Custom overrides active —</option>
-                </select>
+                  options={[
+                    { value: "system_default_quantum_dark", label: "Quantum Blue (Dark — Default)" },
+                    { value: "system_default_quantum_light", label: "Quantum Blue (Light)" },
+                    ...customPresets.map(p => ({ value: p.name, label: `Preset: ${p.name}` })),
+                    { value: "custom_select", label: "— Custom overrides active —", disabled: true },
+                  ]}
+                />
                 <button
                   onClick={() => setShowSaveModal(true)}
                   className="stt-btn-secondary"
@@ -932,7 +924,7 @@ export const Settings: React.FC = () => {
               </div>
 
               {/* Color swatch overrides */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", paddingTop: "4px" }}>
+              <div className="stt-subgrid-swatches" style={{ paddingTop: "4px" }}>
                 {[
                   { key: "nav_background",  label: "Paper / Nav Background" },
                   { key: "card_background", label: "Card / Panel Surface"   },
@@ -940,7 +932,7 @@ export const Settings: React.FC = () => {
                   { key: "border_accent",   label: "Accent Highlight Color"  },
                   { key: "text_color",      label: "Main Typography Color"   },
                 ].map(({ key, label }) => {
-                  const currentVal = config.theme.ui_overrides[key] || (DEFAULT_THEME.ui_overrides as any)[key] || "#000000";
+                  const currentVal = config.theme.ui_overrides[key] || (DEFAULT_THEME.ui_overrides as any)[key] || "#0B0F19";
                   const isOpen = activeColorKey === key;
                   return (
                     <div key={key} style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }}>
@@ -990,19 +982,168 @@ export const Settings: React.FC = () => {
               {/* Typography System */}
               <div className="stt-field" style={{ paddingTop: "8px", borderTop: "1px solid var(--border-subtle)" }}>
                 <span className="stt-label">Typography System</span>
-                <select
+                <GlideSelect
+                  fullWidth
+                  ariaLabel="Typography System"
                   value={getFontPreset(config.theme.font_family_ui).id}
-                  onChange={e => {
-                    const font = e.target.value;
+                  onChange={font => {
                     const next = { ...config, theme: { ...config.theme, font_family_ui: font } };
                     saveConfig(next);
                   }}
-                  className="stt-select"
-                >
-                  {FONT_PRESETS.map(f => (
-                    <option key={f.id} value={f.id}>{f.label} — {f.desc}</option>
-                  ))}
-                </select>
+                  options={FONT_PRESETS.map(f => ({ value: f.id, label: `${f.label} — ${f.desc}` }))}
+                />
+              </div>
+            </div>
+
+            {/* Card: Ghost Fiber Ambient Canvas */}
+            <div className="stt-section" style={{ position: "relative", zIndex: 15 }}>
+              <div className="stt-section-title">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Sparkles size={12} style={{ color: "var(--accent)" }} /> Ghost Fiber Canvas
+                  </span>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "11px", color: "var(--text-secondary)" }}>
+                    <input
+                      type="checkbox"
+                      checked={config.theme.ui_overrides.ghost_fiber_enabled !== "false"}
+                      onChange={e => patchOverride("ghost_fiber_enabled", e.target.checked ? "true" : "false")}
+                      style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+                    />
+                    <span>Active</span>
+                  </label>
+                </div>
+              </div>
+
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "-4px", marginBottom: "8px" }}>
+                Interactive generative ribbons rendered across the application background with live physics and mouse interaction.
+              </p>
+
+              {/* Quick Preset Swatches (Quantum Blue only) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px" }}>
+                <span className="stt-label" style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                  Palette Preset
+                </span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "8px" }}>
+                  {[
+                    {
+                      id: "quantum",
+                      name: "Quantum Blue",
+                      glow: QUANTUM_GHOST_FIBER_DEFAULTS.ghost_fiber_glow,
+                      sec: QUANTUM_GHOST_FIBER_DEFAULTS.ghost_fiber_secondary,
+                      line: QUANTUM_GHOST_FIBER_DEFAULTS.ghost_fiber_line,
+                    },
+                  ].map(preset => {
+                    const isCurrent =
+                      (config.theme.ui_overrides.ghost_fiber_glow || preset.glow).toLowerCase() === preset.glow.toLowerCase() &&
+                      (config.theme.ui_overrides.ghost_fiber_secondary || preset.sec).toLowerCase() === preset.sec.toLowerCase();
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          const overrides = {
+                            ...config.theme.ui_overrides,
+                            ghost_fiber_glow: preset.glow,
+                            ghost_fiber_secondary: preset.sec,
+                            ghost_fiber_line: preset.line,
+                            theme_version: THEME_VERSION,
+                          };
+                          const next = { ...config, theme: { ...config.theme, ui_overrides: overrides } };
+                          saveConfig(next);
+                        }}
+                        className="glass-card group flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-all"
+                        style={{
+                          border: isCurrent ? "1px solid var(--accent)" : "1px solid var(--border-subtle)",
+                          backgroundColor: isCurrent ? "var(--accent-soft)" : "var(--bg-surface-elevated)",
+                          textAlign: "left",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ fontSize: "11.5px", fontWeight: isCurrent ? 700 : 500, color: isCurrent ? "var(--accent-text, var(--accent))" : "var(--text-primary)" }}>
+                            {preset.name}
+                          </span>
+                          <div style={{ display: "flex", gap: "5px" }}>
+                            <span style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: preset.glow, display: "inline-block" }} />
+                            <span style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: preset.sec, display: "inline-block" }} />
+                            <span style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: preset.line, border: "1px solid var(--border-default)", display: "inline-block" }} />
+                          </div>
+                        </div>
+                        {isCurrent && <Check size={13} style={{ color: "var(--accent-text, var(--accent))" }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Color swatch overrides */}
+              <div className="stt-fiber-swatches" style={{ paddingTop: "4px" }}>
+                {[
+                  { key: "ghost_fiber_glow",      label: "Glow Hue (Main)", defaultVal: "#2457FF" },
+                  { key: "ghost_fiber_secondary", label: "Gradient Blend",  defaultVal: "#00D4FF" },
+                  { key: "ghost_fiber_line",      label: "Folds & Tips",    defaultVal: "#DFF7FF" },
+                ].map(({ key, label, defaultVal }) => {
+                  const currentVal = config.theme.ui_overrides[key] || defaultVal;
+                  return (
+                    <div key={key} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <span className="stt-label" style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                        {label}
+                      </span>
+                      <div className="stt-color-row">
+                        <input
+                          type="color"
+                          value={currentVal.startsWith("#") && currentVal.length === 7 ? currentVal : defaultVal}
+                          onChange={e => patchOverride(key, e.target.value)}
+                          className="stt-color-swatch cursor-pointer"
+                          style={{ padding: 0, border: "none", width: "24px", height: "24px" }}
+                        />
+                        <AnimatedHexInput
+                          value={currentVal}
+                          onChange={val => patchOverride(key, val)}
+                          className="stt-hex-input"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Style & Opacity Controls */}
+              <div className="stt-subgrid-2" style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--border-subtle)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <span className="stt-label" style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                    Canvas Opacity
+                  </span>
+                  <GlideSelect
+                    fullWidth
+                    ariaLabel="Canvas Opacity"
+                    value={config.theme.ui_overrides.ghost_fiber_opacity || "0.45"}
+                    onChange={val => patchOverride("ghost_fiber_opacity", val)}
+                    options={[
+                      { value: "0.20", label: "20% — Subtle & Muted" },
+                      { value: "0.35", label: "35% — Soft Ambient" },
+                      { value: "0.45", label: "45% — Balanced (Default)" },
+                      { value: "0.65", label: "65% — Vivid & Bright" },
+                      { value: "0.85", label: "85% — High Intensity" },
+                    ]}
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <span className="stt-label" style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                    Fiber Drawing Style
+                  </span>
+                  <GlideSelect
+                    fullWidth
+                    ariaLabel="Fiber Drawing Style"
+                    value={config.theme.ui_overrides.ghost_fiber_style || "dots"}
+                    onChange={val => patchOverride("ghost_fiber_style", val)}
+                    options={[
+                      { value: "dots", label: "Dots (Standard Particulate)" },
+                      { value: "dashes", label: "Dashes (Streamline Streaks)" },
+                      { value: "lines", label: "Continuous Lines (Silk Ribbons)" },
+                    ]}
+                  />
+                </div>
               </div>
             </div>
 
@@ -1078,10 +1219,10 @@ export const Settings: React.FC = () => {
                     const payload = {
                       name: themeName,
                       colors: {
-                        nav_background:  config.theme.ui_overrides.nav_background  || "#000000",
-                        text_color:      config.theme.ui_overrides.text_color      || "#FFFFFF",
-                        card_background: config.theme.ui_overrides.card_background || "#0F0F0F",
-                        border_accent:   config.theme.ui_overrides.border_accent   || "#FFFFFF",
+                        nav_background:  config.theme.ui_overrides.nav_background  || "#0B0F19",
+                        text_color:      config.theme.ui_overrides.text_color      || "#F0F4F8",
+                        card_background: config.theme.ui_overrides.card_background || "#121829",
+                        border_accent:   config.theme.ui_overrides.border_accent   || "#2457FF",
                       }
                     };
                     await invoke("write_text_file", { filePath, content: JSON.stringify(payload, null, 2) });

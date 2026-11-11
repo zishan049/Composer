@@ -1,19 +1,20 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
 import {
   Folder, File, FileText, Image as ImageIcon, Table as TableIcon, 
   Search, Plus, Save, BookOpen,
   RotateCw, Columns, Code, FileCode, History, X, ChevronRight, ChevronDown,
-  Grid3x3, List, Upload, FolderPlus
+  Grid3x3, Upload, FolderPlus, AlertCircle, GitBranch, FolderOpen
 } from "lucide-react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listen, emit } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { FileEntry, AppConfig } from "../types";
 import { useCustomContextMenu } from "./ContextMenu";
 import { trackRecentFile } from "../utils/recentFiles";
 import { SvgFileIcon } from "./SvgFileIcon";
 import { MarkdownFileIcon } from "./MarkdownFileIcon";
+import { useWorktrees } from "../lib/WorktreeContext";
+import { CreateNestedWorkspaceModal } from "./CreateNestedWorkspaceModal";
 
 // Lazy-loaded heavy media & preview engines
 const PdfEditor    = React.lazy(() => import("./PdfEditor"));
@@ -29,6 +30,17 @@ const Editor = React.lazy(() =>
   import("../lib/monacoSetup").then(() => import("@monaco-editor/react"))
 );
 
+const MediaCompareViewer = React.lazy(() => import("./MediaCompareViewer"));
+const COMPARE_TAB_PATH = "compare://media-workspace";
+
+interface CompareMediaItem {
+  path: string;
+  name: string;
+  fileType: "image" | "svg";
+  srcOrContent: string;
+  fileSize?: number;
+}
+
 interface OpenTab {
   path: string;
   name: string;
@@ -40,6 +52,7 @@ interface OpenTab {
   tooLarge?: boolean;      // PERF-13: oversized file opened read-only (metadata only)
   svgViewMode?: "preview" | "split" | "code";
   mdViewMode?: "preview" | "split" | "code";
+  compareItems?: CompareMediaItem[];
 }
 
 // PERF-13: files larger than this open in a read-only metadata view instead of
@@ -83,6 +96,11 @@ const isSvgFile = (tab?: OpenTab | null): boolean => {
 const isMdFile = (tab?: OpenTab | null): boolean => {
   if (!tab) return false;
   return tab.fileType === "md" || tab.name.toLowerCase().endsWith(".md");
+};
+
+const isMediaCompareFile = (name: string): boolean => {
+  const t = getFileType(name);
+  return t === "image" || t === "svg";
 };
 
 // ── File type icon helper ──────────────────────────────────────
@@ -271,17 +289,39 @@ const CsvGridView = React.memo(function CsvGridView({ content }: { content: stri
 });
 
 const ExplorerComponent: React.FC = () => {
+  const { worktrees, activeWorktreeId, removeWorktree, switchWorktree } = useWorktrees();
+  const [isNestedWorkspaceModalOpen, setIsNestedWorkspaceModalOpen] = useState<boolean>(false);
   const [currentDirPath, setCurrentDirPath] = useState<string>("");
   const [sidebarWidth, setSidebarWidth] = useState<number>(240);
   const [isResizing, setIsResizing] = useState<boolean>(false);
 
-  // Dynamic theme resolution for Monaco Editor (memoized to avoid DOM style thrashing)
-  const monacoTheme = useMemo(() => {
-    if (typeof document === "undefined") return "vs-dark";
-    const themeInk = document.documentElement.style.getPropertyValue("--theme-ink") || "#F3EFE8";
-    const isDark = !(themeInk.trim().toLowerCase().startsWith("#1") || themeInk.trim().toLowerCase().startsWith("#2") || themeInk.trim().toLowerCase().startsWith("#3"));
-    return isDark ? "vs-dark" : "vs-light";
+  // Reactive theme resolution for Monaco Editor (tracks Light / Dark toggle live)
+  const [isLightTheme, setIsLightTheme] = useState<boolean>(() => {
+    if (typeof document === "undefined") return false;
+    return (
+      document.documentElement.classList.contains("theme-light") ||
+      document.documentElement.getAttribute("data-theme") === "light"
+    );
+  });
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const syncTheme = () => {
+      const light =
+        document.documentElement.classList.contains("theme-light") ||
+        document.documentElement.getAttribute("data-theme") === "light";
+      setIsLightTheme(light);
+    };
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme"],
+    });
+    return () => observer.disconnect();
   }, []);
+
+  const monacoTheme = isLightTheme ? "vs" : "vs-dark";
 
   const startResizing = React.useCallback((mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -337,8 +377,8 @@ const ExplorerComponent: React.FC = () => {
   const [fileVersions, setFileVersions] = useState<{version: number, timestamp: string, content: string}[]>([]);
   // PERF-16: cap for the in-memory version history (config max_versions_per_file)
   const [maxVersionsPerFile, setMaxVersionsPerFile] = useState<number>(DEFAULT_MAX_VERSIONS);
+  const [closingTabPrompt, setClosingTabPrompt] = useState<{ path: string; name: string } | null>(null);
 
-  const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number }>>({});
   const [isPdfEditMode, setIsPdfEditMode] = useState<boolean>(false);
 
   const formatFileSize = (bytes?: number): string => {
@@ -540,6 +580,8 @@ const ExplorerComponent: React.FC = () => {
   // state & handlers through this ref (assigned every render below), so the
   // listeners register once and row handlers keep a stable identity.
   const latestRef = useRef<any>(null);
+  const worktreesRef = useRef(worktrees);
+  worktreesRef.current = worktrees;
 
   // Load directory contents
   const loadDirectory = useCallback(async (path: string) => {
@@ -564,6 +606,23 @@ const ExplorerComponent: React.FC = () => {
     loadDirectory("");
     const unsub = listen("config_updated", () => loadDirectory(""));
 
+    const handleWorktreeSwitched = (e: Event) => {
+      const detail = (e as CustomEvent<{ id?: string | null }>).detail;
+      const targetId = detail?.id ?? null;
+      setSelectedPaths([]);
+      if (!targetId) {
+        loadDirectory("");
+        return;
+      }
+      const match = worktreesRef.current.find(w => w.id === targetId);
+      if (match?.root_path) {
+        loadDirectory(match.root_path);
+      } else {
+        loadDirectory("");
+      }
+    };
+    window.addEventListener("composer:worktree-switched", handleWorktreeSwitched);
+
     // PERF-16: read the configured version-history cap
     invoke<AppConfig>("get_app_config")
       .then(cfg => {
@@ -572,8 +631,17 @@ const ExplorerComponent: React.FC = () => {
       })
       .catch(() => {});
 
-    return () => { unsub.then(fn => fn()); };
-  }, []);
+    return () => {
+      unsub.then(fn => fn());
+      window.removeEventListener("composer:worktree-switched", handleWorktreeSwitched);
+    };
+  }, [loadDirectory]);
+
+  useEffect(() => {
+    const hasUnsaved = openTabs.some(t => t.isModified);
+    (window as any).__composer_has_unsaved = hasUnsaved;
+    window.dispatchEvent(new CustomEvent("composer:unsaved-changed", { detail: { hasUnsaved } }));
+  }, [openTabs]);
 
   // Native Tauri drag-and-drop listener for external files & folders
   useEffect(() => {
@@ -631,7 +699,7 @@ const ExplorerComponent: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "w") {
         e.preventDefault();
         if (s.activeTabPath) {
-          const filtered = s.openTabs.filter(t => t.path !== s.activeTabPath);
+          const filtered = s.openTabs.filter((t: OpenTab) => t.path !== s.activeTabPath);
           setOpenTabs(filtered);
           setActiveTabPath(filtered.length > 0 ? filtered[filtered.length - 1].path : null);
         }
@@ -640,19 +708,19 @@ const ExplorerComponent: React.FC = () => {
       if (e.key === "F2") {
         e.preventDefault();
         const targetPath = s.selectedPaths.length === 1 ? s.selectedPaths[0] : s.activeTabPath;
-        if (targetPath) s.openRenameModal(targetPath);
+        if (targetPath && !targetPath.startsWith("compare://")) s.openRenameModal(targetPath);
       }
       if (e.key === "Delete" || e.key === "Del") {
         e.preventDefault();
-        const targets = s.selectedPaths.length > 0 ? s.selectedPaths : (s.activeTabPath ? [s.activeTabPath] : []);
-        const toDelete = targets.filter(p => !p.includes("composer.toml"));
+        const targets: string[] = s.selectedPaths.length > 0 ? s.selectedPaths : (s.activeTabPath ? [s.activeTabPath] : []);
+        const toDelete = targets.filter((p: string) => !p.includes("composer.toml") && !p.startsWith("compare://"));
         if (toDelete.length > 0) {
           if (confirm(`Are you sure you want to delete ${toDelete.length} selected item(s)?`)) {
-            Promise.all(toDelete.map(path => invoke("delete_file_or_dir", { path })))
+            Promise.all(toDelete.map((path: string) => invoke("delete_file_or_dir", { path })))
               .then(() => {
                 setSelectedPaths([]);
                 s.loadDirectory(s.currentDirPath);
-                const remainingTabs = s.openTabs.filter(t => !toDelete.includes(t.path));
+                const remainingTabs = s.openTabs.filter((t: OpenTab) => !toDelete.includes(t.path));
                 setOpenTabs(remainingTabs);
                 if (s.activeTabPath && toDelete.includes(s.activeTabPath)) {
                   setActiveTabPath(remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].path : null);
@@ -662,7 +730,7 @@ const ExplorerComponent: React.FC = () => {
           }
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") { e.preventDefault(); setSelectedPaths(s.files.map(f => f.path)); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") { e.preventDefault(); setSelectedPaths(s.files.map((f: FileEntry) => f.path)); }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -671,7 +739,7 @@ const ExplorerComponent: React.FC = () => {
 
   const openFile = useCallback(async (entry: FileEntry) => {
     trackRecentFile(entry.path, entry.name);
-    if (latestRef.current && latestRef.current.openTabs.some(t => t.path === entry.path)) {
+    if (latestRef.current && latestRef.current.openTabs.some((t: OpenTab) => t.path === entry.path)) {
       setActiveTabPath(entry.path);
       return;
     }
@@ -711,6 +779,93 @@ const ExplorerComponent: React.FC = () => {
     setActiveTabPath(entry.path);
   }, []);
 
+  const resolveCompareItem = useCallback(async (
+    entry: { path: string; name: string; size?: number; content?: string; fileType?: string }
+  ): Promise<CompareMediaItem | null> => {
+    const inferredType =
+      entry.fileType === "svg" || entry.fileType === "image"
+        ? entry.fileType
+        : getFileType(entry.name);
+    if (inferredType !== "image" && inferredType !== "svg") return null;
+
+    const existingTab = latestRef.current?.openTabs?.find((t: OpenTab) => t.path === entry.path);
+    let srcOrContent = entry.content ?? existingTab?.content ?? "";
+
+    if (!srcOrContent) {
+      if (inferredType === "image") {
+        try {
+          srcOrContent = convertFileSrc(entry.path);
+        } catch {
+          srcOrContent = "";
+        }
+      } else {
+        try {
+          srcOrContent = await invoke<string>("read_text_file", { filePath: entry.path });
+        } catch {
+          srcOrContent = "";
+        }
+      }
+    }
+
+    return {
+      path: entry.path,
+      name: entry.name,
+      fileType: inferredType,
+      srcOrContent,
+      fileSize: entry.size ?? existingTab?.fileSize,
+    };
+  }, []);
+
+  const openCompareImages = useCallback(async (
+    entries: Array<{ path: string; name: string; size?: number; content?: string; fileType?: string }>,
+    mode: "replace" | "append" = "replace"
+  ) => {
+    const resolved = (await Promise.all(entries.map(resolveCompareItem))).filter(
+      (item): item is CompareMediaItem => item !== null
+    );
+    if (resolved.length === 0) return;
+
+    setOpenTabs(prev => {
+      const existingCompare = prev.find(t => t.path === COMPARE_TAB_PATH);
+      const baseItems = mode === "append" && existingCompare?.compareItems ? existingCompare.compareItems : [];
+      const mergedMap = new Map<string, CompareMediaItem>();
+      baseItems.forEach(it => mergedMap.set(it.path, it));
+      resolved.forEach(it => mergedMap.set(it.path, it));
+      const nextItems = Array.from(mergedMap.values());
+      const nextName = `Compare (${nextItems.length})`;
+
+      if (existingCompare) {
+        return prev.map(t =>
+          t.path === COMPARE_TAB_PATH
+            ? { ...t, name: nextName, compareItems: nextItems }
+            : t
+        );
+      }
+
+      const compareTab: OpenTab = {
+        path: COMPARE_TAB_PATH,
+        name: nextName,
+        content: "",
+        originalContent: "",
+        isModified: false,
+        fileType: "image-compare",
+        compareItems: nextItems,
+      };
+      return [...prev, compareTab];
+    });
+    setActiveTabPath(COMPARE_TAB_PATH);
+  }, [resolveCompareItem]);
+
+  const removeCompareItem = useCallback((targetPath: string) => {
+    setOpenTabs(prev =>
+      prev.map(t => {
+        if (t.path !== COMPARE_TAB_PATH) return t;
+        const nextItems = (t.compareItems || []).filter(it => it.path !== targetPath);
+        return { ...t, name: `Compare (${nextItems.length})`, compareItems: nextItems };
+      })
+    );
+  }, []);
+
   // Listen for file-open and quick-action events dispatched from Home or elsewhere
   // (PERF-14: registered once — handlers read the latest state via latestRef)
   useEffect(() => {
@@ -740,13 +895,37 @@ const ExplorerComponent: React.FC = () => {
     };
   }, []);
 
-  const closeTab = (path: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const closeTabDirect = (path: string) => {
     const filtered = openTabs.filter(t => t.path !== path);
     setOpenTabs(filtered);
     if (activeTabPath === path) {
       setActiveTabPath(filtered.length > 0 ? filtered[filtered.length - 1].path : null);
     }
+    setClosingTabPrompt(null);
+  };
+
+  const closeTab = (path: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const tab = openTabs.find(t => t.path === path);
+    if (tab && tab.isModified && tab.fileType !== "pdf") {
+      setClosingTabPrompt({ path: tab.path, name: tab.name });
+    } else {
+      closeTabDirect(path);
+    }
+  };
+
+  const handleSaveAndClosePrompt = async () => {
+    if (!closingTabPrompt) return;
+    const tab = openTabs.find(t => t.path === closingTabPrompt.path);
+    if (tab) {
+      try {
+        await invoke("write_text_file", { filePath: tab.path, content: tab.content });
+      } catch (e) {
+        alert("Failed to save before closing: " + e);
+        return;
+      }
+    }
+    closeTabDirect(closingTabPrompt.path);
   };
 
   const saveActiveTab = async () => {
@@ -781,10 +960,38 @@ const ExplorerComponent: React.FC = () => {
   // PERF-14: keep the ref pointing at the latest state & handlers
   latestRef.current = {
     selectedPaths, activeTabPath, openTabs, currentDirPath, files,
-    loadDirectory, openFile, saveActiveTab, openRenameModal, openNewItemModal,
+    loadDirectory, openFile, saveActiveTab, openRenameModal, openNewItemModal, openCompareImages,
   };
 
   const activeTab = openTabs.find(t => t.path === activeTabPath);
+
+  const openMediaTabs = useMemo(
+    () => openTabs.filter(t => t.fileType === "image" || isSvgFile(t)),
+    [openTabs]
+  );
+
+  const compareCandidates = useMemo(() => {
+    const map = new Map<string, { path: string; name: string; fileType: "image" | "svg"; fileSize?: number }>();
+    openMediaTabs.forEach(t => {
+      map.set(t.path, {
+        path: t.path,
+        name: t.name,
+        fileType: isSvgFile(t) ? "svg" : "image",
+        fileSize: t.fileSize,
+      });
+    });
+    files.forEach(f => {
+      if (!f.is_dir && isMediaCompareFile(f.name) && !map.has(f.path)) {
+        map.set(f.path, {
+          path: f.path,
+          name: f.name,
+          fileType: getFileType(f.name) === "svg" ? "svg" : "image",
+          fileSize: f.size,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [openMediaTabs, files]);
 
   // SEC-8 + PERF-5: script-free preview (sandbox=""), debounced so typing
   // doesn't tear down and rebuild the iframe on every keystroke
@@ -838,6 +1045,16 @@ const ExplorerComponent: React.FC = () => {
       currentSelection = [entry.path];
       setSelectedPaths([entry.path]);
     }
+    const sCtx = latestRef.current;
+    const selectedMediaFiles = currentSelection
+      .map((path: string) => (sCtx.files as FileEntry[]).find(f => f.path === path))
+      .filter((f: FileEntry | undefined): f is FileEntry => Boolean(f && !f.is_dir && isMediaCompareFile(f.name)));
+    const isSingleMedia = !entry.is_dir && isMediaCompareFile(entry.name);
+    const hasCompareTab = (sCtx.openTabs as OpenTab[]).some(t => t.path === COMPARE_TAB_PATH);
+    const openMediaList = (sCtx.openTabs as OpenTab[]).filter(
+      t => (t.fileType === "image" || isSvgFile(t)) && t.path !== entry.path
+    );
+
     showContextMenu(e, [
       {
         label: currentSelection.length > 1 ? `Open Selected (${currentSelection.length})` : `Open ${entry.name}`,
@@ -847,26 +1064,82 @@ const ExplorerComponent: React.FC = () => {
           if (entry.is_dir && currentSelection.length === 1) {
             s.loadDirectory(entry.path);
           } else {
-            currentSelection.forEach(async (path) => {
-              const fileObj = s.files.find(f => f.path === path);
+            currentSelection.forEach(async (path: string) => {
+              const fileObj = s.files.find((f: FileEntry) => f.path === path);
               if (fileObj && !fileObj.is_dir) s.openFile(fileObj);
             });
           }
+        }
+      },
+      ...(selectedMediaFiles.length >= 2 ? [{
+        label: `Compare Selected (${selectedMediaFiles.length} Images / SVGs)`,
+        icon: <Columns size={13} />,
+        onClick: () => latestRef.current.openCompareImages(selectedMediaFiles, "replace"),
+      }] : isSingleMedia ? [
+        ...(hasCompareTab ? [{
+          label: "Add to Image Comparison",
+          icon: <Plus size={13} />,
+          onClick: () => latestRef.current.openCompareImages([entry], "append"),
+        }] : []),
+        {
+          label: openMediaList.length > 0
+            ? `Compare with Open Media (${openMediaList.length + 1})`
+            : "Open in Compare Image Mode",
+          icon: <Columns size={13} />,
+          onClick: () => latestRef.current.openCompareImages(
+            openMediaList.length > 0 ? [entry, ...openMediaList] : [entry],
+            "replace"
+          ),
+        },
+      ] : []),
+      { label: "", isSeparator: true },
+      {
+        label: "Reveal in File Manager",
+        onClick: () => {
+          invoke("open_in_file_manager", { path: entry.path }).catch(() => {});
+        }
+      },
+      {
+        label: "Copy Path",
+        onClick: () => {
+          navigator.clipboard.writeText(entry.path);
         }
       },
       { label: "", isSeparator: true },
       { label: "Rename", shortcut: "F2", disabled: currentSelection.length > 1, onClick: () => latestRef.current.openRenameModal(entry.path) },
       {
         label: "Delete", shortcut: "Del",
-        disabled: currentSelection.some(p => p.includes("composer.toml")),
+        disabled: currentSelection.some((p: string) => p.includes("composer.toml")),
         onClick: () => {
           if (confirm(`Are you sure you want to delete ${currentSelection.length} selected item(s)?`)) {
-            Promise.all(currentSelection.map(path => invoke("delete_file_or_dir", { path })))
-              .then(() => {
+            Promise.all(currentSelection.map((path: string) => invoke("delete_file_or_dir", { path })))
+              .then(async () => {
+                // If any deleted item was a nested workspace or worktree, clean it up
+                for (const delPath of currentSelection) {
+                  const matchingWt = worktrees.find(
+                    w => w.root_path === delPath || delPath.startsWith(w.root_path)
+                  );
+                  if (matchingWt) {
+                    try {
+                      await removeWorktree(matchingWt.id, false);
+                    } catch (e) {
+                      console.warn("Could not remove deleted worktree:", e);
+                    }
+                  }
+                }
+
+                // If no more worktrees remain in the workspace, or the active one was deleted, revert to main workspace
+                const remainingWts = worktrees.filter(
+                  w => !currentSelection.some((delPath: string) => w.root_path === delPath || delPath.startsWith(w.root_path))
+                );
+                if (remainingWts.length === 0 || (activeWorktreeId && currentSelection.some((p: string) => worktrees.find(w => w.id === activeWorktreeId)?.root_path === p))) {
+                  await switchWorktree(null);
+                }
+
                 setSelectedPaths([]);
                 const s = latestRef.current;
                 s.loadDirectory(s.currentDirPath);
-                const remainingTabs = s.openTabs.filter(t => !currentSelection.includes(t.path));
+                const remainingTabs = s.openTabs.filter((t: OpenTab) => !currentSelection.includes(t.path));
                 setOpenTabs(remainingTabs);
                 if (s.activeTabPath && currentSelection.includes(s.activeTabPath)) {
                   setActiveTabPath(remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1].path : null);
@@ -875,19 +1148,49 @@ const ExplorerComponent: React.FC = () => {
               .catch(err => alert(err));
           }
         }
-      }
+      },
+      ...(entry.is_dir ? [
+        { label: "", isSeparator: true },
+        {
+          label: "Promote to Worktree",
+          icon: <GitBranch size={13} />,
+          onClick: async () => {
+            try {
+              await invoke("create_worktree", {
+                name: entry.name,
+                rootPath: entry.path,
+                parentWorkspaceId: "",
+              });
+              await emit("config_updated");
+              alert(`Folder '${entry.name}' successfully promoted to a Worktree!`);
+            } catch (err: any) {
+              alert("Failed to promote to worktree: " + (err?.toString() || err));
+            }
+          },
+        },
+        {
+          label: "Open as Active Workspace",
+          icon: <FolderOpen size={13} />,
+          onClick: () => window.dispatchEvent(new CustomEvent("composer:open-as-workspace", { detail: { path: entry.path } })),
+        },
+      ] : []),
     ]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [worktrees, activeWorktreeId, removeWorktree, switchWorktree]);
 
   const handleSidebarBlankRightClick = (e: React.MouseEvent) => {
     showContextMenu(e, [
       { label: "New File",         icon: <Plus size={13} />,       shortcut: "Ctrl+N", onClick: () => openNewItemModal("file") },
       { label: "New Folder",       icon: <Folder size={13} />,                          onClick: () => openNewItemModal("folder") },
+      { label: "New Workspace Here...", icon: <FolderPlus size={13} />,                onClick: () => setIsNestedWorkspaceModalOpen(true) },
       { label: "Import Files...",  icon: <Upload size={13} />,                          onClick: () => openNewItemModal("import-file") },
       { label: "Import Folders...",icon: <FolderPlus size={13} />,                      onClick: () => openNewItemModal("import-folder") },
       { label: "", isSeparator: true },
-      { label: "Refresh List",     icon: <RotateCw size={13} />,                        onClick: () => loadDirectory(currentDirPath) }
+      { label: "Reveal in File Manager", onClick: () => { invoke("open_in_file_manager", { path: currentDirPath }).catch(() => {}); } },
+      { label: "Refresh List",     icon: <RotateCw size={13} />,                        onClick: () => loadDirectory(currentDirPath) },
+      { label: "", isSeparator: true },
+      { label: "Switch Workspace...", icon: <FolderOpen size={13} />, onClick: () => window.dispatchEvent(new CustomEvent("composer:open-workspace-switcher")) },
+      { label: "New Worktree...",     icon: <GitBranch size={13} />, onClick: () => window.dispatchEvent(new CustomEvent("composer:create-worktree")) },
     ]);
   };
 
@@ -995,6 +1298,56 @@ const ExplorerComponent: React.FC = () => {
             />
           ))}
         </div>
+
+        {/* Bulk Operations Bar */}
+        {selectedPaths.length > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-1.5 px-3 py-2 border-t border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)] text-[11px] select-none flex-shrink-0 animate-fadein">
+            <span className="font-semibold text-[var(--accent)] font-mono text-[10.5px]">
+              {selectedPaths.length} selected
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(() => {
+                const mediaSel = files.filter(
+                  f => !f.is_dir && selectedPathSet.has(f.path) && isMediaCompareFile(f.name)
+                );
+                if (mediaSel.length < 2) return null;
+                return (
+                  <button
+                    onClick={() => openCompareImages(mediaSel, "replace")}
+                    className="px-2 py-1 rounded font-medium transition-colors cursor-pointer text-[10.5px] flex items-center gap-1"
+                    style={{ backgroundColor: "var(--accent)", color: "#FFFFFF" }}
+                    title={`Open ${mediaSel.length} images/SVGs together in Compare Mode`}
+                  >
+                    <Columns size={11} />
+                    <span>Compare ({mediaSel.length})</span>
+                  </button>
+                );
+              })()}
+              <button
+                onClick={() => {
+                  const toDelete = selectedPaths.filter(p => !p.includes("composer.toml"));
+                  if (confirm(`Delete ${toDelete.length} selected items?`)) {
+                    Promise.all(toDelete.map(path => invoke("delete_file_or_dir", { path })))
+                      .then(() => {
+                        setSelectedPaths([]);
+                        loadDirectory(currentDirPath);
+                      });
+                  }
+                }}
+                className="px-2 py-1 rounded bg-[rgba(239,68,68,0.12)] text-[#ef4444] hover:bg-[rgba(239,68,68,0.22)] border border-[rgba(239,68,68,0.25)] font-medium transition-colors cursor-pointer text-[10.5px]"
+                title="Delete selected items"
+              >
+                Delete All
+              </button>
+              <button
+                onClick={() => setSelectedPaths([])}
+                className="px-2 py-1 rounded hover:bg-[var(--sidebar-nav-hover-bg)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[10.5px]"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Resize Handle ──────────────────────────────────────── */}
@@ -1019,6 +1372,9 @@ const ExplorerComponent: React.FC = () => {
                 onClick={() => setActiveTabPath(tab.path)}
                 className={`exp-tab ${activeTabPath === tab.path ? "active" : ""}`}
               >
+                {tab.fileType === "image-compare" && (
+                  <Columns size={11} style={{ color: "var(--accent)", flexShrink: 0 }} />
+                )}
                 <span style={{ fontSize: "12px" }}>{tab.name}</span>
                 {tab.isModified && <span className="exp-tab-modified-dot" title="Unsaved changes" />}
                 <button
@@ -1059,17 +1415,36 @@ const ExplorerComponent: React.FC = () => {
 
               {/* Toolstrip */}
               <div className="exp-toolstrip">
-                <div className="exp-toolstrip-left">
-                  <span className="exp-mode-label">
-                    {isSvgFile(activeTab)
+                <div className="exp-toolstrip-left flex items-center gap-2 min-w-0">
+                  <span className="text-[11px] font-mono text-[var(--text-muted)] truncate max-w-xs" title={activeTab.path}>
+                    {activeTab.fileType === "image-compare"
+                      ? "Unified Multi-Image / SVG Workspace"
+                      : activeTab.path.replace(workspaceRootPath, "").replace(/^[\\\/]/, "") || activeTab.name}
+                  </span>
+                  <span className="exp-mode-label shrink-0">
+                    {activeTab.fileType === "image-compare"
+                      ? `COMPARE · ${activeTab.compareItems?.length ?? 0} MEDIA`
+                      : isSvgFile(activeTab)
                       ? `SVG · ${activeSvgMode}`
                       : isMdFile(activeTab)
                       ? `MD · ${activeMdMode}`
                       : activeTab.fileType}
                   </span>
 
+                  {activeTab.fileType !== "image-compare" && (
+                    activeTab.isModified ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                        Unsaved
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]/20 shrink-0">
+                        Saved
+                      </span>
+                    )
+                  )}
+
                   {activeTab.isModified && (
-                    <button onClick={saveActiveTab} className="exp-save-btn">
+                    <button onClick={saveActiveTab} className="exp-save-btn cursor-pointer">
                       <Save size={10} />
                       <span>Save</span>
                     </button>
@@ -1077,20 +1452,59 @@ const ExplorerComponent: React.FC = () => {
                 </div>
 
                 <div className="exp-toolstrip-right">
+                  {/* Compare Images / SVGs button on single media tabs */}
+                  {(activeTab.fileType === "image" || isSvgFile(activeTab)) && (
+                    <>
+                      {openTabs.some(t => t.path === COMPARE_TAB_PATH) && (
+                        <button
+                          onClick={() => openCompareImages([activeTab], "append")}
+                          className="exp-icon-btn cursor-pointer"
+                          title="Add this file to active Image Comparison tab"
+                        >
+                          <Plus size={11} />
+                          <span>Add to Compare</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() =>
+                          openCompareImages(
+                            openMediaTabs.length >= 2 ? openMediaTabs : [activeTab],
+                            "replace"
+                          )
+                        }
+                        className="exp-icon-btn cursor-pointer"
+                        title={
+                          openMediaTabs.length >= 2
+                            ? `Compare all ${openMediaTabs.length} open images & SVGs together`
+                            : "Open in unified Multi-Image / SVG Compare Mode"
+                        }
+                      >
+                        <Columns size={11} />
+                        <span>
+                          {openMediaTabs.length >= 2
+                            ? `Compare All (${openMediaTabs.length})`
+                            : "Compare Media"}
+                        </span>
+                      </button>
+                    </>
+                  )}
+
                   {/* Versions button */}
-                  <button
-                    onClick={() => {
-                      setShowHistory(!showHistory);
-                      if (fileVersions.length === 0) {
-                        setFileVersions([{ version: 1, timestamp: "Initial Open", content: activeTab.content }]);
-                      }
-                    }}
-                    className={`exp-icon-btn ${showHistory ? "active" : ""}`}
-                    title="Version History"
-                  >
-                    <History size={11} />
-                    <span>Versions</span>
-                  </button>
+                  {activeTab.fileType !== "image-compare" && (
+                    <button
+                      onClick={() => {
+                        setShowHistory(!showHistory);
+                        if (fileVersions.length === 0) {
+                          setFileVersions([{ version: 1, timestamp: "Initial Open", content: activeTab.content }]);
+                        }
+                      }}
+                      className={`exp-icon-btn ${showHistory ? "active" : ""}`}
+                      title="Version History"
+                    >
+                      <History size={11} />
+                      <span>Versions</span>
+                    </button>
+                  )}
 
                   {/* SVG mode toggle */}
                   {isSvgFile(activeTab) && (
@@ -1169,8 +1583,43 @@ const ExplorerComponent: React.FC = () => {
               }>
                 <div style={{ flex: 1, display: "flex", overflow: "hidden", borderLeft: "0", borderRight: "0" }}>
 
-                  {/* Full-screen SVG preview */}
-                  {isSvgFile(activeTab) && activeSvgMode === "preview" ? (
+                  {/* Unified Multi-Image / Multi-SVG Compare mode */}
+                  {activeTab.fileType === "image-compare" ? (
+                    <div style={{ flex: 1, overflow: "hidden" }}>
+                      <MediaCompareViewer
+                        items={activeTab.compareItems || []}
+                        onRemoveItem={removeCompareItem}
+                        onAddItems={cands => openCompareImages(cands, "append")}
+                        onOpenSingle={item => {
+                          const match = files.find(f => f.path === item.path);
+                          if (match) {
+                            openFile(match);
+                            return;
+                          }
+                          const existing = openTabs.find(t => t.path === item.path);
+                          if (existing) {
+                            setActiveTabPath(existing.path);
+                            return;
+                          }
+                          setOpenTabs(prev => [
+                            ...prev,
+                            {
+                              path: item.path,
+                              name: item.name,
+                              content: item.srcOrContent,
+                              originalContent: item.srcOrContent,
+                              isModified: false,
+                              fileType: item.fileType,
+                              fileSize: item.fileSize,
+                              svgViewMode: item.fileType === "svg" ? "preview" : undefined,
+                            },
+                          ]);
+                          setActiveTabPath(item.path);
+                        }}
+                        availableCandidates={compareCandidates}
+                      />
+                    </div>
+                  ) : isSvgFile(activeTab) && activeSvgMode === "preview" ? (
                     <div style={{ flex: 1, overflow: "hidden" }}>
                       <SvgPreview svgContent={activeTab.content} fileName={activeTab.name} fileSize={activeTab.fileSize} />
                     </div>
@@ -1511,6 +1960,64 @@ const ExplorerComponent: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── Unsaved Changes Tab Close Modal ─────────────────── */}
+      {closingTabPrompt && (
+        <div className="dlg-overlay">
+          <div className="dlg-panel dlg-panel--sm">
+            <div className="dlg-header">
+              <div className="dlg-title-group">
+                <span className="dlg-title-icon text-amber-400">
+                  <AlertCircle size={15} />
+                </span>
+                <span className="dlg-title">Unsaved Changes</span>
+              </div>
+              <button className="dlg-close-btn" onClick={() => setClosingTabPrompt(null)}>
+                <X size={14} />
+              </button>
+            </div>
+            <div className="dlg-body">
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                You have unsaved changes in <code className="text-[var(--accent)] font-semibold">{closingTabPrompt.name}</code>.
+                Do you want to save your edits before closing?
+              </p>
+            </div>
+            <div className="dlg-footer">
+              <button
+                type="button"
+                className="dlg-btn-cancel"
+                onClick={() => setClosingTabPrompt(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 cursor-pointer"
+                onClick={() => closeTabDirect(closingTabPrompt.path)}
+              >
+                Don't Save
+              </button>
+              <button
+                type="button"
+                className="dlg-btn-confirm"
+                onClick={handleSaveAndClosePrompt}
+              >
+                Save &amp; Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Modal for Creating Nested Workspace */}
+      <CreateNestedWorkspaceModal
+        isOpen={isNestedWorkspaceModalOpen}
+        onClose={() => setIsNestedWorkspaceModalOpen(false)}
+        parentDir={currentDirPath}
+        onCreated={() => {
+          loadDirectory(currentDirPath);
+        }}
+      />
 
       {ContextMenuComponent}
     </div>

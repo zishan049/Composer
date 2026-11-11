@@ -105,7 +105,9 @@ mod tests {
         let dir = std::env::temp_dir().join("composer_session_test_dir_a");
         allowed.insert(dir.clone());
 
-        let outside = std::env::temp_dir().join("composer_session_test_dir_b").join("secret.txt");
+        let outside = std::env::temp_dir()
+            .join("composer_session_test_dir_b")
+            .join("secret.txt");
         assert!(!is_in_allowed_set(&allowed, &outside));
     }
 
@@ -116,7 +118,8 @@ mod tests {
         allowed.insert(dir.clone());
 
         // A path sharing a prefix but leaving the registered directory must fail.
-        let sibling = dir.with_file_name(format!("{}x", dir.file_name().unwrap().to_string_lossy()));
+        let sibling =
+            dir.with_file_name(format!("{}x", dir.file_name().unwrap().to_string_lossy()));
         assert!(!is_in_allowed_set(&allowed, &sibling));
     }
 }

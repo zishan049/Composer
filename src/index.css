@@ -3,25 +3,25 @@
 /* ── Composer 2.0 Design System ─────────────────────────────── */
 @import "./styles/tokens.css";
 @import "./styles/shell.css";
+@import "./styles/home.css";
 @import "./styles/explorer.css";
 @import "./styles/settings.css";
-@import "./styles/home.css";
 @import "./styles/dialogs.css";
 @import "./styles/components.css";
 @import "./styles/onboarding.css";
 
 /* ── Tailwind theme bridge (maps tokens → Tailwind color classes) */
 /* NOTE: Tailwind v4 @theme requires static values, not var().
-   These match the Black/White Minimalist defaults; JS in App.tsx overrides at runtime. */
+   These match the Quantum Blue defaults; JS in App.tsx overrides at runtime. */
 @theme {
-  /* Minimalist B&W defaults — overridden by JS applyTheme() at runtime */
-  --color-paper:      #000000;
-  --color-ink:        #FFFFFF;
-  --color-cream:      #0F0F0F;
-  --color-muted:      #71717A;
-  --color-accent:     #FFFFFF;
-  --color-rule:       #27272A;
-  --color-light-rule: #18181B;
+  /* Quantum Blue Dark defaults — overridden by JS applyThemeToDocument() at runtime */
+  --color-paper:      #0B0F19;
+  --color-ink:        #F0F4F8;
+  --color-cream:      #121829;
+  --color-muted:      #8B9BB4;
+  --color-accent:     #2457FF;
+  --color-rule:       #1E293B;
+  --color-light-rule: #121829;
 
   /* Font references */
   --font-serif-display: "Inter", sans-serif;
@@ -32,19 +32,19 @@
 /* ── Base layer ──────────────────────────────────────────────── */
 @layer base {
   :root {
-    /* Legacy Tailwind CSS vars: Minimalist B&W defaults */
-    --theme-paper:      #000000;
-    --theme-ink:        #FFFFFF;
-    --theme-cream:      #0F0F0F;
-    --theme-muted:      #71717A;
-    --theme-accent:     #FFFFFF;
-    --theme-rule:       rgba(255, 255, 255, 0.10);
-    --theme-light-rule: rgba(255, 255, 255, 0.06);
+    /* Legacy Tailwind CSS vars: Quantum Blue Dark defaults */
+    --theme-paper:      #0B0F19;
+    --theme-ink:        #F0F4F8;
+    --theme-cream:      #121829;
+    --theme-muted:      #8B9BB4;
+    --theme-accent:     #2457FF;
+    --theme-rule:       rgba(223, 247, 255, 0.10);
+    --theme-light-rule: rgba(223, 247, 255, 0.06);
   }
 
   html, body {
-    background-color: var(--bg-app, #000000);
-    color: var(--text-primary, #FFFFFF);
+    background-color: var(--bg-app, #0B0F19);
+    color: var(--text-primary, #F0F4F8);
     font-family: var(--font-ui);
     font-size: 13px;
     line-height: 1.5;
@@ -61,9 +61,38 @@
     font-family: var(--font-ui);
   }
 
-  select option {
-    background-color: var(--bg-surface-elevated, #171717);
-    color: var(--text-primary, #FFFFFF);
+  select {
+    color-scheme: dark;
+    background-color: #121829;
+    color: #F0F4F8;
+  }
+
+  select option,
+  select optgroup {
+    background-color: #121829 !important;
+    color: #F0F4F8 !important;
+  }
+
+  select option:hover,
+  select option:focus,
+  select option:checked {
+    background-color: #2457FF !important;
+    color: #FFFFFF !important;
+  }
+
+  .theme-light select,
+  [data-theme="light"] select {
+    color-scheme: light;
+    background-color: #FFFFFF;
+    color: #0A1128;
+  }
+
+  .theme-light select option,
+  .theme-light select optgroup,
+  [data-theme="light"] select option,
+  [data-theme="light"] select optgroup {
+    background-color: #FFFFFF !important;
+    color: #0A1128 !important;
   }
 }
 
@@ -128,7 +157,7 @@
   text-transform: uppercase;
   margin-top: 1rem;
   margin-bottom: 0.4rem;
-  color: var(--color-accent);
+  color: var(--accent-text, var(--color-accent));
 }
 
 .md-preview-prose p {
@@ -165,7 +194,7 @@
 }
 
 .md-preview-prose a {
-  color: var(--color-accent);
+  color: var(--accent-text, var(--color-accent));
   text-decoration: underline;
   text-underline-offset: 3px;
   transition: opacity 0.2s ease;
@@ -205,7 +234,7 @@
   padding: 0.5rem 0.85rem;
 }
 .md-preview-prose tr:hover td {
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--sidebar-nav-hover-bg);
 }
 
 /* Inline code */
@@ -216,7 +245,7 @@
   border: 1px solid var(--color-light-rule);
   padding: 0.15em 0.4em;
   border-radius: 3px;
-  color: var(--color-accent);
+  color: var(--accent-text, var(--color-accent));
 }
 
 /* Blockquotes */
@@ -224,7 +253,7 @@
   border-left: 3px solid var(--color-accent);
   padding: 0.6rem 1.25rem;
   margin: 1rem 0;
-  background-color: rgba(229, 180, 95, 0.05);
+  background-color: rgba(36, 87, 255, 0.06);
   font-style: italic;
 }
 
@@ -280,7 +309,7 @@
   top: 1px;
   width: 4px;
   height: 8px;
-  border: solid #1A1510;
+  border: solid #FFFFFF;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { 
   ZoomIn, ZoomOut, Maximize2, RotateCcw, RotateCw, 
@@ -306,7 +305,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const handleMouseUp = () => setIsPanning(false);
 
   // Click Canvas (Handles Eyedropper Copy or Double Click)
-  const handleCanvasClick = (e: React.MouseEvent) => {
+  const handleCanvasClick = () => {
     if (isEyedropperActive && hoveredColor) {
       navigator.clipboard.writeText(hoveredColor.hex);
       showToast(`Copied ${hoveredColor.hex}`, (
@@ -544,7 +543,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
               onClick={() => setBgMode("grid")}
               title="Theme Grid Background"
               className={`p-1 rounded-sm transition-colors ${
-                bgMode === "grid" ? "bg-accent text-paper shadow-xs" : "text-muted hover:text-ink"
+                bgMode === "grid" ? "bg-accent text-white shadow-xs" : "text-muted hover:text-ink"
               }`}
             >
               <Grid size={11} />
@@ -553,7 +552,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
               onClick={() => setBgMode("checker")}
               title="Transparency Checkerboard (for PNG / WebP)"
               className={`px-1.5 py-0.5 text-[9px] uppercase font-bold rounded-sm transition-colors ${
-                bgMode === "checker" ? "bg-accent text-paper shadow-xs" : "text-muted hover:text-ink"
+                bgMode === "checker" ? "bg-accent text-white shadow-xs" : "text-muted hover:text-ink"
               }`}
             >
               Alpha
@@ -562,7 +561,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
               onClick={() => setBgMode("paper")}
               title="Solid Theme Paper"
               className={`px-1.5 py-0.5 text-[9px] uppercase font-bold rounded-sm transition-colors ${
-                bgMode === "paper" ? "bg-accent text-paper shadow-xs" : "text-muted hover:text-ink"
+                bgMode === "paper" ? "bg-accent text-white shadow-xs" : "text-muted hover:text-ink"
               }`}
             >
               Paper
@@ -571,7 +570,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
               onClick={() => setBgMode("dark")}
               title="Obsidian Dark Background"
               className={`p-1 rounded-sm transition-colors ${
-                bgMode === "dark" ? "bg-accent text-paper shadow-xs" : "text-muted hover:text-ink"
+                bgMode === "dark" ? "bg-accent text-white shadow-xs" : "text-muted hover:text-ink"
               }`}
             >
               <Moon size={11} />
@@ -580,7 +579,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
               onClick={() => setBgMode("light")}
               title="Pure White Background"
               className={`p-1 rounded-sm transition-colors ${
-                bgMode === "light" ? "bg-accent text-paper shadow-xs" : "text-muted hover:text-ink"
+                bgMode === "light" ? "bg-accent text-white shadow-xs" : "text-muted hover:text-ink"
               }`}
             >
               <Sun size={11} />
@@ -593,7 +592,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
             title={isPixelated ? "Crisp Pixelated Mode: ON (Nearest-Neighbor)" : "Crisp Pixelated Mode: OFF (Smooth Bilinear)"}
             className={`p-1 rounded border transition-colors flex items-center gap-1 text-[10px] font-mono ${
               isPixelated 
-                ? "bg-accent text-paper border-accent shadow-xs font-bold" 
+                ? "bg-accent text-white border-accent shadow-xs font-bold" 
                 : "bg-cream/60 border-rule/50 text-muted hover:text-ink hover:bg-cream"
             }`}
           >
@@ -614,7 +613,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
             title="Eyedropper: Inspect and copy hex color (Key: I)"
             className={`p-1 rounded border transition-colors flex items-center gap-1 text-[10px] ${
               isEyedropperActive 
-                ? "bg-accent text-paper border-accent shadow-xs font-bold ring-1 ring-accent/30" 
+                ? "bg-accent text-white border-accent shadow-xs font-bold ring-1 ring-accent/30" 
                 : "bg-cream/60 border-rule/50 text-muted hover:text-ink hover:bg-cream"
             }`}
           >
@@ -708,7 +707,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
               onClick={handleToggleFlipH}
               title="Flip Horizontal (Key: H)"
               className={`p-1 rounded-sm transition-colors ${
-                flipH ? "bg-accent text-paper shadow-xs" : "text-muted hover:text-ink hover:bg-cream"
+                flipH ? "bg-accent text-white shadow-xs" : "text-muted hover:text-ink hover:bg-cream"
               }`}
             >
               <FlipHorizontal2 size={11} />
@@ -717,7 +716,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
               onClick={handleToggleFlipV}
               title="Flip Vertical (Key: V)"
               className={`p-1 rounded-sm transition-colors ${
-                flipV ? "bg-accent text-paper shadow-xs" : "text-muted hover:text-ink hover:bg-cream"
+                flipV ? "bg-accent text-white shadow-xs" : "text-muted hover:text-ink hover:bg-cream"
               }`}
             >
               <FlipVertical2 size={11} />

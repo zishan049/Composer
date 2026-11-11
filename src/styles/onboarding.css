@@ -24,12 +24,12 @@
   position: relative;
   width: 100%;
   max-width: 500px;
-  background: var(--bg-surface, #0F0F0F);
-  border: 1px solid var(--border-default, rgba(255,255,255,0.12));
+  background: var(--bg-surface-elevated, #121829);
+  border: 1px solid var(--border-strong, rgba(36, 87, 255, 0.35));
   border-radius: 12px;
   padding: 40px 40px 36px;
   overflow: hidden;
-  box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  box-shadow: var(--shadow-dialog, 0 32px 80px rgba(0,0,0,0.6));
 }
 
 /* Progress dots */
@@ -255,8 +255,8 @@
   align-items: center;
   gap: 6px;
   padding: 9px 20px;
-  background: var(--accent, #FFFFFF);
-  color: var(--bg-app, #000000);
+  background: var(--accent, #2457FF);
+  color: #FFFFFF;
   border: none;
   border-radius: 6px;
   font-size: 13px;

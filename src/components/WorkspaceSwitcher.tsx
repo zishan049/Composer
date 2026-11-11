@@ -69,7 +69,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
       <div
-        className="relative w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150"
+        className="relative w-full max-w-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-strong)] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
         aria-labelledby="workspace-modal-title"
@@ -146,7 +146,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                   <span className="text-xs font-bold text-[var(--text-primary)] truncate">
                     {currentName}
                   </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-[var(--accent)] text-[#0B0D0F]">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-[var(--accent)] text-white">
                     Current
                   </span>
                 </div>

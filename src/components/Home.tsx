@@ -1,45 +1,42 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FileText,
   FileCode,
   Folder,
   Image as ImageIcon,
   Table as TableIcon,
-  Search,
+  HardDrive,
+  Clock,
+  ExternalLink,
   Plus,
   FolderPlus,
-  Upload,
-  FolderOpen,
-  X,
-  Clock,
-  File as FileIcon,
-  HardDrive,
   Files,
   Folders,
+  PieChart,
   Copy,
   Check,
-  ExternalLink,
-  PieChart,
   AlertTriangle,
+  GitBranch,
+  File,
+  ArrowRight,
 } from "lucide-react";
-import { FileEntry, RecentFile, RecentWorkspace, WorkspaceStats, SearchResult } from "../types";
+import { RecentWorkspace, FileEntry, WorkspaceStats } from "../types";
 import {
   getWorkspaceStats,
-  getCachedWorkspaceIndex,
-  listAllWorkspaceFiles,
-  searchWorkspace,
   inspectPaths,
   openInFileManager,
 } from "../lib/api";
 import {
   getRecentFiles,
-  removeRecentFile,
   formatRelativeTime,
 } from "../utils/recentFiles";
 import { SvgFileIcon } from "./SvgFileIcon";
 import { MarkdownFileIcon } from "./MarkdownFileIcon";
+import GlideSelect from "./GlideSelect";
+import { listen } from "@tauri-apps/api/event";
 
 interface HomeProps {
+  workspacePath?: string;
   onNavigate: (page: string) => void;
   onOpenRecentFile: (path: string, filename: string) => void;
   onNewFile: () => void;
@@ -61,7 +58,40 @@ function formatFileSize(bytes?: number): string {
   return `${val} ${sizes[i] || "B"}`;
 }
 
-const HomeClock: React.FC = () => {
+function getFileCategoryGroup(filename: string): "images" | "docs" | "code" {
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  if (["png", "jpg", "jpeg", "webp", "gif", "ico", "svg", "bmp"].includes(ext)) return "images";
+  if (["md", "markdown", "txt", "pdf", "doc", "docx", "rtf"].includes(ext)) return "docs";
+  return "code";
+}
+
+function getShortParentLabel(filePath: string, workspacePath?: string): string {
+  const normalizedFile = filePath.replace(/^\\\\\?\\/, "").replace(/\\/g, "/");
+  const normalizedWs = (workspacePath || "").replace(/^\\\\\?\\/, "").replace(/\\/g, "/").replace(/\/+$/, "");
+  if (normalizedWs && normalizedFile.toLowerCase().startsWith(normalizedWs.toLowerCase() + "/")) {
+    const rel = normalizedFile.slice(normalizedWs.length + 1);
+    const idx = rel.lastIndexOf("/");
+    return idx > 0 ? rel.slice(0, idx) : "Workspace Root";
+  }
+  const parts = normalizedFile.split("/").filter(Boolean);
+  return parts.length >= 2 ? parts[parts.length - 2] : "Local";
+}
+
+export const Home: React.FC<HomeProps> = ({
+  workspacePath,
+  onNavigate,
+  onOpenRecentFile,
+  onNewFile,
+  onNewFolder,
+  onOpenProject,
+}) => {
+  const [stats, setStats] = useState<WorkspaceStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [copiedPath, setCopiedPath] = useState(false);
+  const [recentFiles, setRecentFiles] = useState<Array<{ path: string; filename: string; lastOpened: number }>>([]);
+  const [availablePaths, setAvailablePaths] = useState<Set<string>>(new Set());
+  const [recentFilter, setRecentFilter] = useState<string>("all");
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -81,76 +111,24 @@ const HomeClock: React.FC = () => {
     return currentDate.toLocaleTimeString(undefined, {
       hour: "2-digit",
       minute: "2-digit",
-      hour12: true,
     });
   }, [currentDate]);
 
-  return (
-    <div className="home-datetime" aria-label="Current date and time">
-      <span className="home-datetime-date">{formattedDate}</span>
-      <span className="home-datetime-time">{formattedTime}</span>
-    </div>
-  );
-};
-
-const HomeComponent: React.FC<HomeProps> = ({
-  onNavigate,
-  onOpenRecentFile,
-  onNewFile,
-  onNewFolder,
-  onImport,
-  onOpenProject,
-  recentWorkspaces = [],
-  onSelectWorkspace,
-  onRemoveRecentWorkspace,
-}) => {
-  const [stats, setStats] = useState<WorkspaceStats | null>(null);
-  const [workspaceFiles, setWorkspaceFiles] = useState<FileEntry[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
-  const [copiedPath, setCopiedPath] = useState<boolean>(false);
-
-  // Tab selection: "recent" (opened files) vs "modified" (on disk) vs "workspaces"
-  const [activeTab, setActiveTab] = useState<"recent" | "modified" | "workspaces">("recent");
-
-  // Load real workspace stats and files
-  const loadWorkspaceData = useCallback(async () => {
+  // Load workspace statistics
+  const fetchStats = useCallback(async () => {
     setIsLoadingStats(true);
     setStatsError(null);
     try {
-      const realStats = await getWorkspaceStats();
-      setStats(realStats);
-
-      try {
-        const cached = await getCachedWorkspaceIndex();
-        if (cached && cached.length > 0) {
-          setWorkspaceFiles(cached);
-        } else {
-          const fresh = await listAllWorkspaceFiles();
-          setWorkspaceFiles(fresh);
-        }
-      } catch {
-        // Fallback for empty workspace
-      }
-    } catch (err: any) {
-      console.warn("Failed to load workspace data:", err);
-      setStatsError(err?.toString() || "Could not read workspace");
+      const s = await getWorkspaceStats();
+      setStats(s);
+    } catch (err: unknown) {
+      setStatsError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoadingStats(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadWorkspaceData();
-    const handleConfigUpdate = () => loadWorkspaceData();
-    window.addEventListener("composer:recent-files-updated", handleConfigUpdate);
-    return () => window.removeEventListener("composer:recent-files-updated", handleConfigUpdate);
-  }, [loadWorkspaceData]);
-
-  // Recent Files
-  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
-  const [availablePaths, setAvailablePaths] = useState<Set<string>>(new Set());
-
+  // Load recent files
   const refreshRecent = useCallback(async () => {
     const list = getRecentFiles();
     setRecentFiles(list);
@@ -167,103 +145,22 @@ const HomeComponent: React.FC<HomeProps> = ({
     }
   }, []);
 
+  // Refresh on mount and whenever workspacePath changes
   useEffect(() => {
+    fetchStats();
     refreshRecent();
-  }, [refreshRecent]);
+  }, [workspacePath, fetchStats, refreshRecent]);
 
-  // Recently modified on disk
-  const recentlyModifiedFiles = useMemo(() => {
-    return workspaceFiles
-      .filter((f) => !f.is_dir && f.modified_ms)
-      .sort((a, b) => (b.modified_ms || 0) - (a.modified_ms || 0))
-      .slice(0, 15);
-  }, [workspaceFiles]);
-
-  // Top file types breakdown from real stats
-  const topFileTypes = useMemo(() => {
-    if (!stats?.file_types) return [];
-    return Object.entries(stats.file_types)
-      .filter(([ext]) => ext && ext !== "other")
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 4);
-  }, [stats]);
-
-  // Quick Search State
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-  const [isSearching, setIsSearching] = useState<boolean>(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
+  // Listen for config_updated events
   useEffect(() => {
-    const q = searchQuery.trim();
-    if (!q) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-
-    let isCancelled = false;
-    setIsSearching(true);
-    const timer = setTimeout(async () => {
-      try {
-        const results = await searchWorkspace(q);
-        if (!isCancelled) {
-          setSearchResults(results);
-          setSelectedIndex(-1);
-        }
-      } catch {
-        if (!isCancelled) setSearchResults([]);
-      } finally {
-        if (!isCancelled) setIsSearching(false);
-      }
-    }, 70);
-
+    const unlisten = listen("config_updated", () => {
+      fetchStats();
+      refreshRecent();
+    });
     return () => {
-      isCancelled = true;
-      clearTimeout(timer);
+      unlisten.then(fn => fn());
     };
-  }, [searchQuery]);
-
-  const handleSelectSearchResult = (entry: SearchResult) => {
-    setSearchQuery("");
-    setIsSearchFocused(false);
-    const filename = entry.name.split(/[\\\/]/).pop() || entry.name;
-    if (entry.is_dir) {
-      onNavigate("Explorer");
-      setTimeout(() => {
-        window.dispatchEvent(
-          new CustomEvent("composer:open-file", {
-            detail: { path: entry.path, is_dir: true },
-          })
-        );
-      }, 50);
-    } else {
-      onOpenRecentFile(entry.path, filename);
-    }
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelectedIndex((prev) => (prev + 1 < searchResults.length ? prev + 1 : 0));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedIndex((prev) => (prev - 1 >= 0 ? prev - 1 : searchResults.length - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (selectedIndex >= 0 && selectedIndex < searchResults.length) {
-        handleSelectSearchResult(searchResults[selectedIndex]);
-      } else if (searchResults.length > 0) {
-        handleSelectSearchResult(searchResults[0]);
-      }
-    } else if (e.key === "Escape") {
-      setIsSearchFocused(false);
-      searchInputRef.current?.blur();
-    }
-  };
+  }, [fetchStats, refreshRecent]);
 
   const copyPathToClipboard = () => {
     if (stats?.workspace_path) {
@@ -282,483 +179,349 @@ const HomeComponent: React.FC<HomeProps> = ({
   };
 
   const getFileIcon = (filename: string, isDir?: boolean) => {
-    const iconProps = { size: 14, style: { color: "var(--text-muted)", flexShrink: 0 } };
-    if (isDir) return <Folder {...iconProps} style={{ color: "var(--accent)" }} />;
+    const iconProps = { size: 15, className: "shrink-0 text-[var(--text-muted)]" };
+    if (isDir) return <Folder {...iconProps} className="text-[var(--accent)] shrink-0" />;
     const ext = filename.split(".").pop()?.toLowerCase();
-    if (ext === "svg") return <SvgFileIcon {...iconProps} />;
+    if (ext === "svg") return <SvgFileIcon size={15} />;
     if (ext === "md" || ext === "markdown")
-      return <MarkdownFileIcon {...iconProps} style={{ color: "var(--accent)" }} />;
+      return <MarkdownFileIcon size={15} style={{ color: "var(--accent)" }} />;
     if (ext === "txt") return <FileText {...iconProps} />;
     if (["png", "jpg", "jpeg", "webp", "gif", "ico"].includes(ext || ""))
-      return <ImageIcon {...iconProps} />;
+      return <ImageIcon {...iconProps} style={{ color: "var(--accent-text, var(--accent))" }} />;
     if (ext === "pdf") return <FileText {...iconProps} style={{ color: "#F87171" }} />;
     if (["csv", "json", "toml"].includes(ext || "")) return <TableIcon {...iconProps} />;
     if (["js", "ts", "jsx", "tsx", "html", "css", "rs", "py"].includes(ext || ""))
-      return <FileCode {...iconProps} />;
-    return <FileIcon {...iconProps} />;
+      return <FileCode {...iconProps} style={{ color: "var(--accent-rose, #00D4FF)" }} />;
+    return <File {...iconProps} />;
   };
 
-  const isWorkspaceEmpty = stats && stats.file_count === 0 && stats.folder_count === 0;
+  const topFileTypes = useMemo(() => {
+    if (!stats || !stats.file_types) return [];
+    return Object.entries(stats.file_types)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
+  }, [stats]);
+
+  const filteredRecentFiles = useMemo(() => {
+    if (recentFilter === "all") return recentFiles;
+    return recentFiles.filter(f => getFileCategoryGroup(f.filename) === recentFilter);
+  }, [recentFiles, recentFilter]);
 
   return (
-    <div className="home-root">
-      <div className="home-container">
-        {/* Real-time Date and Time */}
-        <HomeClock />
+    <div className="c2-home">
+      <div className="c2-home-inner">
 
-        {/* ── Active Workspace Header ───────────────────────────── */}
-        <div className="home-workspace-header">
-          <div className="home-workspace-info min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="home-workspace-badge">Active Workspace</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--accent)]">
-                Local-First
+        {/* ── Minimal Header ────────────────────────────────────── */}
+        <div className="c2-home-header">
+          <div>
+            <h1 className="c2-home-title">Overview</h1>
+            <p className="c2-home-subtitle">
+              Workspace summary and recent files for{" "}
+              <span className="font-medium text-[var(--text-secondary)]">
+                {stats?.workspace_name || "Composer"}
               </span>
-            </div>
-            <h1 className="home-workspace-name truncate">
-              {stats?.workspace_name || "Active Project"}
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="home-workspace-path font-mono text-[11px] truncate max-w-md" title={stats?.workspace_path || ""}>
-                {stats?.workspace_path || "Loading workspace path..."}
-              </span>
-              <button
-                onClick={copyPathToClipboard}
-                className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-nav-hover-bg)] cursor-pointer transition-colors"
-                title="Copy directory path"
-              >
-                {copiedPath ? <Check size={12} className="text-[var(--accent)]" /> : <Copy size={12} />}
-              </button>
-            </div>
+            </p>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleOpenFileManager}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-surface-elevated)] hover:bg-[var(--sidebar-nav-hover-bg)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-              title="Open folder in File Explorer / Finder"
-            >
-              <ExternalLink size={13} />
-              <span>Reveal in File Manager</span>
-            </button>
-            <button
-              onClick={onOpenProject}
-              className="home-workspace-change-btn cursor-pointer"
-              title="Switch or manage project workspaces"
-            >
-              Switch Workspace
-            </button>
+          <div className="c2-home-clock-pill">
+            <span className="font-medium">{formattedDate}</span>
+            <span className="opacity-35">•</span>
+            <span className="font-mono text-[var(--text-muted)]">{formattedTime}</span>
           </div>
         </div>
 
-        {/* Error notification if directory missing/moved */}
+        {/* Missing Folder Warning */}
         {statsError && (
-          <div className="flex items-center justify-between gap-3 p-3 mb-5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={15} className="shrink-0" />
+              <AlertTriangle size={14} className="shrink-0" />
               <span>Workspace directory is unavailable or was moved: {statsError}</span>
             </div>
             <button
               onClick={onOpenProject}
-              className="px-2.5 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-200 font-medium cursor-pointer"
+              className="px-2.5 py-1 rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-300 font-medium cursor-pointer"
             >
               Locate Folder
             </button>
           </div>
         )}
 
-        {/* ── Real Metric Summary Cards ─────────────────────────── */}
-        <div className="home-stats-grid">
-          {/* Card 1: Files */}
-          <div className="home-stat-card">
-            <div className="home-stat-top">
-              <span className="home-stat-label">Files</span>
-              <Files size={15} className="home-stat-icon" />
-            </div>
-            <span className="home-stat-value">
-              {isLoadingStats ? "..." : stats?.file_count ?? 0}
-            </span>
-            <span className="home-stat-sub">Indexed files</span>
-          </div>
-
-          {/* Card 2: Folders */}
-          <div className="home-stat-card">
-            <div className="home-stat-top">
-              <span className="home-stat-label">Folders</span>
-              <Folders size={15} className="home-stat-icon" />
-            </div>
-            <span className="home-stat-value">
-              {isLoadingStats ? "..." : stats?.folder_count ?? 0}
-            </span>
-            <span className="home-stat-sub">Directories</span>
-          </div>
-
-          {/* Card 3: Size */}
-          <div className="home-stat-card">
-            <div className="home-stat-top">
-              <span className="home-stat-label">Workspace Volume</span>
-              <HardDrive size={15} className="home-stat-icon" />
-            </div>
-            <span className="home-stat-value">
-              {isLoadingStats ? "..." : formatFileSize(stats?.total_size_bytes)}
-            </span>
-            <span className="home-stat-sub">Total size on disk</span>
-          </div>
-
-          {/* Card 4: File Types Breakdown */}
-          <div className="home-stat-card">
-            <div className="home-stat-top">
-              <span className="home-stat-label">Composition</span>
-              <PieChart size={15} className="home-stat-icon" />
-            </div>
-            {topFileTypes.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {topFileTypes.map(([ext, count]) => (
-                  <span
-                    key={ext}
-                    className="text-[10.5px] px-2 py-0.5 rounded font-mono font-medium bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-primary)]"
-                  >
-                    .{ext} <span className="text-[var(--accent)] font-bold">{count}</span>
-                  </span>
-                ))}
+        {/* ── Unified Big Overview Bento Card ───────────────────── */}
+        <div className="c2-bento-card c2-bento-hero p-5 sm:p-6 flex flex-col gap-5">
+          {/* Top: Workspace Identity & Actions */}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3.5 min-w-0 flex-1">
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor: "var(--accent-soft)",
+                  color: "var(--accent-text, var(--accent))",
+                  border: "1px solid var(--border-strong)",
+                }}
+              >
+                <Folder size={20} />
               </div>
-            ) : (
-              <span className="home-stat-value text-sm font-medium text-[var(--text-muted)]">
-                {isLoadingStats ? "Analyzing..." : "No files indexed"}
-              </span>
-            )}
-            <span className="home-stat-sub">Dominant extensions</span>
-          </div>
-        </div>
-
-        {/* ── Global Search Bar ─────────────────────────────────── */}
-        <div className="home-search-wrapper">
-          <div
-            className={`home-search-bar ${isSearchFocused ? "focused" : ""}`}
-            onClick={() => searchInputRef.current?.focus()}
-          >
-            <Search size={16} className="home-search-icon" />
-            <input
-              id="home-search-input"
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search filename, relative path, or text content..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => {
-                setTimeout(() => setIsSearchFocused(false), 200);
-              }}
-              onKeyDown={handleSearchKeyDown}
-              className="home-search-input"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            {isSearching && (
-              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                Searching...
-              </span>
-            )}
-            <kbd className="home-search-kbd">Ctrl K</kbd>
-          </div>
-
-          {/* Search Dropdown */}
-          {isSearchFocused && searchQuery.trim().length > 0 && (
-            <div ref={dropdownRef} className="home-search-dropdown">
-              {searchResults.length > 0 ? (
-                searchResults.map((item, idx) => (
-                  <button
-                    key={`${item.path}-${idx}`}
-                    className={`home-search-item ${idx === selectedIndex ? "selected" : ""}`}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleSelectSearchResult(item);
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)] truncate">
+                    {stats?.workspace_name || "Active Workspace"}
+                  </span>
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
+                    style={{
+                      backgroundColor: "var(--accent-soft)",
+                      color: "var(--accent-text, var(--accent))",
                     }}
                   >
-                    {getFileIcon(item.name, item.is_dir)}
-                    <div className="home-search-item-info">
-                      <div className="flex items-center gap-2">
-                        <span className="home-search-item-name">{item.name}</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded font-medium bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--accent)]">
-                          {item.match_type.replace("_", " ")}
-                        </span>
-                      </div>
-                      {item.snippet ? (
-                        <span className="home-search-item-path italic" style={{ color: "var(--text-secondary)" }}>
-                          Line {item.line_number}: "{item.snippet}"
-                        </span>
-                      ) : (
-                        <span className="home-search-item-path">{item.path}</span>
-                      )}
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="home-search-empty">
-                  {isSearching ? "Searching..." : `No files matching "${searchQuery}"`}
+                    Local-First
+                  </span>
                 </div>
-              )}
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span
+                    className="text-[11px] text-[var(--text-muted)] font-mono truncate max-w-lg"
+                    title={stats?.workspace_path || ""}
+                  >
+                    {stats?.workspace_path || "No folder selected"}
+                  </span>
+                  {stats?.workspace_path && (
+                    <button
+                      onClick={copyPathToClipboard}
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-0.5 rounded cursor-pointer transition-colors shrink-0"
+                      title="Copy path"
+                    >
+                      {copiedPath ? <Check size={11} className="text-[var(--accent-text,var(--accent))]" /> : <Copy size={11} />}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* ── Quick Action Cards ────────────────────────────────── */}
-        <div className="home-actions-grid">
-          <button onClick={onNewFile} className="home-action-card" title="Create a new file">
-            <div className="home-action-icon-box">
-              <Plus size={16} />
-            </div>
-            <span className="home-action-title">New File</span>
-            <span className="home-action-subtitle">Create Markdown, text, or code</span>
-          </button>
-
-          <button onClick={onNewFolder} className="home-action-card" title="Create a new folder">
-            <div className="home-action-icon-box">
-              <FolderPlus size={16} />
-            </div>
-            <span className="home-action-title">New Folder</span>
-            <span className="home-action-subtitle">Organize project structure</span>
-          </button>
-
-          <button onClick={onImport} className="home-action-card" title="Import external files">
-            <div className="home-action-icon-box">
-              <Upload size={16} />
-            </div>
-            <span className="home-action-title">Import</span>
-            <span className="home-action-subtitle">Add external documents or media</span>
-          </button>
-
-          <button onClick={() => onNavigate("Search")} className="home-action-card" title="Search workspace">
-            <div className="home-action-icon-box">
-              <Search size={16} />
-            </div>
-            <span className="home-action-title">Deep Search</span>
-            <span className="home-action-subtitle">Find across paths and content</span>
-          </button>
-        </div>
-
-        {/* ── Activity Sections (Recent Files / Modified / Recent Workspaces) ── */}
-        <div className="home-recent-section">
-          <div className="home-recent-header">
-            <div className="home-section-tabs">
+            <div className="flex items-center gap-2 shrink-0">
               <button
-                className={`home-tab-pill ${activeTab === "recent" ? "active" : ""}`}
-                onClick={() => setActiveTab("recent")}
+                onClick={handleOpenFileManager}
+                className="c2-bento-action"
+                title="Reveal in File Explorer"
               >
-                Recently Opened {recentFiles.length > 0 && `(${recentFiles.length})`}
+                <ExternalLink size={12} className="opacity-75" />
+                <span>Reveal</span>
               </button>
               <button
-                className={`home-tab-pill ${activeTab === "modified" ? "active" : ""}`}
-                onClick={() => setActiveTab("modified")}
+                onClick={onOpenProject}
+                className="px-3.5 py-1.5 rounded-[10px] text-xs font-semibold transition-all cursor-pointer shadow-sm hover:brightness-110"
+                style={{
+                  backgroundColor: "var(--accent)",
+                  color: "#FFFFFF",
+                }}
+                title="Switch to another directory"
               >
-                Recently Modified {recentlyModifiedFiles.length > 0 && `(${recentlyModifiedFiles.length})`}
+                Switch
               </button>
-              {recentWorkspaces.length > 0 && (
-                <button
-                  className={`home-tab-pill ${activeTab === "workspaces" ? "active" : ""}`}
-                  onClick={() => setActiveTab("workspaces")}
-                >
-                  Known Workspaces ({recentWorkspaces.length})
-                </button>
-              )}
             </div>
           </div>
 
-          {/* Tab 1: Recently Opened Files */}
-          {activeTab === "recent" && (
-            recentFiles.length > 0 ? (
-              <div className="home-recent-list">
-                {recentFiles.map((file) => {
-                  const isAvailable = availablePaths.has(file.path);
-                  return (
-                    <div
-                      key={file.path}
-                      className={`home-recent-row ${!isAvailable ? "unavailable" : ""}`}
-                      onClick={() => {
-                        if (!isAvailable) {
-                          if (confirm(`"${file.filename}" is unavailable. Remove from recents?`)) {
-                            removeRecentFile(file.path);
-                          }
-                          return;
-                        }
-                        onOpenRecentFile(file.path, file.filename);
-                      }}
-                      title={isAvailable ? file.path : "File not found on disk"}
-                    >
-                      <div className="home-recent-left">
-                        <div className="home-recent-icon">{getFileIcon(file.filename)}</div>
-                        <div className="home-recent-info">
-                          <span className="home-recent-filename">{file.filename}</span>
-                          <span className="home-recent-filepath font-mono">{file.path}</span>
-                        </div>
-                      </div>
+          {/* Middle: Integrated 4-Column Workspace Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="c2-hero-stat">
+              <div className="flex items-center justify-between text-[var(--text-muted)]">
+                <span className="text-[11px] font-medium">Indexed Files</span>
+                <Files size={14} style={{ color: "var(--accent-text, var(--accent))" }} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-2xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)]">
+                  {isLoadingStats ? "—" : stats?.file_count ?? 0}
+                </span>
+                <span className="block text-[10.5px] text-[var(--text-muted)] mt-0.5">
+                  Tracked in project
+                </span>
+              </div>
+            </div>
 
-                      <div className="home-recent-right">
-                        {!isAvailable && (
-                          <span className="home-recent-unavailable-badge">Unavailable</span>
-                        )}
-                        <span className="home-recent-time">
-                          {formatRelativeTime(file.lastOpened)}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeRecentFile(file.path);
-                          }}
-                          className="home-recent-remove-btn cursor-pointer"
-                          title="Remove from recents"
+            <div className="c2-hero-stat">
+              <div className="flex items-center justify-between text-[var(--text-muted)]">
+                <span className="text-[11px] font-medium">Directories</span>
+                <Folders size={14} style={{ color: "var(--accent-text, var(--accent))" }} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-2xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)]">
+                  {isLoadingStats ? "—" : stats?.folder_count ?? 0}
+                </span>
+                <span className="block text-[10.5px] text-[var(--text-muted)] mt-0.5">
+                  Subdirectories
+                </span>
+              </div>
+            </div>
+
+            <div className="c2-hero-stat">
+              <div className="flex items-center justify-between text-[var(--text-muted)]">
+                <span className="text-[11px] font-medium">Storage Volume</span>
+                <HardDrive size={14} style={{ color: "var(--accent-text, var(--accent))" }} />
+              </div>
+              <div className="mt-2.5">
+                <span className="text-2xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)]">
+                  {isLoadingStats ? "—" : formatFileSize(stats?.total_size_bytes)}
+                </span>
+                <span className="block text-[10.5px] text-[var(--text-muted)] mt-0.5">
+                  Total size on disk
+                </span>
+              </div>
+            </div>
+
+            <div className="c2-hero-stat">
+              <div className="flex items-center justify-between text-[var(--text-muted)]">
+                <span className="text-[11px] font-medium">Composition</span>
+                <PieChart size={14} style={{ color: "var(--accent-text, var(--accent))" }} />
+              </div>
+              <div className="mt-2.5">
+                {topFileTypes.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {topFileTypes.map(([ext, count]) => (
+                      <span key={ext} className="c2-format-chip">
+                        .{ext}{" "}
+                        <span
+                          className="font-semibold"
+                          style={{ color: "var(--accent-text, var(--accent))" }}
                         >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="home-recent-empty">
-                <Clock size={24} className="home-recent-empty-icon" />
-                <span className="home-recent-empty-title">No recent files yet</span>
-                <p className="home-recent-empty-desc">
-                  Files you open and edit in Composer will appear here for fast one-click access.
-                </p>
-              </div>
-            )
-          )}
-
-          {/* Tab 2: Recently Modified on Disk */}
-          {activeTab === "modified" && (
-            recentlyModifiedFiles.length > 0 ? (
-              <div className="home-recent-list">
-                {recentlyModifiedFiles.map((file) => {
-                  const filename = file.name.split(/[\\\/]/).pop() || file.name;
-                  return (
-                    <div
-                      key={file.path}
-                      className="home-recent-row"
-                      onClick={() => onOpenRecentFile(file.path, filename)}
-                      title={file.path}
-                    >
-                      <div className="home-recent-left">
-                        <div className="home-recent-icon">
-                          {getFileIcon(filename, file.is_dir)}
-                        </div>
-                        <div className="home-recent-info">
-                          <span className="home-recent-filename">{file.name}</span>
-                          <span className="home-recent-filepath font-mono">{file.path}</span>
-                        </div>
-                      </div>
-
-                      <div className="home-recent-right">
-                        <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                          {formatFileSize(file.size)}
+                          {count}
                         </span>
-                        {file.modified_ms && (
-                          <span className="home-recent-time">
-                            {formatRelativeTime(file.modified_ms)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-[var(--text-muted)]">No files indexed</span>
+                )}
               </div>
-            ) : (
-              <div className="home-recent-empty">
-                <Clock size={24} className="home-recent-empty-icon" />
-                <span className="home-recent-empty-title">No modified files indexed</span>
-                <p className="home-recent-empty-desc">
-                  Files in this workspace with timestamps will appear here in chronological order.
-                </p>
-              </div>
-            )
-          )}
+            </div>
+          </div>
 
-          {/* Tab 3: Recent Workspaces */}
-          {activeTab === "workspaces" && (
-            <div className="home-recent-list">
-              {recentWorkspaces.map((ws) => {
-                const isActive =
-                  ws.path.toLowerCase() === (stats?.workspace_path || "").toLowerCase();
+          {/* Bottom: Integrated Lightweight Quick Actions Strip */}
+          <div className="pt-4 border-t border-[var(--border-subtle)] flex items-center justify-between flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={onNewFile} className="c2-bento-action">
+                <span className="c2-bento-action-icon"><Plus size={13} /></span>
+                <span>New File</span>
+              </button>
+              <button onClick={onNewFolder} className="c2-bento-action">
+                <span className="c2-bento-action-icon"><FolderPlus size={13} /></span>
+                <span>New Folder</span>
+              </button>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("composer:create-worktree"))}
+                className="c2-bento-action"
+              >
+                <span className="c2-bento-action-icon"><GitBranch size={13} /></span>
+                <span>New Worktree</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => onNavigate("Explorer")}
+              className="inline-flex items-center gap-1.5 text-xs font-medium hover:underline cursor-pointer"
+              style={{ color: "var(--accent-text, var(--accent))" }}
+            >
+              <span>Open Files</span>
+              <ArrowRight size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* ── Clean Single-Surface Recent Files Grid ────────────── */}
+        <div className="flex flex-col gap-3.5 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <Clock size={14} style={{ color: "var(--accent-text, var(--accent))" }} />
+              <h2 className="text-[13px] font-semibold text-[var(--text-primary)] tracking-tight">
+                Recent Files
+              </h2>
+              <span className="text-[10.5px] px-2 py-0.5 rounded-full font-mono text-[var(--text-muted)] bg-[rgba(255,255,255,0.04)] border border-[var(--border-subtle)]">
+                {filteredRecentFiles.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <GlideSelect
+                size="sm"
+                menuWidth={160}
+                align="right"
+                ariaLabel="Filter recent files"
+                value={recentFilter}
+                onChange={val => setRecentFilter(val)}
+                options={[
+                  { value: "all",    label: "All Files",    tag: String(recentFiles.length) },
+                  { value: "images", label: "Images & SVG" },
+                  { value: "docs",   label: "Docs & PDF" },
+                  { value: "code",   label: "Code & Data" },
+                ]}
+              />
+
+              <button
+                onClick={() => onNavigate("Explorer")}
+                className="text-xs font-medium hover:underline cursor-pointer"
+                style={{ color: "var(--accent-text, var(--accent))" }}
+              >
+                View Files &rarr;
+              </button>
+            </div>
+          </div>
+
+          {filteredRecentFiles.length === 0 ? (
+            <div className="c2-bento-card p-8 text-center text-xs text-[var(--text-muted)]">
+              {recentFiles.length === 0
+                ? "No recently opened files in this workspace yet."
+                : "No recent files match this filter."}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {filteredRecentFiles.slice(0, 8).map((file) => {
+                const isAvailable = availablePaths.has(file.path);
+                const parentLabel = getShortParentLabel(file.path, workspacePath || stats?.workspace_path);
                 return (
                   <div
-                    key={ws.path}
-                    className={`home-recent-row ${isActive ? "border-[var(--accent)]/40 bg-[var(--accent-soft)]" : ""}`}
-                    onClick={() => onSelectWorkspace && onSelectWorkspace(ws.path)}
-                    title={ws.path}
+                    key={file.path}
+                    onClick={() => onOpenRecentFile(file.path, file.filename)}
+                    className="c2-bento-card c2-bento-file group"
                   >
-                    <div className="home-recent-left">
-                      <div className="home-recent-icon">
-                        <FolderOpen size={14} className={isActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]"} />
+                    <div className="flex items-center justify-between gap-2">
+                      <div
+                        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                        style={{
+                          backgroundColor: "var(--accent-soft)",
+                          color: "var(--accent-text, var(--accent))",
+                        }}
+                      >
+                        {getFileIcon(file.filename)}
                       </div>
-                      <div className="home-recent-info">
-                        <div className="flex items-center gap-2">
-                          <span className="home-recent-filename">{ws.name}</span>
-                          {isActive && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[var(--accent)] text-[#0B0D0F]">
-                              Active
-                            </span>
-                          )}
-                        </div>
-                        <span className="home-recent-filepath font-mono">{ws.path}</span>
-                      </div>
-                    </div>
-
-                    <div className="home-recent-right">
-                      {ws.last_opened > 0 && (
-                        <span className="home-recent-time">
-                          {formatRelativeTime(ws.last_opened)}
+                      {!isAvailable ? (
+                        <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-medium shrink-0">
+                          Unavailable
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-[var(--text-muted)] font-mono shrink-0">
+                          {formatRelativeTime(file.lastOpened)}
                         </span>
                       )}
-                      {onRemoveRecentWorkspace && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveRecentWorkspace(ws.path);
-                          }}
-                          className="home-recent-remove-btn cursor-pointer"
-                          title="Remove from recents (does not delete directory)"
-                        >
-                          <X size={12} />
-                        </button>
-                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <span
+                        className="text-[12.5px] font-semibold text-[var(--text-primary)] block truncate group-hover:text-[var(--accent-text,var(--accent))] transition-colors"
+                        title={file.filename}
+                      >
+                        {file.filename}
+                      </span>
+                      <span
+                        className="text-[10.5px] text-[var(--text-muted)] block truncate mt-0.5"
+                        title={file.path}
+                      >
+                        {parentLabel}
+                      </span>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-
-          {/* Empty workspace state */}
-          {isWorkspaceEmpty && (
-            <div className="home-recent-empty mt-4 p-8 rounded-xl border border-dashed border-[var(--border-subtle)]">
-              <FolderOpen size={32} style={{ color: "var(--accent)" }} />
-              <span className="text-sm font-semibold text-[var(--text-primary)]">
-                Workspace is empty
-              </span>
-              <p className="text-xs text-[var(--text-muted)] max-w-sm">
-                Get started by creating a new document or folder, or import project files from your computer.
-              </p>
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={onNewFile}
-                  className="px-3 py-1.5 rounded text-xs font-semibold bg-[var(--accent)] text-[#0B0D0F] hover:bg-[var(--accent-hover)] transition-colors cursor-pointer"
-                >
-                  Create First File
-                </button>
-                <button
-                  onClick={onImport}
-                  className="px-3 py-1.5 rounded text-xs font-medium bg-[var(--bg-surface-elevated)] text-[var(--text-primary)] border border-[var(--border-default)] hover:bg-[var(--sidebar-nav-hover-bg)] transition-colors cursor-pointer"
-                >
-                  Import Files
-                </button>
-              </div>
-            </div>
-          )}
         </div>
+
       </div>
     </div>
   );
 };
-
-export const Home = React.memo(HomeComponent);

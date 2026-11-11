@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Search, File, Folder, Sun, Moon, Plus, FolderPlus,
-  Upload, FolderOpen, RefreshCw, Settings, House
+  Upload, FolderOpen, RefreshCw, Settings, House, GitBranch
 } from "lucide-react";
 import { SearchResult } from "../types";
 import { searchWorkspace } from "../lib/api";
@@ -17,9 +17,9 @@ export interface CommandPaletteProps {
   onNewFolder: () => void;
   onImport: () => void;
   onOpenProject: () => void;
-  onToggleTheme: () => void;
+  onToggleTheme?: () => void;
   onRefreshIndex: () => void;
-  isDarkMode: boolean;
+  isDarkMode?: boolean;
 }
 
 interface PaletteAction {
@@ -45,6 +45,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isDarkMode,
 }) => {
   const [query, setQuery] = useState("");
+  const [filterTab, setFilterTab] = useState<"all" | "files" | "folders" | "actions">("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [fileResults, setFileResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -80,28 +81,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       perform: () => { onNavigate("Explorer"); onClose(); },
     },
     {
-      id: "nav-search",
-      category: "Navigation",
-      title: "Go to Search",
-      subtitle: "Deterministic workspace search",
-      icon: <Search size={14} />,
-      perform: () => { onNavigate("Search"); onClose(); },
-    },
-    {
-      id: "nav-recent",
-      category: "Navigation",
-      title: "Go to Recent Activity",
-      subtitle: "Recent files and workspaces",
-      icon: <House size={14} />,
-      perform: () => { onNavigate("Recent"); onClose(); },
-    },
-    {
       id: "nav-settings",
       category: "Navigation",
       title: "Go to Settings",
       subtitle: "Preferences, typography, and storage",
       icon: <Settings size={14} />,
       perform: () => { onNavigate("Settings"); onClose(); },
+    },
+    {
+      id: "action-new-worktree",
+      category: "Workspace",
+      title: "New Worktree",
+      subtitle: "Create a named worktree branch without Git",
+      icon: <GitBranch size={14} />,
+      perform: () => {
+        window.dispatchEvent(new CustomEvent("composer:create-worktree"));
+        onClose();
+      },
     },
     {
       id: "action-new-file",
@@ -143,14 +139,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: <RefreshCw size={14} />,
       perform: () => { onRefreshIndex(); onClose(); },
     },
-    {
-      id: "action-theme",
-      category: "Appearance",
-      title: isDarkMode ? "Switch to Light Theme" : "Switch to Dark Theme",
-      subtitle: "Toggle application appearance",
+    ...(onToggleTheme ? [{
+      id: "appearance-toggle-theme",
+      category: "Appearance" as const,
+      title: isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode",
+      subtitle: "Toggle Quantum Blue Light / Dark appearance",
       icon: isDarkMode ? <Sun size={14} /> : <Moon size={14} />,
       perform: () => { onToggleTheme(); onClose(); },
-    },
+    }] : []),
   ], [onNavigate, onClose, onNewFile, onNewFolder, onImport, onOpenProject, onRefreshIndex, onToggleTheme, isDarkMode]);
 
   // Search files dynamically when query changes
@@ -200,10 +196,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const combinedItems: CombinedItem[] = useMemo(() => {
     const items: CombinedItem[] = [];
-    matchedActions.forEach(a => items.push({ kind: "action", action: a }));
-    fileResults.forEach(r => items.push({ kind: "file", result: r }));
+    if (filterTab === "all" || filterTab === "actions") {
+      matchedActions.forEach(a => items.push({ kind: "action", action: a }));
+    }
+    if (filterTab === "all" || filterTab === "files" || filterTab === "folders") {
+      fileResults.forEach(r => {
+        if (filterTab === "folders" && !r.is_dir) return;
+        if (filterTab === "files" && r.is_dir) return;
+        items.push({ kind: "file", result: r });
+      });
+    }
     return items;
-  }, [matchedActions, fileResults]);
+  }, [matchedActions, fileResults, filterTab]);
 
   // Clamp selectedIndex
   useEffect(() => {
@@ -228,7 +232,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         current.action.perform();
       } else {
         const filename = current.result.name.split(/[\\\/]/).pop() || current.result.name;
-        onOpenFile(current.result.path, filename);
+        if (current.result.is_dir) {
+          onNavigate("Explorer");
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent("composer:open-file", { detail: { path: current.result.path, is_dir: true } })
+            );
+          }, 50);
+        } else {
+          onOpenFile(current.result.path, filename);
+        }
         onClose();
       }
     } else if (e.key === "Escape") {
@@ -256,8 +269,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       <div
         className="w-full max-w-xl flex flex-col rounded-xl overflow-hidden shadow-2xl"
         style={{
-          backgroundColor: "var(--bg-surface)",
-          border: "1px solid var(--border-default)",
+          backgroundColor: "var(--bg-surface-elevated)",
+          backdropFilter: "blur(16px)",
+          border: "1px solid var(--border-strong)",
           boxShadow: "var(--shadow-dialog)",
         }}
         onClick={e => e.stopPropagation()}
@@ -296,6 +310,28 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           >
             Esc
           </kbd>
+        </div>
+
+        {/* Category Filter Pills (v0.4 Unified Search) */}
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)] text-xs">
+          {[
+            { id: "all", label: "All" },
+            { id: "files", label: "Files" },
+            { id: "folders", label: "Folders" },
+            { id: "actions", label: "Commands" },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterTab(tab.id as any)}
+              className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer ${
+                filterTab === tab.id
+                  ? "bg-[var(--accent)] text-white shadow-xs"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-nav-hover-bg)]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Results List */}
@@ -372,7 +408,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   onMouseEnter={() => setSelectedIndex(idx)}
                   onClick={() => {
                     const filename = item.result.name.split(/[\\\/]/).pop() || item.result.name;
-                    onOpenFile(item.result.path, filename);
+                    if (item.result.is_dir) {
+                      onNavigate("Explorer");
+                      setTimeout(() => {
+                        window.dispatchEvent(
+                          new CustomEvent("composer:open-file", { detail: { path: item.result.path, is_dir: true } })
+                        );
+                      }, 50);
+                    } else {
+                      onOpenFile(item.result.path, filename);
+                    }
                     onClose();
                   }}
                 >

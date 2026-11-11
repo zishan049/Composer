@@ -1,6 +1,10 @@
 // -------------------------------------------------------------
 // APP CONFIGURATION TYPE DEFINITIONS
 // -------------------------------------------------------------
+//
+// v0.4 — Added Worktree types, FileIntelligence types,
+//         per-document dirty state, search filter types
+// -------------------------------------------------------------
 export interface GeneralConfig {
   app_name: string;
   language: string;
@@ -43,7 +47,7 @@ export interface ThemeConfig {
   reduce_motion: boolean;
   
   // Custom layout properties
-  nav_layout: string; // "sidebar" | "vertical_pills" | "top_navbar"
+  nav_layout: "top_navbar" | "bottom_navbar" | string;
   nav_sidebar_width: number;
   nav_show_app_label: boolean;
   nav_show_status_bar: boolean;
@@ -102,4 +106,123 @@ export interface SearchResult {
   score: number;
   snippet?: string;
   line_number?: number;
+}
+
+export type SearchFilterType = "all" | "md" | "code" | "data" | "text" | "image" | "config";
+
+export interface SearchFilters {
+  type: SearchFilterType;
+  extension?: string;
+  folder?: string;
+}
+
+// -------------------------------------------------------------
+// WORKTREE TYPES (v0.4)
+// -------------------------------------------------------------
+
+export type WorktreeId = string;
+
+export interface WorktreeMetadata {
+  id: WorktreeId;
+  name: string;
+  parent_workspace_id: string;
+  root_path: string;
+  created_ms: number;
+  last_opened_ms: number;
+}
+
+export interface ParentWorkspace {
+  id: string;
+  name: string;
+  root_path: string;
+  worktrees: WorktreeMetadata[];
+  active_worktree_id: WorktreeId | null;
+  created_ms: number;
+  last_opened_ms: number;
+}
+
+export interface WorktreeState {
+  worktree_id: WorktreeId;
+  open_tab_paths: string[];
+  active_tab_path: string | null;
+  scroll_positions: Record<string, number>;
+  cursor_positions: Record<string, { line: number; column: number }>;
+}
+
+// -------------------------------------------------------------
+// FILE INTELLIGENCE TYPES (v0.4)
+// -------------------------------------------------------------
+
+export type FileCategory =
+  | "code"
+  | "document"
+  | "markdown"
+  | "image"
+  | "media"
+  | "data"
+  | "config"
+  | "other";
+
+export interface FileIntelligenceEntry {
+  path: string;
+  name: string;
+  extension: string;
+  category: FileCategory;
+  size_bytes: number;
+  modified_ms: number;
+  created_ms?: number;
+  mime_type?: string;
+  line_count?: number;
+  is_binary: boolean;
+}
+
+export interface FileRelationship {
+  source_path: string;
+  target_path: string;
+  relationship_type:
+    | "html_references_css"
+    | "html_references_js"
+    | "md_links_to"
+    | "imports"
+    | "config_for";
+  confidence: "high" | "medium";
+}
+
+// -------------------------------------------------------------
+// BULK OPERATIONS (v0.4)
+// -------------------------------------------------------------
+
+export interface BulkOperationItem {
+  path: string;
+  name: string;
+  is_dir: boolean;
+}
+
+export type BulkOperationType = "move" | "delete" | "rename_batch";
+
+export interface BulkOperationPlan {
+  type: BulkOperationType;
+  items: BulkOperationItem[];
+  destination?: string;
+  collision_count: number;
+  warnings: string[];
+}
+
+export interface BulkOperationResult {
+  succeeded: string[];
+  failed: { path: string; error: string }[];
+}
+
+// -------------------------------------------------------------
+// PER-DOCUMENT DIRTY STATE (v0.4)
+// -------------------------------------------------------------
+
+export interface DocumentDirtyState {
+  path: string;
+  is_dirty: boolean;
+}
+
+export interface WorkspaceDirtyState {
+  documents: Record<string, boolean>;
+  has_any_dirty: boolean;
 }

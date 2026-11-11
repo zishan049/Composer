@@ -131,14 +131,14 @@ pub fn create_default_config(_storage_root: &Path) -> AppConfig {
             total_version_storage_limit_mb: 100,
         },
         theme: ThemeConfig {
-            theme_preset: "dark".to_string(), // Minimalist B&W default
-            accent_color: "#FFFFFF".to_string(),
+            theme_preset: "dark".to_string(),
+            accent_color: "#E6D5C3".to_string(),
             background_override: "".to_string(),
             font_family_ui: "modern_sans".to_string(),
             font_size_ui: 14,
             compact_mode: false,
             reduce_motion: false,
-            nav_layout: "sidebar".to_string(),
+            nav_layout: "top_navbar".to_string(),
             nav_sidebar_width: 240,
             nav_show_app_label: true,
             nav_show_status_bar: true,

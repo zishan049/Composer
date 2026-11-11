@@ -8,6 +8,7 @@ import {
   FolderCheck,
 } from "lucide-react";
 import { AppConfig } from "../types";
+import { ComposerLogo } from "./ComposerLogo";
 
 // ─────────────────────────────────────────────
 // Types
@@ -45,7 +46,7 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
     <div className="ob-step">
       <StepDots current={0} />
       <div className="ob-icon ob-icon--app">
-        <img src="/icon.ico" alt="Composer" draggable={false} style={{ width: 70, height: 70, objectFit: "contain" }} />
+        <ComposerLogo size={70} />
       </div>
       <p className="ob-step-badge">Step 1 of 4</p>
       <h1 className="ob-title">Welcome to Composer</h1>

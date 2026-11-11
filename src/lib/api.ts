@@ -1,7 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
-import { AppConfig, FileEntry, WorkspaceStats, SearchResult } from "../types";
+import {
+  AppConfig, FileEntry, WorkspaceStats, SearchResult,
+  ParentWorkspace, WorktreeMetadata, WorktreeState,
+  FileIntelligenceEntry, FileRelationship
+} from "../types";
 
-export type { WorkspaceStats, SearchResult };
+export type {
+  WorkspaceStats, SearchResult,
+  ParentWorkspace, WorktreeMetadata, WorktreeState,
+  FileIntelligenceEntry, FileRelationship
+};
 
 // ── Config commands ──────────────────────────────────────────
 export const getAppConfig = (): Promise<AppConfig> =>
@@ -112,3 +120,57 @@ export const importThemeToml = (importPath: string): Promise<AppConfig["theme"]>
 // ── System ────────────────────────────────────────────────────
 export const getSystemRamUsage = (): Promise<number> =>
   invoke("get_system_ram_usage");
+
+export const getSystemCpuUsage = (): Promise<number> =>
+  invoke("get_system_cpu_usage");
+
+// ── Worktree commands (v0.4) ──────────────────────────────────
+export const getParentWorkspace = (workspacePath: string): Promise<ParentWorkspace | null> =>
+  invoke("get_parent_workspace", { workspacePath });
+
+export const createWorktree = (
+  workspacePath: string,
+  name: string,
+  relativePath: string
+): Promise<WorktreeMetadata> =>
+  invoke("create_worktree", { workspacePath, name, relativePath });
+
+export const renameWorktree = (
+  workspacePath: string,
+  worktreeId: string,
+  newName: string
+): Promise<WorktreeMetadata> =>
+  invoke("rename_worktree", { workspacePath, worktreeId, newName });
+
+export const setActiveWorktree = (
+  workspacePath: string,
+  worktreeId: string | null
+): Promise<void> =>
+  invoke("set_active_worktree", { workspacePath, worktreeId });
+
+export const removeWorktree = (
+  workspacePath: string,
+  worktreeId: string,
+  deleteFiles: boolean = false
+): Promise<void> =>
+  invoke("remove_worktree", { workspacePath, worktreeId, deleteFiles });
+
+export const saveWorktreeState = (
+  workspacePath: string,
+  worktreeId: string,
+  state: WorktreeState
+): Promise<void> =>
+  invoke("save_worktree_state", { workspacePath, worktreeId, state });
+
+export const loadWorktreeState = (
+  workspacePath: string,
+  worktreeId: string
+): Promise<WorktreeState | null> =>
+  invoke("load_worktree_state", { workspacePath, worktreeId });
+
+// ── File Intelligence commands (v0.4) ─────────────────────────
+export const getFileIntelligence = (): Promise<FileIntelligenceEntry[]> =>
+  invoke("get_file_intelligence");
+
+export const getFileRelationships = (): Promise<FileRelationship[]> =>
+  invoke("get_file_relationships");

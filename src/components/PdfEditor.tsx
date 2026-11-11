@@ -404,7 +404,7 @@ const PdfEditor: React.FC<PdfEditorProps> = ({ filePath, base64DataUrl, onSaved 
           disabled={!hasEdits || saving}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-sm font-sans-meta text-[10px] uppercase font-semibold transition-all
             ${hasEdits && !saving
-              ? "bg-accent text-paper hover:bg-accent/90 cursor-pointer"
+              ? "bg-accent text-white hover:bg-accent/90 cursor-pointer"
               : "bg-white/10 text-white/30 cursor-not-allowed"}`}
         >
           {saving ? <Loader size={10} className="animate-spin" /> : <Save size={10} />}

@@ -3,7 +3,7 @@ import {
   House, Folder, Settings as SettingsIcon,
   RefreshCw, Sun, Moon, Minus, Square, X,
   HardDrive, ArrowUpCircle, Download, Search,
-  Clock, ChevronDown
+  Clock, ChevronDown, Sparkles,
 } from "lucide-react";
 
 import { invoke } from "@tauri-apps/api/core";
@@ -11,69 +11,212 @@ import { listen, emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "./types";
 import { openWorkspaceDir, removeRecentWorkspace } from "./lib/api";
-import { applyTypographyToRoot } from "./utils/fonts";
+import {
+  applyThemeToDocument,
+  migrateLegacyThemeConfig,
+  QUANTUM_DARK_OVERRIDES,
+  QUANTUM_LIGHT_OVERRIDES,
+  THEME_VERSION,
+} from "./utils/theme";
 import { Onboarding } from "./components/Onboarding";
 import { CommandPalette } from "./components/CommandPalette";
 import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
+import { WorktreeProvider } from "./lib/WorktreeContext";
+import { WorktreeSwitcher } from "./components/WorktreeManager";
+import { DirtyStateProvider } from "./lib/DirtyStateContext";
+import GhostFibers from "./components/GhostFibers";
+import { ComposerLogo } from "./components/ComposerLogo";
 
 // Page Components (Code-split with React.lazy for instant startup)
-const Home       = React.lazy(() => import("./components/Home").then(m => ({ default: m.Home })));
-const Explorer   = React.lazy(() => import("./components/Explorer").then(m => ({ default: m.Explorer })));
-const SearchView = React.lazy(() => import("./components/SearchView").then(m => ({ default: m.SearchView })));
-const RecentView = React.lazy(() => import("./components/RecentView").then(m => ({ default: m.RecentView })));
-const Settings   = React.lazy(() => import("./components/Settings").then(m => ({ default: m.Settings })));
+const Home           = React.lazy(() => import("./components/Home").then(m => ({ default: m.Home })));
+const Explorer       = React.lazy(() => import("./components/Explorer").then(m => ({ default: m.Explorer })));
+const Settings       = React.lazy(() => import("./components/Settings").then(m => ({ default: m.Settings })));
 
 // ─────────────────────────────────────────────
 // Valid Pages
 // ─────────────────────────────────────────────
-const VALID_PAGES = ["Home", "Explorer", "Search", "Recent", "Settings"];
+const VALID_PAGES = ["Home", "Explorer", "Settings"];
 
 // ─────────────────────────────────────────────
-// Navigation definition (Overview, Files, Search, Recent, Settings)
+// Navigation definition
 // ─────────────────────────────────────────────
 const NAV_ITEMS = [
-  { name: "Home",     label: "Overview", icon: <House        size={14} className="nav-icon-home"     /> },
-  { name: "Explorer", label: "Files",    icon: <Folder       size={14} className="nav-icon-explorer" /> },
-  { name: "Search",   label: "Search",   icon: <Search       size={14} className="nav-icon-search"   /> },
-  { name: "Recent",   label: "Recent",   icon: <Clock        size={14} className="nav-icon-recent"   /> },
-  { name: "Settings", label: "Settings", icon: <SettingsIcon size={14} className="nav-icon-settings" /> },
+  { name: "Home",     label: "Overview",        icon: <House        size={14} className="nav-icon-home"     /> },
+  { name: "Explorer", label: "Files",           icon: <Folder       size={14} className="nav-icon-explorer" /> },
+  { name: "Settings", label: "Settings",        icon: <SettingsIcon size={14} className="nav-icon-settings" /> },
 ];
 
 // ─────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────
 
-// PERF-7: leaf component — the 2s RAM poll re-renders only this readout,
+// PERF-7: leaf component — the 15s telemetry poll re-renders only these circular rings,
 // not the whole app tree (Explorer's file list, Home, etc.)
-function RamUsageText() {
-  const [pct, setPct] = useState<number>(0);
+function CircularUsageMeter({
+  label,
+  value,
+  baseColor,
+  updatedAt,
+}: {
+  label: string;
+  value: number;
+  baseColor: string;
+  updatedAt?: string;
+}) {
+  const clamped = Math.max(0, Math.min(100, value));
+  const visualPct = clamped > 0 ? Math.max(4, clamped) : 0;
+  const r = 6.5;
+  const circumference = 2 * Math.PI * r;
+  const dashOffset = circumference * (1 - visualPct / 100);
+  const strokeColor =
+    clamped >= 88
+      ? "#EF4444"
+      : clamped >= 68
+        ? "#F59E0B"
+        : baseColor;
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 select-none"
+      title={updatedAt ? `${label} Utilization: ${clamped}% (Updated ${updatedAt})` : `${label} Utilization: ${clamped}%`}
+      aria-label={`${label} Utilization: ${clamped}%`}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 18 18"
+        className="shrink-0"
+        aria-hidden="true"
+      >
+        <circle
+          cx="9"
+          cy="9"
+          r={r}
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.18"
+          strokeWidth="2.4"
+        />
+        <circle
+          cx="9"
+          cy="9"
+          r={r}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          transform="rotate(-90 9 9)"
+          style={{
+            transition: "stroke-dashoffset 450ms cubic-bezier(0.23, 1, 0.32, 1), stroke 250ms ease",
+          }}
+        />
+        <circle
+          cx="9"
+          cy="9"
+          r="1.5"
+          fill={strokeColor}
+          fillOpacity="0.85"
+        />
+      </svg>
+      <span className="font-mono text-[10px] font-medium tracking-wide text-[var(--text-muted)]">
+        {label}
+      </span>
+    </span>
+  );
+}
+
+const TELEMETRY_INTERVAL_MS = 15000;
+
+function SystemResourceMeters() {
+  const [cpuPct, setCpuPct] = useState<number>(0);
+  const [ramPct, setRamPct] = useState<number>(0);
+  const [updatedAt, setUpdatedAt] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
-    const fetchRam = async () => {
+    let inFlight = false;
+    let lastFetchMs = 0;
+
+    const fetchStats = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
       try {
-        const value: number = await invoke("get_system_ram_usage");
-        if (!cancelled) setPct(value);
-      } catch { /* ignore */ }
+        const [cpuRes, ramRes] = await Promise.allSettled([
+          invoke<number>("get_system_cpu_usage"),
+          invoke<number>("get_system_ram_usage"),
+        ]);
+        if (cancelled) return;
+        let updated = false;
+        if (cpuRes.status === "fulfilled" && typeof cpuRes.value === "number") {
+          setCpuPct(cpuRes.value);
+          updated = true;
+        }
+        if (ramRes.status === "fulfilled" && typeof ramRes.value === "number") {
+          setRamPct(ramRes.value);
+          updated = true;
+        }
+        if (updated) {
+          lastFetchMs = Date.now();
+          setUpdatedAt(new Date().toLocaleTimeString(undefined, {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }));
+        }
+      } catch {
+        /* ignore telemetry errors */
+      } finally {
+        inFlight = false;
+      }
     };
-    fetchRam();
-    const ramTimer = setInterval(fetchRam, 2000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && Date.now() - lastFetchMs >= 10000) {
+        fetchStats();
+      }
+    };
+
+    fetchStats();
+    const timer = setInterval(fetchStats, TELEMETRY_INTERVAL_MS);
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       cancelled = true;
-      clearInterval(ramTimer);
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 
-  return <>{pct}%</>;
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      <CircularUsageMeter
+        label="CPU"
+        value={cpuPct}
+        baseColor="var(--accent-rose, #00D4FF)"
+        updatedAt={updatedAt}
+      />
+      <CircularUsageMeter
+        label="RAM"
+        value={ramPct}
+        baseColor="var(--accent-text, var(--accent))"
+        updatedAt={updatedAt}
+      />
+    </span>
+  );
 }
 
 function App() {
   const [activePage,  setActivePage]  = useState<string>("Home");
   const [config,      setConfig]      = useState<AppConfig | null>(null);
-  const [navLayout,   setNavLayout]   = useState<string>("sidebar");
+  const normalizeNavLayout = (layout?: string): "top_navbar" | "bottom_navbar" => {
+    return layout === "bottom_navbar" ? "bottom_navbar" : "top_navbar";
+  };
+  const [navLayout,   setNavLayout]   = useState<"top_navbar" | "bottom_navbar">("top_navbar");
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   const [isWorkspaceSwitcherOpen, setIsWorkspaceSwitcherOpen] = useState<boolean>(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const hasAppliedLaunchPageRef = React.useRef<boolean>(false);
 
   type LoadingPhase = "loading" | "reveal-app" | "done";
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("loading");
@@ -95,127 +238,48 @@ function App() {
 
   // ── Apply theme from config ─────────────────
   const applyTheme = (cfg: AppConfig) => {
-    const root = document.documentElement;
-    const ov   = cfg.theme.ui_overrides ?? {};
-
-    // Map user-customized colors to CSS variables
-    const paperColor  = ov.nav_background     || "#0B0D0F";
-    const inkColor    = ov.text_color         || "#E8ECEF";
-    const creamColor  = ov.card_background    || "#111416";
-    const ruleColor   = ov.card_border        || "#252C30";
-    const accentColor = ov.border_accent      || "#39C6B0";
-
-    root.style.setProperty("--theme-paper",  paperColor);
-    root.style.setProperty("--theme-ink",    inkColor);
-    root.style.setProperty("--theme-cream",  creamColor);
-    root.style.setProperty("--theme-rule",   ruleColor);
-    root.style.setProperty("--theme-accent", accentColor);
-
-    // Also update the new token variables so new CSS classes pick them up
-    root.style.setProperty("--bg-app",              paperColor);
-    root.style.setProperty("--bg-sidebar",          paperColor);
-    root.style.setProperty("--bg-surface",          creamColor);
-    const isLight = (
-      paperColor === "#FFFFFF" || paperColor === "#ffffff" ||
-      paperColor === "#FAFAFA" || paperColor === "#fafafa" ||
-      paperColor === "#F8FAFC" || paperColor === "#f8fafc" ||
-      paperColor.toLowerCase().startsWith("#f") ||
-      inkColor === "#000000" || inkColor === "#0F172A" || inkColor === "#0f172a"
+    applyThemeToDocument(
+      cfg.theme?.ui_overrides ?? {},
+      cfg.theme?.font_family_ui,
+      cfg.theme?.theme_preset
     );
-
-    if (isLight) {
-      root.classList.add("theme-light");
-    } else {
-      root.classList.remove("theme-light");
-    }
-
-    const textSec = isLight ? "#334155" : "#929CA3";
-    const textMut = isLight ? "#64748B" : "#6C767E";
-    const textFnt = isLight ? "#94A3B8" : "#4D555C";
-    const elevatedBg = isLight ? "#F1F5F9" : (creamColor === "#0F0F0F" || creamColor === "#111416" ? "#171B1E" : creamColor);
-    const borderSubtle = isLight ? "#E2E8F0" : "#252C30";
-    const borderDefault = isLight ? "#CBD5E1" : "#2D353A";
-    const borderStrong = isLight ? "#94A3B8" : "#3D464D";
-    const accentSoft = isLight ? "rgba(13, 148, 136, 0.10)" : "rgba(57, 198, 176, 0.12)";
-    const navHoverBg = isLight ? "rgba(0, 0, 0, 0.04)" : "rgba(255, 255, 255, 0.04)";
-    const navActiveBg = isLight ? "rgba(13, 148, 136, 0.10)" : "rgba(57, 198, 176, 0.10)";
-
-    root.style.setProperty("--bg-surface-elevated", elevatedBg);
-    root.style.setProperty("--text-secondary",      textSec);
-    root.style.setProperty("--text-muted",          textMut);
-    root.style.setProperty("--theme-muted",         textMut);
-    root.style.setProperty("--text-faint",          textFnt);
-    root.style.setProperty("--border-subtle",       borderSubtle);
-    root.style.setProperty("--border-default",      borderDefault);
-    root.style.setProperty("--border-strong",       borderStrong);
-    root.style.setProperty("--accent-soft",         accentSoft);
-    root.style.setProperty("--sidebar-nav-hover-bg", navHoverBg);
-    root.style.setProperty("--sidebar-nav-active-bg", navActiveBg);
-    root.style.setProperty("--bg-titlebar",         paperColor);
-    root.style.setProperty("--text-primary",        inkColor);
-    root.style.setProperty("--accent",              accentColor);
-
-    const lightRuleColor = ruleColor.startsWith("#") && ruleColor.length === 7
-      ? `${ruleColor}3a`
-      : ruleColor;
-    root.style.setProperty("--theme-light-rule", lightRuleColor);
-
-    // Glow
-    const glowOn     = ov.accent_glow === "true";
-    const brightness = parseFloat(ov.accent_glow_brightness || "1.0");
-    const accentClr  = ov.border_accent || "#FFFFFF";
-    const borderGlowRadius = Math.round(10 * brightness);
-    const textGlowRadius   = Math.round(5  * brightness);
-    const baseAlpha        = Math.min(1.0, brightness);
-    const borderAlphaHex   = Math.round(baseAlpha * 255).toString(16).padStart(2, "0");
-    const textAlphaHex     = Math.round(baseAlpha * 0.5 * 255).toString(16).padStart(2, "0");
-    const borderGlowColor  = accentClr.startsWith("#") && accentClr.length === 7 ? `${accentClr}${borderAlphaHex}` : accentClr;
-    const textGlowColor    = accentClr.startsWith("#") && accentClr.length === 7 ? `${accentClr}${textAlphaHex}` : `${accentClr}80`;
-    root.style.setProperty("--theme-accent-glow",      glowOn ? `0 0 ${borderGlowRadius}px ${borderGlowColor}` : "none");
-    root.style.setProperty("--theme-accent-text-glow", glowOn ? `0 0 ${textGlowRadius}px ${textGlowColor}` : "none");
-
-    // Typography System
-    applyTypographyToRoot(root, cfg.theme.font_family_ui);
-
-    // Smoothness / Border Radius
-    const navSmooth = ov.navbar_edge_smoothness !== undefined && ov.navbar_edge_smoothness !== ""
-      ? ov.navbar_edge_smoothness
-      : "4px";
-    const uiSmooth = ov.ui_edge_smoothness !== undefined && ov.ui_edge_smoothness !== ""
-      ? ov.ui_edge_smoothness
-      : "4px";
-    root.style.setProperty("--navbar-edge-smoothness", navSmooth);
-    root.style.setProperty("--ui-edge-smoothness",     uiSmooth);
   };
 
   // ── Load config on boot ─────────────────────
   const loadConfig = async () => {
     try {
-      const cfg       = await invoke<AppConfig>("get_app_config");
+      const rawCfg    = await invoke<AppConfig>("get_app_config");
+      const { cfg, changed } = migrateLegacyThemeConfig(rawCfg);
+      if (changed) {
+        invoke("save_app_config", { config: cfg }).catch(() => {});
+      }
       const iPath     = await invoke<string>("get_app_install_path");
       const cPath     = await invoke<string>("get_cache_path");
       setConfig(cfg);
       setInstallPath(iPath);
       setCachePath(cPath);
-      setNavLayout(cfg.theme.nav_layout || "sidebar");
-      setActivePage(prev => {
-        if (prev === "Home" && cfg.general.launch_page) {
-          return VALID_PAGES.includes(cfg.general.launch_page) ? cfg.general.launch_page : "Home";
-        }
-        return prev;
-      });
+      setNavLayout(normalizeNavLayout(cfg.theme.nav_layout));
+      if (!hasAppliedLaunchPageRef.current) {
+        hasAppliedLaunchPageRef.current = true;
+        setActivePage(prev => {
+          if (prev === "Home" && cfg.general.launch_page) {
+            return VALID_PAGES.includes(cfg.general.launch_page) ? cfg.general.launch_page : "Home";
+          }
+          return prev;
+        });
+      }
       applyTheme(cfg);
 
       // ── Onboarding guard (must happen BEFORE reveal-app) ──
       if (!cfg.general.onboarding_completed) {
         setShowOnboarding(true);
         // Reveal the onboarding screen (still over app shell)
-        setTimeout(() => setLoadingPhase("reveal-app"), 80);
-        setTimeout(() => setLoadingPhase("done"), 260);
+        setTimeout(() => setLoadingPhase("reveal-app"), 180);
+        setTimeout(() => setLoadingPhase("done"), 420);
       } else {
         setShowOnboarding(false);
-        setTimeout(() => setLoadingPhase("reveal-app"), 200);
-        setTimeout(() => setLoadingPhase("done"), 380);
+        setTimeout(() => setLoadingPhase("reveal-app"), 480);
+        setTimeout(() => setLoadingPhase("done"), 820);
       }
 
       // ── Silent auto-update check on launch if enabled in config ──
@@ -250,48 +314,119 @@ function App() {
   const handleOnboardingComplete = (updatedConfig: AppConfig) => {
     setConfig(updatedConfig);
     applyTheme(updatedConfig);
-    setNavLayout(updatedConfig.theme.nav_layout || "sidebar");
+    setNavLayout(normalizeNavLayout(updatedConfig.theme.nav_layout));
     setShowOnboarding(false);
     // Notify Explorer (and any other listeners) that the workspace path changed
     emit("config_updated");
   };
 
-  // ── Toggle dark / light ─────────────────────
-  const isDarkMode = (() => {
-    const bg = (config?.theme?.ui_overrides?.nav_background ?? "#0B0D0F").trim().toLowerCase();
-    if (bg === "#ffffff" || bg === "#fafafa" || bg === "#f8fafc" || bg === "#f4f4f5" || bg === "#f5f1eb" || bg === "#f6f2ea") return false;
-    const ink = (config?.theme?.ui_overrides?.text_color ?? "#E8ECEF").trim().toLowerCase();
-    return !(ink === "#000000" || ink === "#0f172a" || ink === "#18140f" || ink === "#1a1510" || ink.startsWith("#0") || ink.startsWith("#1") || ink.startsWith("#2") || ink.startsWith("#3"));
-  })();
+  // ── Toggle dark / light (Quantum Blue Default Theme) ─────────
+  const isDarkMode = config?.theme?.theme_preset !== "light";
 
   const toggleThemeMode = async () => {
     if (!config) return;
-    const nextOv = isDarkMode
-      ? {
-          ...config.theme.ui_overrides,
-          nav_background:     "#FFFFFF",
-          content_background: "#FFFFFF",
-          card_background:    "#F8FAFC",
-          card_border:        "#E2E8F0",
-          text_color:         "#0F172A",
-          border_accent:      "#0D9488",
-        }
-      : {
-          ...config.theme.ui_overrides,
-          nav_background:     "#0B0D0F",
-          content_background: "#0B0D0F",
-          card_background:    "#111416",
-          card_border:        "#252C30",
-          text_color:         "#E8ECEF",
-          border_accent:      "#39C6B0",
-        };
+    const nextPreset = isDarkMode ? "light" : "dark";
+    const curOv = config.theme.ui_overrides || {};
+    const baseModeOv = isDarkMode ? QUANTUM_LIGHT_OVERRIDES : QUANTUM_DARK_OVERRIDES;
+    const nextOv: Record<string, string> = {
+      ...curOv,
+      ...baseModeOv,
+      ghost_fiber_glow: curOv.ghost_fiber_glow || baseModeOv.ghost_fiber_glow,
+      ghost_fiber_secondary: curOv.ghost_fiber_secondary || baseModeOv.ghost_fiber_secondary,
+      ghost_fiber_line: curOv.ghost_fiber_line || baseModeOv.ghost_fiber_line,
+      ghost_fiber_opacity: curOv.ghost_fiber_opacity || baseModeOv.ghost_fiber_opacity,
+      ghost_fiber_style: curOv.ghost_fiber_style || baseModeOv.ghost_fiber_style,
+      ghost_fiber_enabled: curOv.ghost_fiber_enabled || baseModeOv.ghost_fiber_enabled,
+      navbar_edge_smoothness: curOv.navbar_edge_smoothness || "8px",
+      ui_edge_smoothness: curOv.ui_edge_smoothness || "8px",
+      theme_version: THEME_VERSION,
+    };
 
-    const nextConfig = { ...config, theme: { ...config.theme, ui_overrides: nextOv } };
+    const nextConfig = {
+      ...config,
+      theme: {
+        ...config.theme,
+        theme_preset: nextPreset,
+        accent_color: "#2457FF",
+        ui_overrides: nextOv,
+      },
+    };
     setConfig(nextConfig);
     applyTheme(nextConfig);
-    await invoke("save_app_config", { config: nextConfig });
+    await invoke("save_app_config", { config: nextConfig }).catch(() => {});
     await emit("config_updated", nextConfig);
   };
+
+  // ── Ghost Fiber settings from theme config (Quantum Blue Default) ─
+  const ghostFiberGlow = config?.theme?.ui_overrides?.ghost_fiber_glow || "#2457FF";
+  const ghostFiberSecondary = config?.theme?.ui_overrides?.ghost_fiber_secondary || "#00D4FF";
+  const ghostFiberLine = config?.theme?.ui_overrides?.ghost_fiber_line || "#DFF7FF";
+  const ghostFiberOpacity = parseFloat(config?.theme?.ui_overrides?.ghost_fiber_opacity || "0.45");
+  const ghostFiberStyle = (config?.theme?.ui_overrides?.ghost_fiber_style as "dots" | "dashes" | "lines") || "dots";
+  const ghostFiberEnabled = config?.theme?.ui_overrides?.ghost_fiber_enabled !== "false";
+
+  // ── Home Action Handlers & Workspace Handlers ─────────────────
+  const handleOpenRecentFile = useCallback((path: string, name: string) => {
+    setActivePage("Explorer");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("composer:open-file", { detail: { path, name } }));
+    }, 40);
+  }, []);
+
+  const handleNewFile = useCallback(() => {
+    setActivePage("Explorer");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "file" }));
+    }, 40);
+  }, []);
+
+  const handleNewFolder = useCallback(() => {
+    setActivePage("Explorer");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "folder" }));
+    }, 40);
+  }, []);
+
+  const handleImport = useCallback(() => {
+    setActivePage("Explorer");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "import-file" }));
+    }, 40);
+  }, []);
+
+  const handleNavigate = useCallback((page: string) => setActivePage(page), []);
+
+  const handleSelectWorkspace = useCallback(async (path: string) => {
+    try {
+      const updatedConfig = await openWorkspaceDir(path);
+      setConfig(updatedConfig);
+      applyTheme(updatedConfig);
+      await emit("config_updated", updatedConfig);
+    } catch (err: any) {
+      alert("Failed to switch workspace: " + (err?.toString() || "Unknown error"));
+    }
+  }, []);
+
+  const handleRemoveRecentWorkspace = useCallback(async (path: string) => {
+    try {
+      const updatedConfig = await removeRecentWorkspace(path);
+      setConfig(updatedConfig);
+      await emit("config_updated", updatedConfig);
+    } catch (err: any) {
+      console.error("Failed to remove recent workspace:", err);
+    }
+  }, []);
+
+  const handleOpenProject = useCallback(async () => {
+    try {
+      const chosen: string | null = await invoke("pick_directory");
+      if (chosen) {
+        await handleSelectWorkspace(chosen);
+      }
+    } catch (err) {
+      console.error("Failed to select workspace directory:", err);
+    }
+  }, [handleSelectWorkspace]);
 
   // ── Effects ─────────────────────────────────
   useEffect(() => {
@@ -305,13 +440,13 @@ function App() {
       if (e.payload) {
         const cfg = e.payload;
         setConfig(cfg);
-        setNavLayout(cfg.theme.nav_layout || "sidebar");
+        setNavLayout(normalizeNavLayout(cfg.theme.nav_layout));
         applyTheme(cfg);
       } else {
         loadConfig();
       }
     });
-    const layoutUnsub = listen<string>("nav_layout_changed", e => setNavLayout(e.payload));
+    const layoutUnsub = listen<string>("nav_layout_changed", e => setNavLayout(normalizeNavLayout(e.payload)));
 
     return () => {
       document.removeEventListener("contextmenu", noCtx);
@@ -329,6 +464,27 @@ function App() {
     window.addEventListener("composer:unsaved-changed", handleUnsavedStatus);
     return () => window.removeEventListener("composer:unsaved-changed", handleUnsavedStatus);
   }, []);
+
+  // Wire global custom events from context menus / quick actions
+  useEffect(() => {
+    const handleOpenWorkspaceSwitcher = () => setIsWorkspaceSwitcherOpen(true);
+    const handleOpenAsWorkspace = (e: any) => {
+      if (e.detail?.path) handleSelectWorkspace(e.detail.path);
+    };
+    // composer:create-worktree → open the WorktreeSwitcher dropdown by toggling a flag
+    // The WorktreeSwitcher will listen to this event and open its "Create" dialog.
+    const handleCreateWorktree = () => {
+      window.dispatchEvent(new CustomEvent("composer:worktree-open-create"));
+    };
+    window.addEventListener("composer:open-workspace-switcher", handleOpenWorkspaceSwitcher);
+    window.addEventListener("composer:open-as-workspace",       handleOpenAsWorkspace);
+    window.addEventListener("composer:create-worktree",         handleCreateWorktree);
+    return () => {
+      window.removeEventListener("composer:open-workspace-switcher", handleOpenWorkspaceSwitcher);
+      window.removeEventListener("composer:open-as-workspace",       handleOpenAsWorkspace);
+      window.removeEventListener("composer:create-worktree",         handleCreateWorktree);
+    };
+  }, [handleSelectWorkspace]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -391,73 +547,6 @@ function App() {
     };
   }, [activePage]);
 
-  // ── Home Action Handlers ───────────────────────
-  // (useCallback so the memoized Home page isn't re-rendered by new handler
-  // identities — see PERF-7. Explorer stays mounted, so the 40ms-delayed
-  // window events below always land on already-registered listeners.)
-  const handleOpenRecentFile = useCallback((path: string, name: string) => {
-    setActivePage("Explorer");
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("composer:open-file", { detail: { path, name } }));
-    }, 40);
-  }, []);
-
-  const handleNewFile = useCallback(() => {
-    setActivePage("Explorer");
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "file" }));
-    }, 40);
-  }, []);
-
-  const handleNewFolder = useCallback(() => {
-    setActivePage("Explorer");
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "folder" }));
-    }, 40);
-  }, []);
-
-  const handleImport = useCallback(() => {
-    setActivePage("Explorer");
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("composer:home-action", { detail: "import-file" }));
-    }, 40);
-  }, []);
-
-  const handleNavigate = useCallback((page: string) => setActivePage(page), []);
-
-  const handleSelectWorkspace = useCallback(async (path: string) => {
-    try {
-      const updatedConfig = await openWorkspaceDir(path);
-      setConfig(updatedConfig);
-      applyTheme(updatedConfig);
-      await emit("config_updated", updatedConfig);
-      setActivePage("Home");
-    } catch (err: any) {
-      alert("Failed to switch workspace: " + (err?.toString() || "Unknown error"));
-    }
-  }, []);
-
-  const handleRemoveRecentWorkspace = useCallback(async (path: string) => {
-    try {
-      const updatedConfig = await removeRecentWorkspace(path);
-      setConfig(updatedConfig);
-      await emit("config_updated", updatedConfig);
-    } catch (err: any) {
-      console.error("Failed to remove recent workspace:", err);
-    }
-  }, []);
-
-  const handleOpenProject = useCallback(async () => {
-    try {
-      const chosen: string | null = await invoke("pick_directory");
-      if (chosen) {
-        await handleSelectWorkspace(chosen);
-      }
-    } catch (err) {
-      console.error("Failed to select workspace directory:", err);
-    }
-  }, [handleSelectWorkspace]);
-
   // ── Helpers ──────────────────────────────────
   const iconOnly = config?.theme?.ui_overrides?.nav_icon_only === "true";
 
@@ -475,6 +564,8 @@ function App() {
       {activePage === "Home" && (
         <div className="h-full w-full">
           <Home
+            key={config?.storage?.workspace_path || "empty"}
+            workspacePath={config?.storage?.workspace_path || ""}
             onNavigate={handleNavigate}
             onOpenRecentFile={handleOpenRecentFile}
             onNewFile={handleNewFile}
@@ -490,33 +581,6 @@ function App() {
       <div className={`h-full w-full ${activePage === "Explorer" ? "block" : "hidden"}`}>
         <Explorer />
       </div>
-      {activePage === "Search" && (
-        <div className="h-full w-full">
-          <SearchView
-            onOpenFile={handleOpenRecentFile}
-            onOpenFolder={(path) => {
-              setActivePage("Explorer");
-              setTimeout(() => {
-                window.dispatchEvent(
-                  new CustomEvent("composer:open-file", { detail: { path, is_dir: true } })
-                );
-              }, 40);
-            }}
-            workspaceName={config?.storage?.workspace_path?.split(/[\\\/]/).filter(Boolean).pop() || "Workspace"}
-          />
-        </div>
-      )}
-      {activePage === "Recent" && (
-        <div className="h-full w-full">
-          <RecentView
-            onOpenFile={handleOpenRecentFile}
-            onSelectWorkspace={handleSelectWorkspace}
-            onRemoveRecentWorkspace={handleRemoveRecentWorkspace}
-            recentWorkspaces={config?.storage?.recent_workspaces || []}
-            currentWorkspace={config?.storage?.workspace_path || ""}
-          />
-        </div>
-      )}
       {activePage === "Settings" && (
         <div className="h-full w-full">
           <Settings />
@@ -529,10 +593,38 @@ function App() {
   // JSX
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
+    <DirtyStateProvider>
+    <WorktreeProvider workspacePath={config?.storage?.workspace_path || ""}>
+    <div className="relative h-screen w-screen overflow-hidden" style={{ backgroundColor: "var(--bg-app, #0B0F19)" }}>
+      {/* ── Global Ambient Background GhostFibers (Entire App) ── */}
+      {ghostFiberEnabled && (
+        <div
+          className="fixed inset-0 pointer-events-none overflow-hidden transition-opacity duration-700"
+          style={{
+            zIndex: 0,
+            opacity: loadingPhase !== "done" ? Math.max(ghostFiberOpacity, 0.85) : ghostFiberOpacity,
+          }}
+        >
+          <GhostFibers
+            glowColor={ghostFiberGlow}
+            secondaryColor={ghostFiberSecondary}
+            lineColor={ghostFiberLine}
+            layers={3}
+            twist={1.2}
+            threads={72}
+            fiberStyle={ghostFiberStyle}
+            depthOfField={0.85}
+            hoverEffect="focus"
+            intro={true}
+            mouseInteraction={true}
+            lightMode={!isDarkMode}
+          />
+        </div>
+      )}
+
       {/* Main Application Container */}
       <div
-        className={`c2-app transition-opacity duration-500 ease-out ${
+        className={`c2-app relative z-10 transition-opacity duration-500 ease-out ${
           (loadingPhase === "reveal-app" || loadingPhase === "done") ? "opacity-100" : "opacity-0"
         }`}
       >
@@ -550,7 +642,7 @@ function App() {
         >
           {/* Brand */}
           <div className="c2-titlebar-brand" data-tauri-drag-region>
-            <img src="/icon.ico" alt="Composer" draggable={false} />
+            <ComposerLogo size={16} />
             <span className="c2-titlebar-brand-text">Composer</span>
           </div>
 
@@ -561,8 +653,8 @@ function App() {
               className="c2-titlebar-search-btn"
               title="Command Palette & Quick Search (Ctrl+K)"
             >
-              <Search size={11} style={{ color: "var(--accent)" }} />
-              <span>Search or jump to...</span>
+              <Search size={13} style={{ color: "var(--accent)" }} className="shrink-0" />
+              <span className="truncate">Search or jump to...</span>
               <kbd className="c2-titlebar-kbd">Ctrl K</kbd>
             </button>
           </div>
@@ -593,302 +685,173 @@ function App() {
           </div>
         </div>
 
-        {/* ── Top Navbar layout ─────────────────────────────── */}
-        <div
-          className="c2-topnav"
-          style={{
-            height:            navLayout === "top_navbar" ? "44px" : "0px",
-            opacity:           navLayout === "top_navbar" ? 1 : 0,
-            borderBottomWidth: navLayout === "top_navbar" ? "1px" : "0px",
-            pointerEvents:     navLayout === "top_navbar" ? "auto" : "none",
-          }}
-        >
-          {/* Brand */}
-          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--accent)" }}>Composer</span>
-
-          {/* Nav pills */}
-          <div className="c2-topnav-pill-group">
-            {NAV_ITEMS.map(item => {
-              const ico = React.cloneElement(item.icon, { size: 13 });
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => setActivePage(item.name)}
-                  className={`c2-topnav-pill ${activePage === item.name ? "active" : ""}`}
-                  title={item.label}
-                >
-                  {ico}
-                  {!iconOnly && <span style={{ fontSize: "12px" }}>{item.label}</span>}
-                </button>
-              );
-            })}
-            <div style={{ width: "1px", height: "14px", backgroundColor: "var(--border-default)", margin: "0 3px" }} />
-            <button
-              onClick={toggleThemeMode}
-              className="c2-topnav-pill"
-              title="Toggle Light / Dark"
-            >
-              {isDarkMode ? <Sun size={13} style={{ color: "var(--accent)" }} /> : <Moon size={13} style={{ color: "var(--accent)" }} />}
-            </button>
-          </div>
-
-          {/* RAM */}
-          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-            <span style={{ color: "var(--accent)", fontWeight: 600 }}><RamUsageText /></span> RAM
-          </span>
-        </div>
-
-        {/* ── Main layout frame ────────────────────────────── */}
-        <div
-          className="c2-body"
-          style={{
-            paddingLeft:  navLayout === "vertical_pills"       ? "2px" : "0px",
-            paddingRight: navLayout === "right_vertical_pills" ? "2px" : "0px",
-            transition: "padding 0.25s ease",
-          }}
-        >
-
-          {/* Left Fixed Sidebar */}
-          <div
-            className="c2-sidebar"
-            style={{
-              width:         navLayout === "sidebar" ? "var(--sidebar-width)" : "0px",
-              opacity:       navLayout === "sidebar" ? 1 : 0,
-              pointerEvents: navLayout === "sidebar" ? "auto" : "none",
-            }}
-          >
-            {/* Brand Header */}
-            <div className="c2-sidebar-brand flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <img src="/icon.ico" alt="" draggable={false} />
-                <span className="c2-sidebar-brand-text">Composer</span>
-              </div>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-surface-elevated)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
-                v0.3
-              </span>
-            </div>
-
-            {/* Active Workspace Selector Card */}
-            <div className="px-2 pt-2 pb-1">
+        {/* ── Redesigned Top Navbar (v0.4) ─────────────────────────── */}
+        {navLayout === "top_navbar" && (
+          <header className="c2-topnav">
+            {/* Left: Workspace Selector & Worktree */}
+            <div className="flex items-center gap-2 justify-self-start">
               <button
                 onClick={() => setIsWorkspaceSwitcherOpen(true)}
-                className="w-full flex items-center justify-between p-2 rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] hover:bg-[var(--sidebar-nav-hover-bg)] transition-colors text-left cursor-pointer group"
-                title="Click to switch or manage workspace"
+                className="c2-nav-glass-btn flex items-center gap-2 px-3 h-[32px] rounded-lg text-[12px] text-[var(--text-primary)] transition-all cursor-pointer group"
+                title="Switch workspace"
               >
-                <div className="flex items-center gap-2 min-w-0 pr-1">
-                  <div className="w-5 h-5 rounded flex items-center justify-center bg-[var(--accent-soft)] text-[var(--accent)] shrink-0">
-                    <Folder size={11} />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[11px] font-semibold text-[var(--text-primary)] block truncate">
-                      {config?.storage?.workspace_path?.split(/[\\\/]/).filter(Boolean).pop() || "Active Workspace"}
-                    </span>
-                    <span className="text-[9.5px] text-[var(--text-muted)] block truncate font-mono">
-                      {config?.storage?.workspace_path ? "Local folder" : "No folder chosen"}
-                    </span>
-                  </div>
-                </div>
-                <ChevronDown size={11} className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0" />
+                <Folder size={14} className="text-[var(--accent)] shrink-0" />
+                <span className="font-medium text-[12px] max-w-[140px] truncate text-[var(--text-primary)]">
+                  {config?.storage?.workspace_path?.split(/[\\\/]/).filter(Boolean).pop() || "Select Workspace"}
+                </span>
+                <ChevronDown size={12} className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-transform shrink-0" />
               </button>
+
+              {config?.storage?.workspace_path && (
+                <WorktreeSwitcher
+                  workspacePath={config.storage.workspace_path}
+                  workspaceId={config.storage.workspace_path}
+                />
+              )}
             </div>
 
-            {/* Navigation */}
-            <nav className="c2-sidebar-nav">
-              <div className="c2-sidebar-section-label">Workspace</div>
-              {NAV_ITEMS.map(item => (
-                <button
-                  key={item.name}
-                  onClick={() => setActivePage(item.name)}
-                  className={`c2-nav-item ${activePage === item.name ? "active" : ""}`}
-                  title={item.label}
-                >
-                  <span className="c2-nav-item-icon">{item.icon}</span>
-                  {!iconOnly && <span className="c2-nav-item-label">{item.label}</span>}
-                </button>
-              ))}
+            {/* Center: Navigation Pill Group */}
+            <nav className="c2-topnav-pill-group justify-self-center" aria-label="Main Navigation">
+              {NAV_ITEMS.map(item => {
+                const isActive = activePage === item.name;
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => setActivePage(item.name)}
+                    className={`c2-topnav-pill ${isActive ? "active" : ""}`}
+                    title={item.label}
+                  >
+                    {React.cloneElement(item.icon, {
+                      size: 13,
+                      className: isActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]",
+                    })}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
             </nav>
 
-            {/* Spacer */}
-            <div className="c2-sidebar-spacer" />
-
-            {/* Footer */}
-            <div className="c2-sidebar-footer">
+            {/* Right: Theme toggle */}
+            <div className="flex items-center gap-2 justify-self-end">
               <button
                 onClick={toggleThemeMode}
-                className="c2-theme-toggle cursor-pointer"
-                title="Toggle Light / Dark"
+                className="c2-nav-glass-btn h-[30px] w-[30px] flex items-center justify-center rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
               >
-                <span className="c2-nav-item-icon">
-                  {isDarkMode
-                    ? <Sun  size={13} style={{ color: "var(--accent)" }} />
-                    : <Moon size={13} style={{ color: "var(--accent)" }} />}
-                </span>
-                {!iconOnly && <span className="c2-nav-item-label">Appearance</span>}
+                {isDarkMode ? (
+                  <Sun size={13} style={{ color: "var(--accent-text, var(--accent))" }} />
+                ) : (
+                  <Moon size={13} style={{ color: "var(--accent)" }} />
+                )}
               </button>
-
-              <div className="c2-sidebar-divider" />
-
-              <div className="c2-workspace-status">
-                <HardDrive size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-                <div className="c2-workspace-status-info">
-                  <span className="c2-workspace-label">Local Workspace</span>
-                  <span className="c2-workspace-online">
-                    <span className="c2-online-dot" />
-                    Sandboxed · <RamUsageText /> RAM
-                  </span>
-                </div>
-              </div>
             </div>
-          </div>
+          </header>
+        )}
 
-          {/* Content viewport — always full remaining width */}
+        {/* ── Main Viewport Area (Full-Width, No Sidebars) ──────── */}
+        <div className="c2-body">
           <div className="c2-viewport select-text">
             {renderPages()}
           </div>
+        </div>
 
-          {/* Right Fixed Sidebar */}
-          <div
-            className="c2-sidebar"
-            style={{
-              width:        navLayout === "right_sidebar" ? "var(--sidebar-width)" : "0px",
-              opacity:      navLayout === "right_sidebar" ? 1 : 0,
-              pointerEvents: navLayout === "right_sidebar" ? "auto" : "none",
-              borderRight:  "none",
-              borderLeft:   "1px solid var(--border-subtle)",
-            }}
-          >
-            <div className="c2-sidebar-brand">
-              <img src="/icon.ico" alt="" draggable={false} />
-              <span className="c2-sidebar-brand-text">Composer</span>
-            </div>
-            <nav className="c2-sidebar-nav">
-              {NAV_ITEMS.map(item => (
-                <button
-                  key={item.name}
-                  onClick={() => setActivePage(item.name)}
-                  className={`c2-nav-item ${activePage === item.name ? "active" : ""}`}
-                  title={item.label}
-                >
-                  <span className="c2-nav-item-icon">{item.icon}</span>
-                  {!iconOnly && <span className="c2-nav-item-label">{item.label}</span>}
-                </button>
-              ))}
-            </nav>
-            <div className="c2-sidebar-spacer" />
-            <div className="c2-sidebar-footer">
-              <button onClick={toggleThemeMode} className="c2-theme-toggle" title="Toggle Light / Dark">
-                <span className="c2-nav-item-icon">
-                  {isDarkMode ? <Sun size={13} style={{ color: "var(--accent)" }} /> : <Moon size={13} style={{ color: "var(--accent)" }} />}
+        {/* ── Bottom Navbar / Status Bar ────────────────────────────── */}
+        {navLayout === "bottom_navbar" ? (
+          <footer className="c2-bottomnav">
+            {/* Left: Workspace Selector & Worktree */}
+            <div className="flex items-center gap-2 justify-self-start">
+              <button
+                onClick={() => setIsWorkspaceSwitcherOpen(true)}
+                className="c2-nav-glass-btn flex items-center gap-2 px-3 h-[32px] rounded-lg text-[12px] text-[var(--text-primary)] transition-all cursor-pointer group"
+                title="Switch workspace"
+              >
+                <Folder size={14} className="text-[var(--accent)] shrink-0" />
+                <span className="font-medium text-[12px] max-w-[140px] truncate text-[var(--text-primary)]">
+                  {config?.storage?.workspace_path?.split(/[\\\/]/).filter(Boolean).pop() || "Select Workspace"}
                 </span>
-                {!iconOnly && <span className="c2-nav-item-label">Appearance</span>}
+                <ChevronDown size={12} className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-transform shrink-0" />
               </button>
-              <div className="c2-sidebar-divider" />
-              <div className="c2-workspace-status">
-                <HardDrive size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-                <div className="c2-workspace-status-info">
-                  <span className="c2-workspace-label">Workspace</span>
-                  <span className="c2-workspace-online">
-                    <span className="c2-online-dot" />
-                    Online · <RamUsageText />% RAM
-                  </span>
-                </div>
-              </div>
+              {config?.storage?.workspace_path && (
+                <WorktreeSwitcher
+                  workspacePath={config.storage.workspace_path}
+                  workspaceId={config.storage.workspace_path}
+                />
+              )}
             </div>
-          </div>
 
-        </div>
+            {/* Center: Navigation Pill Group */}
+            <nav className="c2-topnav-pill-group justify-self-center" aria-label="Main Navigation">
+              {NAV_ITEMS.map(item => {
+                const isActive = activePage === item.name;
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => setActivePage(item.name)}
+                    className={`c2-topnav-pill ${isActive ? "active" : ""}`}
+                    title={item.label}
+                  >
+                    {React.cloneElement(item.icon, {
+                      size: 13,
+                      className: isActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]",
+                    })}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
 
-        {/* ── Floating Left Pill Bar (position:fixed, over content) ─ */}
-        {(navLayout === "vertical_pills") && (
-          <div className="c2-pillbar c2-pillbar--left">
-            {NAV_ITEMS.map(item => (
+            {/* Right: CPU & RAM rings + Theme Toggle */}
+            <div className="flex items-center gap-3 justify-self-end">
+              <SystemResourceMeters />
               <button
-                key={item.name}
-                onClick={() => setActivePage(item.name)}
-                className={`c2-pill-item ${activePage === item.name ? "active" : ""}`}
+                onClick={toggleThemeMode}
+                className="c2-nav-glass-btn h-[28px] w-[28px] flex items-center justify-center rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
               >
-                {item.icon}
-                <span className="c2-pill-tooltip">{item.label}</span>
+                {isDarkMode ? (
+                  <Sun size={12} style={{ color: "var(--accent-text, var(--accent))" }} />
+                ) : (
+                  <Moon size={12} style={{ color: "var(--accent)" }} />
+                )}
               </button>
-            ))}
-            <div className="c2-pill-divider" />
-            <button
-              onClick={toggleThemeMode}
-              className="c2-pill-item"
-            >
-              {isDarkMode
-                ? <Sun  size={13} style={{ color: "var(--accent)" }} />
-                : <Moon size={13} style={{ color: "var(--accent)" }} />}
-              <span className="c2-pill-tooltip">Appearance</span>
-            </button>
-          </div>
+            </div>
+          </footer>
+        ) : (
+          /* Sleek modern bottom status bar when navLayout === 'top_navbar' */
+          <footer className="c2-statusbar">
+            {/* Left: Active workspace path & worktree info */}
+            <div className="flex items-center gap-2 overflow-hidden">
+              <span className="flex items-center gap-1 font-mono text-[10.5px] truncate max-w-[280px]" title={config?.storage?.workspace_path || "No workspace selected"}>
+                <Folder size={11} className="text-[var(--accent)] shrink-0" />
+                <span className="truncate">{config?.storage?.workspace_path || "No workspace opened"}</span>
+              </span>
+              {hasUnsavedChanges && (
+                <span className="flex items-center gap-1 px-1.5 py-0.2 rounded text-[9.5px] bg-[rgba(245,158,11,0.12)] text-[#f59e0b] border border-[rgba(245,158,11,0.25)] font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b] animate-pulse" />
+                  Unsaved Changes
+                </span>
+              )}
+            </div>
+
+            {/* Center: Keyboard hints */}
+            <div className="flex items-center gap-3 text-[10.5px] text-[var(--text-muted)] hidden sm:flex">
+              <span><kbd className="px-1 py-0.2 rounded bg-[var(--bg-app)] border border-[var(--border-subtle)] font-mono text-[9px]">Ctrl+K</kbd> Command Palette</span>
+              <span><kbd className="px-1 py-0.2 rounded bg-[var(--bg-app)] border border-[var(--border-subtle)] font-mono text-[9px]">Ctrl+S</kbd> Save</span>
+            </div>
+
+            {/* Right: Sandbox status, CPU & RAM circular meters & version */}
+            <div className="flex items-center gap-2.5 text-[10.5px]">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
+                Sandboxed
+              </span>
+              <span>·</span>
+              <SystemResourceMeters />
+              <span>·</span>
+              <span className="font-mono text-[10px] text-[var(--text-muted)]">v0.4.0</span>
+            </div>
+          </footer>
         )}
-
-        {/* ── Floating Right Pill Bar (position:fixed, over content) ─ */}
-        {(navLayout === "right_vertical_pills") && (
-          <div className="c2-pillbar c2-pillbar--right">
-            {NAV_ITEMS.map(item => (
-              <button
-                key={item.name}
-                onClick={() => setActivePage(item.name)}
-                className={`c2-pill-item ${activePage === item.name ? "active" : ""}`}
-              >
-                {item.icon}
-                <span className="c2-pill-tooltip">{item.label}</span>
-              </button>
-            ))}
-            <div className="c2-pill-divider" />
-            <button
-              onClick={toggleThemeMode}
-              className="c2-pill-item"
-            >
-              {isDarkMode
-                ? <Sun  size={13} style={{ color: "var(--accent)" }} />
-                : <Moon size={13} style={{ color: "var(--accent)" }} />}
-              <span className="c2-pill-tooltip">Appearance</span>
-            </button>
-          </div>
-        )}
-
-
-
-        {/* ── Bottom Navbar layout ───────────────────────────── */}
-        <div
-          className="c2-topnav"
-          style={{
-            height:         navLayout === "bottom_navbar" ? "44px" : "0px",
-            opacity:        navLayout === "bottom_navbar" ? 1 : 0,
-            borderTopWidth: navLayout === "bottom_navbar" ? "1px" : "0px",
-            borderBottom:   "none",
-            borderTop:      navLayout === "bottom_navbar" ? "1px solid var(--border-default)" : "none",
-            pointerEvents:  navLayout === "bottom_navbar" ? "auto" : "none",
-          }}
-        >
-          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--accent)" }}>Composer</span>
-          <div className="c2-topnav-pill-group">
-            {NAV_ITEMS.map(item => {
-              const ico = React.cloneElement(item.icon, { size: 13 });
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => setActivePage(item.name)}
-                  className={`c2-topnav-pill ${activePage === item.name ? "active" : ""}`}
-                  title={item.label}
-                >
-                  {ico}
-                  {!iconOnly && <span style={{ fontSize: "12px" }}>{item.label}</span>}
-                </button>
-              );
-            })}
-            <div style={{ width: "1px", height: "14px", backgroundColor: "var(--border-default)", margin: "0 3px" }} />
-            <button onClick={toggleThemeMode} className="c2-topnav-pill" title="Toggle Appearance">
-              {isDarkMode ? <Sun size={13} style={{ color: "var(--accent)" }} /> : <Moon size={13} style={{ color: "var(--accent)" }} />}
-            </button>
-          </div>
-          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-            <span style={{ color: "var(--accent)", fontWeight: 600 }}><RamUsageText /></span> RAM
-          </span>
-        </div>
 
       </div>
 
@@ -902,14 +865,21 @@ function App() {
         />
       )}
 
-      {/* Loading Overlay */}
+      {/* Loading Overlay (transparent smoked glass so GhostFibers shows through behind it) */}
       {loadingPhase !== "done" && (
         <div
           className={`absolute inset-0 z-50 flex flex-col items-center justify-center select-none loading-bg-fadein transition-opacity duration-500 ease-out ${
             loadingPhase === "reveal-app" ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"
           }`}
-          style={{ backgroundColor: "var(--bg-app)" }}
+          style={{
+            background: isDarkMode
+              ? "radial-gradient(circle at center, rgba(11, 15, 25, 0.16) 0%, rgba(11, 15, 25, 0.52) 100%)"
+              : "radial-gradient(circle at center, rgba(240, 244, 248, 0.22) 0%, rgba(240, 244, 248, 0.56) 100%)",
+          }}
         >
+          <div className="mb-4">
+            <ComposerLogo size={54} />
+          </div>
           <span
             style={{
               fontFamily: "var(--font-ui)",
@@ -921,8 +891,8 @@ function App() {
           >
             Composer
           </span>
-          <div className="mt-8">
-            <svg className="w11-spinner-svg" viewBox="0 0 50 50" style={{ width: 36, height: 36 }}>
+          <div className="mt-7">
+            <svg className="w11-spinner-svg" viewBox="0 0 50 50" style={{ width: 34, height: 34 }}>
               <circle
                 className="w11-spinner-path"
                 cx="25" cy="25" r="20"
@@ -944,7 +914,7 @@ function App() {
           bottom: "24px",
           right: "24px",
           zIndex: 9999,
-          backgroundColor: "var(--bg-surface)",
+          backgroundColor: "var(--bg-surface-elevated)",
           border: "1px solid var(--border-strong)",
           borderRadius: "var(--radius-md, 8px)",
           padding: "12px 16px",
@@ -990,7 +960,7 @@ function App() {
                 flex: 1,
                 padding: "6px 10px",
                 backgroundColor: "var(--accent)",
-                color: "#000000",
+                color: "#FFFFFF",
                 fontWeight: 600,
                 fontSize: "11px",
                 borderRadius: "4px",
@@ -1046,11 +1016,11 @@ function App() {
         onImport={handleImport}
         onOpenProject={handleOpenProject}
         onToggleTheme={toggleThemeMode}
+        isDarkMode={isDarkMode}
         onRefreshIndex={async () => {
           await invoke("invalidate_workspace_index");
           emit("config_updated");
         }}
-        isDarkMode={isDarkMode}
       />
 
       {/* ── Workspace Switcher Dialog ─────────────────────────── */}
@@ -1066,6 +1036,8 @@ function App() {
       />
 
     </div>
+    </WorktreeProvider>
+    </DirtyStateProvider>
   );
 
 }

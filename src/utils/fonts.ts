@@ -95,7 +95,8 @@ export function getFontPreset(id?: string): FontPreset {
 }
 
 export function applyTypographyToRoot(target: HTMLElement, presetId?: string): void {
-  const font = getFontPreset(presetId);
+  // Enforce clean, modern sans font for the application shell and UI
+  const font = getFontPreset(presetId === "spacemono" ? "modern_sans" : presetId);
 
   target.style.setProperty("--theme-font-text", font.text);
   target.style.setProperty("--theme-font-display", font.display);

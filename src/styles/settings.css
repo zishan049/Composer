@@ -8,7 +8,7 @@
   flex: 1;
   height: 100%;
   overflow-y: auto;
-  background-color: var(--bg-app);
+  background-color: transparent;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: 13px;
@@ -19,7 +19,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 32px 20px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: clamp(16px, 2.2vw, 24px) clamp(16px, 3vw, 32px) clamp(14px, 1.8vw, 20px);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -45,16 +47,77 @@
 
 /* ── Main content area ───────────────────────────────────────── */
 .stt-content {
-  max-width: 900px;
+  width: 100%;
+  max-width: min(1560px, 100%);
   margin: 0 auto;
-  padding: 24px 32px 48px;
+  padding: clamp(16px, 2.2vw, 24px) clamp(16px, 3vw, 32px) clamp(32px, 4vw, 48px);
 }
 
-/* ── Two-column grid ─────────────────────────────────────────── */
+/* ── Dynamic multi-column grid ───────────────────────────────── */
 .stt-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: repeat(var(--stt-cols, 2), minmax(0, 1fr));
+  gap: clamp(14px, 1.8vw, 20px);
+  align-items: start;
+}
+
+.stt-root .stt-grid--1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.stt-root .stt-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stt-root .stt-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 860px) {
+  .stt-root .stt-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stt-root .stt-field-row {
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.stt-root .stt-field-info {
+  min-width: min(100%, 180px);
+}
+
+.stt-col-stack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 1.6vw, 18px);
+  min-width: 0;
+}
+
+.stt-subgrid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.stt-subgrid-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.stt-fiber-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.stt-field-row--wrap {
+  flex-wrap: wrap;
 }
 
 /* ── Section card ────────────────────────────────────────────── */
@@ -141,7 +204,7 @@
 .stt-select {
   flex: 1;
   padding: 7px 10px;
-  background-color: var(--bg-surface-elevated);
+  background-color: #121829;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -149,17 +212,36 @@
   font-family: var(--font-ui);
   outline: none;
   cursor: pointer;
+  color-scheme: dark;
   transition: border-color var(--duration-fast);
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2371685E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237E8B9B' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 28px;
 }
-.stt-select:focus { border-color: var(--accent); }
+.stt-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .stt-select option {
-  background-color: var(--bg-surface-elevated);
-  color: var(--text-primary);
+  background-color: #121829 !important;
+  color: #F0F4F8 !important;
+  padding: 8px 10px;
+}
+.stt-select option:hover,
+.stt-select option:checked {
+  background-color: #2457FF !important;
+  color: #FFFFFF !important;
+}
+
+.theme-light .stt-select,
+[data-theme="light"] .stt-select {
+  background-color: #FFFFFF;
+  color: #0A1128;
+  color-scheme: light;
+}
+.theme-light .stt-select option,
+[data-theme="light"] .stt-select option {
+  background-color: #FFFFFF !important;
+  color: #0A1128 !important;
 }
 
 /* ── Browse button (inline with inputs) ─────────────────────── */
@@ -226,7 +308,7 @@
 
 .stt-toggle-input:checked + .stt-toggle-track::after {
   transform: translate(16px, -50%);
-  background-color: #1A1510;
+  background-color: #FFFFFF;
 }
 
 /* ── Color swatch row ────────────────────────────────────────── */
@@ -307,7 +389,7 @@
   gap: 6px;
   padding: 7px 14px;
   background-color: var(--accent);
-  color: #1A1510;
+  color: #FFFFFF;
   border: none;
   border-radius: var(--radius-sm);
   font-size: 12px;
@@ -381,29 +463,36 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 50;
+  z-index: 99999;
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   padding: 4px;
-  overflow: hidden;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 .stt-dropdown-item {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 7px 10px;
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  text-align: left;
   cursor: pointer;
   transition: background-color var(--duration-fast), color var(--duration-fast);
 }
 .stt-dropdown-item:hover { background-color: var(--sidebar-nav-hover-bg); color: var(--text-primary); }
-.stt-dropdown-item.active { background-color: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.stt-dropdown-item.active { background-color: var(--accent-soft); color: var(--accent-text, var(--accent)); font-weight: 600; }
+.stt-dropdown-item:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Divider ─────────────────────────────────────────────────── */
 .stt-divider {
@@ -469,10 +558,11 @@
 }
 
 /* ── Keyboard Shortcuts panel ──────────────────────────────── */
+.stt-section .stt-shortcut-groups,
 .stt-shortcut-groups {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 16px clamp(16px, 2.2vw, 24px);
 }
 
 .stt-shortcut-group {

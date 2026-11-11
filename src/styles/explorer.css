@@ -7,7 +7,7 @@
 .exp-root {
   display: flex;
   height: 100%;
-  background-color: var(--bg-app);
+  background-color: transparent;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: 13px;
@@ -18,7 +18,9 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--bg-sidebar);
+  background-color: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-right: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
@@ -229,14 +231,16 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: var(--bg-app);
+  background-color: transparent;
 }
 
 /* ── Tabs Bar ────────────────────────────────────────────────── */
 .exp-tabs {
   display: flex;
   align-items: stretch;
-  background-color: var(--bg-sidebar);
+  background-color: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-default);
   overflow-x: auto;
   flex-shrink: 0;
@@ -271,7 +275,7 @@
 }
 
 .exp-tab.active {
-  background-color: var(--bg-app);
+  background-color: var(--bg-surface-elevated);
   color: var(--text-primary);
   font-weight: 600;
   border-top-color: var(--accent);
@@ -337,7 +341,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 14px;
-  background-color: var(--bg-sidebar);
+  background-color: var(--bg-surface);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
   min-height: 36px;
@@ -370,7 +376,7 @@
   gap: 6px;
   padding: 3px 10px;
   background-color: var(--accent);
-  color: #1A1510;
+  color: #FFFFFF;
   border: none;
   border-radius: var(--radius-sm);
   font-size: 11px;
@@ -384,7 +390,7 @@
 .exp-mode-group {
   display: flex;
   align-items: center;
-  background-color: var(--bg-app);
+  background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -441,8 +447,8 @@
 }
 .exp-icon-btn.active {
   background-color: var(--accent-soft);
-  color: var(--accent);
-  border-color: rgba(229, 180, 95, 0.2);
+  color: var(--accent-text, var(--accent));
+  border-color: var(--border-strong);
 }
 
 /* ── Version History Panel ───────────────────────────────────── */
@@ -451,7 +457,9 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-sidebar);
+  background-color: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-left: 1px solid var(--border-subtle);
   flex-shrink: 0;
   overflow: hidden;
@@ -512,9 +520,9 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   background: transparent;
-  border: 1px solid rgba(229, 180, 95, 0.25);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 2px 8px;
   cursor: pointer;
@@ -523,7 +531,7 @@
 }
 .exp-history-restore-btn:hover {
   background-color: var(--accent);
-  color: #1A1510;
+  color: #FFFFFF;
 }
 
 /* ── Monaco wrapper ──────────────────────────────────────────── */
@@ -534,11 +542,17 @@
   position: relative;
 }
 
-/* Override Monaco editor background to match the app */
+/* Override Monaco editor background so subtle Ghost Fibers show behind with crisp readability */
 .exp-monaco-wrapper .monaco-editor,
 .exp-monaco-wrapper .monaco-editor .margin,
 .exp-monaco-wrapper .monaco-editor-background {
-  background-color: var(--bg-app) !important;
+  background-color: rgba(11, 15, 25, 0.88) !important;
+}
+
+.theme-light .exp-monaco-wrapper .monaco-editor,
+.theme-light .exp-monaco-wrapper .monaco-editor .margin,
+.theme-light .exp-monaco-wrapper .monaco-editor-background {
+  background-color: rgba(255, 255, 255, 0.90) !important;
 }
 
 /* ── Grid view / CSV table ───────────────────────────────────── */
@@ -576,7 +590,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  background-color: var(--bg-sidebar);
+  background-color: var(--bg-surface-elevated);
   border-bottom: 1px solid var(--border-subtle);
   font-size: 10px;
   font-weight: 700;

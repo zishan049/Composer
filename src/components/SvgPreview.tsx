@@ -289,7 +289,7 @@ export const SvgPreview: React.FC<SvgPreviewProps> = ({
               onClick={() => setBgMode("grid")}
               title="Theme Paper Grid (Default)"
               className={`p-1 rounded-sm transition-colors ${
-                bgMode === "grid" ? "bg-accent text-paper" : "text-muted hover:text-ink"
+                bgMode === "grid" ? "bg-accent text-white" : "text-muted hover:text-ink"
               }`}
             >
               <Grid size={11} />
@@ -298,7 +298,7 @@ export const SvgPreview: React.FC<SvgPreviewProps> = ({
               onClick={() => setBgMode("paper")}
               title="Theme Paper (Solid)"
               className={`px-1.5 py-0.5 text-[9px] uppercase font-bold rounded-sm transition-colors ${
-                bgMode === "paper" ? "bg-accent text-paper" : "text-muted hover:text-ink"
+                bgMode === "paper" ? "bg-accent text-white" : "text-muted hover:text-ink"
               }`}
             >
               Paper
@@ -307,7 +307,7 @@ export const SvgPreview: React.FC<SvgPreviewProps> = ({
               onClick={() => setBgMode("light")}
               title="Light Background"
               className={`p-1 rounded-sm transition-colors ${
-                bgMode === "light" ? "bg-accent text-paper" : "text-muted hover:text-ink"
+                bgMode === "light" ? "bg-accent text-white" : "text-muted hover:text-ink"
               }`}
             >
               <Sun size={11} />
@@ -316,7 +316,7 @@ export const SvgPreview: React.FC<SvgPreviewProps> = ({
               onClick={() => setBgMode("dark")}
               title="Dark Background"
               className={`p-1 rounded-sm transition-colors ${
-                bgMode === "dark" ? "bg-accent text-paper" : "text-muted hover:text-ink"
+                bgMode === "dark" ? "bg-accent text-white" : "text-muted hover:text-ink"
               }`}
             >
               <Moon size={11} />

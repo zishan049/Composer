@@ -12,10 +12,23 @@ on:
         type: string
 
 jobs:
-  release-windows:
+  release:
+    name: Build & Publish (${{ matrix.platform }})
     permissions:
       contents: write
-    runs-on: windows-latest
+    runs-on: ${{ matrix.platform }}
+
+    strategy:
+      fail-fast: false
+      # Run release uploads sequentially so parallel matrix runners do not collide
+      # when creating the GitHub Release and merging updater latest.json.
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: windows-latest
+            args: '--bundles nsis'
+          - platform: ubuntu-22.04
+            args: '--bundles deb,appimage'
 
     steps:
       - name: Checkout repository
@@ -30,6 +43,28 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xdg-utils
+
       - name: Install frontend dependencies
         run: npm ci
 
@@ -39,10 +74,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         with:
           tagName: ${{ inputs.version || github.ref_name }}
           releaseName: 'Composer ${{ inputs.version || github.ref_name }}'
-          releaseBody: 'Download the Composer Windows installer below to install or update.'
+          releaseBody: 'Download the Composer Windows or Linux installers below to install or update.'
           releaseDraft: false
           prerelease: false
-          args: '--bundles nsis'
+          args: ${{ matrix.args }}

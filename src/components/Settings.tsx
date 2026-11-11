@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Sliders, RefreshCw, Save, Dices, X, ArrowUpCircle, CheckCircle, AlertCircle, Download, Keyboard, Sparkles, Sun, Moon, Check } from "lucide-react";
 import GlideSelect from "./GlideSelect";
 import { invoke } from "@tauri-apps/api/core";

@@ -217,7 +217,9 @@ async fn get_system_ram_usage() -> u8 {
         if let Ok(mem) = sys_info::mem_info() {
             if mem.total > 0 {
                 let used = mem.total.saturating_sub(mem.free);
-                return ((used as f64 / mem.total as f64) * 100.0).round().clamp(0.0, 100.0) as u8;
+                return ((used as f64 / mem.total as f64) * 100.0)
+                    .round()
+                    .clamp(0.0, 100.0) as u8;
             }
         }
         50
@@ -255,16 +257,24 @@ fn sample_system_cpu_usage() -> u8 {
     }
 
     fn read_times() -> Option<(u64, u64, u64)> {
-        let mut idle = FileTime { dw_low_date_time: 0, dw_high_date_time: 0 };
-        let mut kernel = FileTime { dw_low_date_time: 0, dw_high_date_time: 0 };
-        let mut user = FileTime { dw_low_date_time: 0, dw_high_date_time: 0 };
+        let mut idle = FileTime {
+            dw_low_date_time: 0,
+            dw_high_date_time: 0,
+        };
+        let mut kernel = FileTime {
+            dw_low_date_time: 0,
+            dw_high_date_time: 0,
+        };
+        let mut user = FileTime {
+            dw_low_date_time: 0,
+            dw_high_date_time: 0,
+        };
         let ok = unsafe { GetSystemTimes(&mut idle, &mut kernel, &mut user) };
         if ok == 0 {
             return None;
         }
-        let to_u64 = |ft: FileTime| {
-            ((ft.dw_high_date_time as u64) << 32) | (ft.dw_low_date_time as u64)
-        };
+        let to_u64 =
+            |ft: FileTime| ((ft.dw_high_date_time as u64) << 32) | (ft.dw_low_date_time as u64);
         Some((to_u64(idle), to_u64(kernel), to_u64(user)))
     }
 
@@ -303,7 +313,9 @@ fn sample_system_cpu_usage() -> u8 {
     }
 
     let busy = total.saturating_sub(idle_delta);
-    let pct = ((busy as f64 / total as f64) * 100.0).round().clamp(0.0, 100.0) as u8;
+    let pct = ((busy as f64 / total as f64) * 100.0)
+        .round()
+        .clamp(0.0, 100.0) as u8;
     *guard = Some(CpuSampleState {
         idle: curr.0,
         kernel: curr.1,

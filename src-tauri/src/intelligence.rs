@@ -29,21 +29,18 @@ fn classify_extension(ext: &str) -> FileCategory {
         "md" | "mdx" | "markdown" => FileCategory::Markdown,
         // Code
         "rs" | "js" | "jsx" | "ts" | "tsx" | "py" | "rb" | "go" | "c" | "cpp" | "h" | "hpp"
-        | "java" | "cs" | "swift" | "kt" | "php" | "lua" | "zig" | "dart" | "scala"
-        | "clj" | "ex" | "exs" | "elm" | "ml" | "mli" | "fs" | "fsx" | "sh" | "bash"
-        | "zsh" | "fish" | "ps1" | "bat" | "cmd" | "mjs" | "cjs" | "vue" | "svelte"
-        | "astro" | "html" | "htm" | "css" | "scss" | "sass" | "less" | "styl"
-        | "tf" | "hcl" | "sol" => FileCategory::Code,
+        | "java" | "cs" | "swift" | "kt" | "php" | "lua" | "zig" | "dart" | "scala" | "clj"
+        | "ex" | "exs" | "elm" | "ml" | "mli" | "fs" | "fsx" | "sh" | "bash" | "zsh" | "fish"
+        | "ps1" | "bat" | "cmd" | "mjs" | "cjs" | "vue" | "svelte" | "astro" | "html" | "htm"
+        | "css" | "scss" | "sass" | "less" | "styl" | "tf" | "hcl" | "sol" => FileCategory::Code,
         // Data / serialization
-        "json" | "jsonc" | "json5" | "toml" | "yaml" | "yml" | "xml" | "csv" | "tsv"
-        | "ndjson" | "parquet" => FileCategory::Data,
+        "json" | "jsonc" | "json5" | "toml" | "yaml" | "yml" | "xml" | "csv" | "tsv" | "ndjson"
+        | "parquet" => FileCategory::Data,
         // Config
-        "env" | "gitignore" | "gitattributes" | "dockerignore" | "editorconfig"
-        | "eslintrc" | "prettierrc" | "babelrc" | "npmrc" | "nvmrc" | "tool-versions"
-        | "cargo.lock" | "package-lock.json" | "pnpm-lock.yaml" | "yarn.lock"
-        | "makefile" | "dockerfile" | "containerfile" | "ini" | "cfg" | "conf" | "lock" => {
-            FileCategory::Config
-        }
+        "env" | "gitignore" | "gitattributes" | "dockerignore" | "editorconfig" | "eslintrc"
+        | "prettierrc" | "babelrc" | "npmrc" | "nvmrc" | "tool-versions" | "cargo.lock"
+        | "package-lock.json" | "pnpm-lock.yaml" | "yarn.lock" | "makefile" | "dockerfile"
+        | "containerfile" | "ini" | "cfg" | "conf" | "lock" => FileCategory::Config,
         // Documents
         "txt" | "rtf" | "doc" | "docx" | "odt" | "pdf" | "tex" | "org" | "rst" | "adoc"
         | "asciidoc" => FileCategory::Document,
@@ -53,8 +50,8 @@ fn classify_extension(ext: &str) -> FileCategory {
             FileCategory::Image
         }
         // Media
-        "mp4" | "mkv" | "mov" | "avi" | "webm" | "flv" | "wmv" | "m4v" | "mp3" | "wav"
-        | "flac" | "ogg" | "m4a" | "aac" | "opus" | "wma" => FileCategory::Media,
+        "mp4" | "mkv" | "mov" | "avi" | "webm" | "flv" | "wmv" | "m4v" | "mp3" | "wav" | "flac"
+        | "ogg" | "m4a" | "aac" | "opus" | "wma" => FileCategory::Media,
         _ => FileCategory::Other,
     }
 }
@@ -134,7 +131,10 @@ fn detect_relationships_in_file(
     let name_to_path: std::collections::HashMap<String, &PathBuf> = all_files
         .iter()
         .map(|p| {
-            let name = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+            let name = p
+                .file_name()
+                .map(|n| n.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
             (name.to_string(), p)
         })
         .collect();
@@ -237,26 +237,24 @@ fn detect_relationships_in_file(
                 let line = line.trim();
                 let ref_str = if line.starts_with("import") {
                     // import ... from '...'
-                    line.rsplit("from").next()
-                        .and_then(|s| {
-                            let s = s.trim().trim_matches(';');
-                            if s.starts_with('"') || s.starts_with('\'') {
-                                Some(&s[1..s.len() - 1])
-                            } else {
-                                None
-                            }
-                        })
+                    line.rsplit("from").next().and_then(|s| {
+                        let s = s.trim().trim_matches(';');
+                        if s.starts_with('"') || s.starts_with('\'') {
+                            Some(&s[1..s.len() - 1])
+                        } else {
+                            None
+                        }
+                    })
                 } else if line.contains("require(") {
-                    line.split("require(").nth(1)
-                        .and_then(|s| {
-                            let s = s.trim();
-                            if s.starts_with('"') || s.starts_with('\'') {
-                                let inner = &s[1..];
-                                inner.find(|c| c == '"' || c == '\'').map(|e| &inner[..e])
-                            } else {
-                                None
-                            }
-                        })
+                    line.split("require(").nth(1).and_then(|s| {
+                        let s = s.trim();
+                        if s.starts_with('"') || s.starts_with('\'') {
+                            let inner = &s[1..];
+                            inner.find(['"', '\'']).map(|e| &inner[..e])
+                        } else {
+                            None
+                        }
+                    })
                 } else {
                     None
                 };
@@ -291,7 +289,7 @@ pub async fn get_file_intelligence() -> Result<Vec<FileIntelligenceEntry>, Strin
             return Ok(Vec::new());
         }
         let mut entries = Vec::new();
-        walk_for_intelligence(&root, &root, &mut entries);
+        walk_for_intelligence(&root, &mut entries);
         // Sort: category, then name
         entries.sort_by(|a, b| {
             format!("{:?}", a.category)
@@ -304,7 +302,7 @@ pub async fn get_file_intelligence() -> Result<Vec<FileIntelligenceEntry>, Strin
     .map_err(|e| e.to_string())?
 }
 
-fn walk_for_intelligence(root: &Path, dir: &Path, out: &mut Vec<FileIntelligenceEntry>) {
+fn walk_for_intelligence(dir: &Path, out: &mut Vec<FileIntelligenceEntry>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -329,7 +327,7 @@ fn walk_for_intelligence(root: &Path, dir: &Path, out: &mut Vec<FileIntelligence
         };
 
         if metadata.is_dir() {
-            walk_for_intelligence(root, &path, out);
+            walk_for_intelligence(&path, out);
         } else if metadata.is_file() {
             // Skip very large files for analysis
             if metadata.len() > 50 * 1024 * 1024 {

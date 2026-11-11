@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   House, Folder, Settings as SettingsIcon,
   RefreshCw, Sun, Moon, Minus, Square, X,
-  HardDrive, ArrowUpCircle, Download, Search,
-  Clock, ChevronDown, Sparkles,
+  ArrowUpCircle, Download, Search,
+  ChevronDown,
 } from "lucide-react";
 
 import { invoke } from "@tauri-apps/api/core";
@@ -548,8 +548,6 @@ function App() {
   }, [activePage]);
 
   // ── Helpers ──────────────────────────────────
-  const iconOnly = config?.theme?.ui_overrides?.nav_icon_only === "true";
-
   const renderPages = () => (
     <React.Suspense
       fallback={

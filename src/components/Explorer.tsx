@@ -1048,7 +1048,7 @@ const ExplorerComponent: React.FC = () => {
     const sCtx = latestRef.current;
     const selectedMediaFiles = currentSelection
       .map((path: string) => (sCtx.files as FileEntry[]).find(f => f.path === path))
-      .filter((f): f is FileEntry => Boolean(f && !f.is_dir && isMediaCompareFile(f.name)));
+      .filter((f: FileEntry | undefined): f is FileEntry => Boolean(f && !f.is_dir && isMediaCompareFile(f.name)));
     const isSingleMedia = !entry.is_dir && isMediaCompareFile(entry.name);
     const hasCompareTab = (sCtx.openTabs as OpenTab[]).some(t => t.path === COMPARE_TAB_PATH);
     const openMediaList = (sCtx.openTabs as OpenTab[]).filter(
@@ -1130,9 +1130,9 @@ const ExplorerComponent: React.FC = () => {
 
                 // If no more worktrees remain in the workspace, or the active one was deleted, revert to main workspace
                 const remainingWts = worktrees.filter(
-                  w => !currentSelection.some(delPath => w.root_path === delPath || delPath.startsWith(w.root_path))
+                  w => !currentSelection.some((delPath: string) => w.root_path === delPath || delPath.startsWith(w.root_path))
                 );
-                if (remainingWts.length === 0 || (activeWorktreeId && currentSelection.some(p => worktrees.find(w => w.id === activeWorktreeId)?.root_path === p))) {
+                if (remainingWts.length === 0 || (activeWorktreeId && currentSelection.some((p: string) => worktrees.find(w => w.id === activeWorktreeId)?.root_path === p))) {
                   await switchWorktree(null);
                 }
 

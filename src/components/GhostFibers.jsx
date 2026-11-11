@@ -571,7 +571,7 @@ const GhostFibers = ({
   intro = true,
   lightMode = false,
   paused = false,
-  dpr,
+  dpr = undefined,
   ...rest
 }) => {
   const containerRef = useRef(null);

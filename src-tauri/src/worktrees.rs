@@ -135,7 +135,9 @@ fn validate_worktree_name(name: &str) -> Result<(), String> {
         return Err("Worktree name must be 80 characters or fewer".to_string());
     }
     // Disallow OS-reserved characters
-    if n.chars().any(|c| matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')) {
+    if n.chars()
+        .any(|c| matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'))
+    {
         return Err("Worktree name contains invalid characters".to_string());
     }
     Ok(())
@@ -171,10 +173,7 @@ pub async fn create_worktree(
 
     let root = PathBuf::from(root_path.trim());
     if !root.exists() {
-        return Err(format!(
-            "Directory does not exist: {}",
-            root.display()
-        ));
+        return Err(format!("Directory does not exist: {}", root.display()));
     }
     if !root.is_dir() {
         return Err("Worktree path must be a directory".to_string());
@@ -190,7 +189,11 @@ pub async fn create_worktree(
         let mut ws = load_parent_workspace(&workspace_path);
 
         // Enforce unique name within workspace
-        if ws.worktrees.iter().any(|w| w.name.eq_ignore_ascii_case(&name)) {
+        if ws
+            .worktrees
+            .iter()
+            .any(|w| w.name.eq_ignore_ascii_case(&name))
+        {
             return Err(format!("A worktree named '{}' already exists", name));
         }
 
@@ -226,10 +229,7 @@ pub async fn create_worktree(
 
 /// Rename a worktree (display name only — never touches the filesystem).
 #[tauri::command]
-pub async fn rename_worktree(
-    worktree_id: String,
-    new_name: String,
-) -> Result<(), String> {
+pub async fn rename_worktree(worktree_id: String, new_name: String) -> Result<(), String> {
     validate_worktree_name(&new_name)?;
 
     let workspace_path = crate::config::get_active_workspace_path();
@@ -289,10 +289,7 @@ pub async fn set_active_worktree(
 /// Pass `delete_files: true` only if you want to also remove the filesystem
 /// directory (requires confirmation in the frontend before calling).
 #[tauri::command]
-pub async fn remove_worktree(
-    worktree_id: String,
-    delete_files: bool,
-) -> Result<(), String> {
+pub async fn remove_worktree(worktree_id: String, delete_files: bool) -> Result<(), String> {
     let workspace_path = crate::config::get_active_workspace_path();
 
     tauri::async_runtime::spawn_blocking(move || {
@@ -309,15 +306,11 @@ pub async fn remove_worktree(
         let ws_canonical = crate::session::canonicalize_best_effort(&workspace_path);
         let wt_canonical = crate::session::canonicalize_best_effort(Path::new(&wt.root_path));
         if wt_canonical == ws_canonical {
-            return Err(
-                "Cannot delete the active workspace root directory".to_string(),
-            );
+            return Err("Cannot delete the active workspace root directory".to_string());
         }
 
-        if delete_files {
-            if wt_canonical.exists() {
-                fs::remove_dir_all(&wt_canonical).map_err(|e| e.to_string())?;
-            }
+        if delete_files && wt_canonical.exists() {
+            fs::remove_dir_all(&wt_canonical).map_err(|e| e.to_string())?;
         }
 
         ws.worktrees.retain(|w| w.id != worktree_id);
@@ -386,8 +379,15 @@ mod tests {
     use std::fs;
 
     fn tmp_workspace() -> PathBuf {
-        let dir = std::env::temp_dir()
-            .join(format!("composer_wt_test_{}", now_ms()));
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        let seq = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "composer_wt_test_{}_{}_{}",
+            std::process::id(),
+            now_ms(),
+            seq
+        ));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

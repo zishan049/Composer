@@ -2,11 +2,11 @@
 
 <img src="public/composer-icon.svg" alt="Composer app icon" width="76" />
 
-# Composer v0.4.0
+# Composer
 
-**A minimal, fast, local-first desktop workspace.**
+**A focused desktop workspace for your files.**
 
-Create, edit, organize, search, compare, and preview project files without the complexity of a full IDE.
+Create, inspect, compare, and edit code, documents, vectors, images, and structured data — in one minimal, local-first app (`v0.4.0`).
 
 <br />
 
@@ -17,88 +17,125 @@ Create, edit, organize, search, compare, and preview project files without the c
 
 <br />
 
-[**Download**](https://github.com/zishan049/Composer/releases/latest) · [**Features**](#what-you-can-do) · [**Architecture**](#architecture) · [**Shortcuts**](#keyboard-shortcuts) · [**Run locally**](#run-locally) · [**Report an issue**](https://github.com/zishan049/Composer/issues)
+[**Download**](#get-composer) · [**Features**](#what-you-can-do) · [**Build from source**](#run-locally) · [**Report an issue**](https://github.com/zishan049/Composer/issues)
 
 </div>
 
 ---
 
-## Workspace-first design
+## A workspace that stays out of the way
 
-Composer v0.4.0 builds on a fast, strictly sandboxed workspace foundation with **Git-free Worktrees**, a **Unified Multi-Media Compare Workspace**, **Quantum Blue** & **Ghost Fiber** visual styling, and **live native system telemetry**.
+Composer brings everyday creative and technical file workflows into a single sandboxed desktop workspace. Instead of juggling separate apps to edit source code, preview Markdown, inspect vectors, or compare multiple images side by side, work cleanly from one focused shell.
 
-- **Local-first by design** — Your project files live entirely on your machine inside a canonicalized, sandboxed workspace root with no cloud lock-in.
-- **Quantum Blue & Ghost Fiber Aesthetic** — Deep Obsidian (`#0B0F19`) dark mode and crisp Polar White (`#F0F4F8`) light mode with Quantum Blue accents (`#2457FF`, `#00D4FF`, `#DFF7FF`), an animated **Ghost Fibers** canvas ambient backdrop across the shell and startup reveal, glassmorphic navigation bars, adjustable edge smoothness sliders, typography presets, and TOML theme export/import.
-- **Three Focused Views + Global Command Palette** — Navigate cleanly between **Overview**, **Files**, and **Settings** via a glassmorphic Top or Bottom Navbar, or invoke the **`Ctrl/Cmd + K`** **Command Palette** from anywhere for instant file search, navigation, worktree creation, and theme toggling.
-- **Git-Free Worktrees & Nested Workspaces** — Organize independent sub-workspaces as named **Worktrees** (`<workspace>/.composer/worktrees.json`) without requiring Git, scaffold nested `composer.toml` workspaces straight from the Explorer, and switch worktrees smoothly without losing your place in **Files**.
-- **Clean Bento Overview** — A unified Workspace Overview card surfaces your workspace path, **Indexed Files**, **Directories**, **Storage Volume**, and **Composition** stats alongside **Quick Actions** and a filterable **Recent Files** grid powered by **GlideSelect**.
-- **Unified Multi-Image / SVG Compare Workspace** — Compare multiple raster images and SVGs in one shared interactive canvas (`Row`, `Stack`, `Board`, draggable A/B `Split`, and `Overlay` blend modes including `difference` and `exclusion`) with synced zoom/pan, `Match Size` vs `1:1` scaling, and customizable backdrops.
-- **Live System Telemetry Rings** — Circular **CPU** and **RAM** utilization indicators in the status bar/bottom navbar poll native Rust metrics every **15 seconds** (plus instant refresh on focus restore).
-- **Unsaved Changes Protection & Atomic Writes** — Explicit dirty-state guards protect unsaved tabs when closing or switching workspaces, and text saves use atomic sibling-temporary writes to prevent file corruption.
+- **Local-first and strictly sandboxed** — files stay on your machine inside canonicalized workspace roots with `..` traversal guards, atomic saves, and session-scoped imports.
+- **Three streamlined views + Command Palette** — move between **Overview**, **Files**, and **Settings** through a glassmorphic Top or Bottom Navbar, or press **`Ctrl/Cmd + K`** anywhere to search and act at keyboard speed.
+- **Git-free worktrees** — create, rename, and switch isolated worktrees (`<workspace>/.composer/worktrees.json`) or scaffold nested `composer.toml` workspaces directly from Explorer without touching Git.
+- **Quantum Blue & Ghost Fiber setup** — personalize dark/light Quantum Blue palettes, live **Ghost Fibers** ambient canvas ribbons, typography presets, edge smoothness sliders, **GlideSelect** menus, and TOML theme profiles.
 
----
+## The interface
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>Workspace overview</strong><br />
+      <sub>Unified hero metrics, quick actions, and category-filtered recent files.</sub><br /><br />
+      <img src="docs/screenshots/home.svg" alt="Composer Workspace Overview UI preview" width="100%" />
+    </td>
+    <td width="50%">
+      <strong>Files &amp; unified media compare</strong><br />
+      <sub>Explorer tree, tabs, and shared multi-image / SVG compare canvas.</sub><br /><br />
+      <img src="docs/screenshots/code-studio.svg" alt="Composer Files and Media Compare UI preview" width="100%" />
+    </td>
+  </tr>
+</table>
+
+> **Screenshot note:** These are source-derived UI previews based on the current `flash` branch React components, Quantum Blue tokens, and Ghost Fiber visuals. They communicate the layout, rather than pixel captures from a running binary.
 
 ## What you can do
 
-| Area | Capabilities |
+| Tool | Capabilities |
 | --- | --- |
-| **Workspace Overview** | Unified hero summary (**Indexed Files**, **Directories**, **Storage Volume**, dominant **Composition** formats), **Quick Actions** (`New File`, `New Folder`, `New Worktree`, `Switch Workspace`), Reveal in File Manager, and **Recent Files** Bento cards with **GlideSelect** category filtering (`All`, `Images`, `Docs`, `Code`). |
-| **Worktrees & Workspaces** | Create, rename, switch, and delete named **Worktrees** without Git (`worktrees.json`), scaffold nested `composer.toml` workspaces from Explorer, manage recent workspace history cleanly, and preserve navigation state across worktree switches. |
-| **Explorer & Files** | Tree navigation with multi-select (`Ctrl+A`), file/folder creation, rename (`F2`), delete with confirmation, external file/folder import, native drag-and-drop registration, context menus (`Reveal in File Manager`, `Copy Path`), and local version history snapshots. |
-| **Code, Markdown & Data** | Lazy-loaded Monaco Editor with self-hosted workers, Markdown preview (`Preview`, `Split`, `Code` + print/save), structured inspection for CSV/JSON/TOML, and atomic disk writes with dirty-state modal guards. |
-| **Unified Media Compare & Previews** | Multi-image/SVG compare canvas (`Row`, `Stack`, `Board`, `Split`, `Overlay`, synced zoom/pan, backdrop switcher), single-image inspector (zoom, rotate, flip, eyedropper color sampler), interactive SVG preview/code split, and PDF viewing & editing (`pdfjs-dist` + `pdf-lib`). |
-| **Command Palette** | Global **`Ctrl/Cmd + K`** quick switcher with deterministic workspace search (exact filename → prefix → substring → path → text content $\le$ 1 MB), filter tabs, and quick workspace/theme actions. |
-| **Appearance & Preferences** | **GlideSelect** dropdown controls, **Ghost Fibers** customization (style, opacity, palette), UI & navbar edge smoothness sliders, Top vs Bottom glassmorphic navbar layout, typography presets, palette color overrides, TOML theme export/import, and built-in GitHub Releases updater checks. |
-| **System Telemetry** | Native Rust CPU (`GetSystemTimes` / loadavg) and physical RAM telemetry rendered as compact circular progress rings updating every 15 seconds. |
-| **Security & Sandbox** | Canonicalized workspace boundary checks, `..` traversal rejection, symlink escape guards, session allowlisting for native dialogs & drag-and-drop paths, and dynamic runtime Tauri asset protocol scoping. |
+| **Code** | Lazy-loaded Monaco Editor with self-hosted workers, syntax highlighting, multi-tab dirty-state guards, and atomic writes. |
+| **Markdown** | Write and preview Markdown across **Preview**, **Split**, and **Code** modes with print &amp; PDF/document export dialog (`Ctrl/Cmd + P`). |
+| **PDF** | Render pages with PDF.js (`pdfjs-dist`) and inspect or edit supported text using `pdf-lib`. |
+| **SVG** | Inspect vector graphics interactively with zoom, preview/split/code views, and live XML source editing. |
+| **Images** | Zoom, fit, rotate, flip, inspect image metadata, and sample pixel colors with the built-in eyedropper. |
+| **Media Compare** | Compare multiple images and SVGs in one shared canvas using **Row**, **Stack**, **Board**, draggable A/B **Split**, and **Overlay** blend modes with synced zoom/pan and backdrop switching. |
+| **Structured data** | Open `.csv`, `.json`, and `.toml` files cleanly in paginated table or source views. |
+| **Worktrees &amp; Workspace** | Browse trees, multi-select files (`Ctrl + A`), import external assets, restore local version snapshots, search deterministically (`Ctrl/Cmd + K`), and organize Git-free worktrees. |
+| **Appearance &amp; Telemetry** | Customize **Ghost Fibers** animation, glassmorphic Top/Bottom navbars, fonts, edge roundness, TOML theme export/import, and monitor live **CPU** &amp; **RAM** circular progress rings updating every 15 seconds. |
 
----
+## Get Composer
 
-## Architecture
+Download the latest installers from **[GitHub Releases](https://github.com/zishan049/Composer/releases/latest)**.
 
-Composer separates native desktop operations in Rust from the React UI through a typed IPC boundary:
+### Windows
 
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│                             React 19 UI                              │
-│  Overview · Explorer · Media Compare · Monaco · Palette · Settings   │
-└──────────────────────────────────┬───────────────────────────────────┘
-                                   │ Typed IPC Boundary (src/lib/api.ts)
-┌──────────────────────────────────▼───────────────────────────────────┐
-│                         Tauri 2 Native Core                          │
-│  Sandboxed File Ops · Worktrees · Config · Telemetry · Search Index  │
-└──────────────────────────────────────────────────────────────────────┘
+1. Open the latest release assets.
+2. Download the Windows **`.exe`** (NSIS) installer.
+3. Run the installer and launch Composer.
+
+### Linux
+
+1. Open the latest release assets.
+2. Download the **`.AppImage`** (portable executable — run `chmod +x` before launching) or **`.deb`** package (Debian/Ubuntu).
+3. Launch Composer from your terminal or desktop menu.
+
+If prebuilt assets are not yet published for your architecture, build from source using the steps below.
+
+## Run locally
+
+### Requirements
+
+- **Node.js** (v20 or v22 recommended) &amp; **npm**
+- **Rust** stable &amp; **Cargo** (`rustfmt` and `clippy` components for CI checks)
+- Platform prerequisites from the [Tauri setup guide](https://tauri.app/start/prerequisites/) (on Debian/Ubuntu Linux for Tauri v2: `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libxdo-dev`, `libssl-dev`, `build-essential`, `patchelf`, `xdg-utils`)
+
+### Development build
+
+```bash
+git clone -b flash https://github.com/zishan049/Composer.git
+cd Composer
+npm install
+npm run tauri dev
 ```
 
-- **Frontend API Boundary (`src/lib/api.ts`)**: Centralizes Tauri `invoke` calls into typed Promise helpers backed by interfaces in `src/types.ts`.
-- **Sandboxed File Operations (`src-tauri/src/file_ops.rs`)**: Validates every path via canonicalization against the active workspace root, indexes workspace files/stats, performs deterministic search, and executes atomic writes.
-- **Session Allowlist & Runtime Asset Scope (`src-tauri/src/session.rs`, `src-tauri/src/lib.rs`)**: Tracks user-picked and dropped paths and updates Tauri's runtime asset protocol scope dynamically on workspace switches.
-- **Worktree & Config Persistence (`src-tauri/src/worktrees.rs`, `src-tauri/src/config.rs`)**: Persists workspace config, custom themes, TOML import/export, and `<workspace>/.composer/worktrees.json` metadata safely.
+### Verification checks
 
----
+Run the same checks enforced by [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+```bash
+npx tsc --noEmit
+npm test
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+```
+
+### Production build
+
+```bash
+npm run tauri build
+```
+
+Platform bundles are generated under `src-tauri/target/release/bundle/`.
 
 ## Keyboard shortcuts
 
-| Shortcut | Context | Action |
-| --- | --- | --- |
-| `Ctrl/Cmd + K` | Global | Open / toggle Command Palette & Quick Search |
-| `Ctrl/Cmd + F` | Global | Focus Explorer / Home search |
-| `Ctrl/Cmd + R` / `F5` | Global | Reload interface |
-| `F11` | Global | Toggle fullscreen window |
-| `Esc` | Global | Close dialogs, menus, pickers, or Command Palette |
-| `Ctrl/Cmd + S` | Explorer | Save active file (atomic write) |
-| `Ctrl/Cmd + W` | Explorer | Close active editor tab |
-| `Ctrl/Cmd + N` | Explorer | Create new file |
-| `Ctrl/Cmd + A` | Explorer | Select all files in current directory |
-| `F2` | Explorer | Rename selected item or active tab |
-| `Delete` | Explorer | Delete selected item(s) with confirmation |
-| `Ctrl + +/-/0/1` | Image Viewer | Zoom in, zoom out, fit to view, actual size (100%) |
-| `R` / `Shift + R` | Image Viewer | Rotate clockwise / counter-clockwise |
-| `H` / `V` / `I` | Image Viewer | Flip horizontal / flip vertical / toggle eyedropper |
-| `Ctrl/Cmd + P` | Markdown Preview | Open print & save dialog |
-| `Mouse Back / Fwd` | Window | Navigate previous / next top-level page |
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl/Cmd + K` | Open Command Palette &amp; workspace quick search |
+| `Ctrl/Cmd + F` | Focus Explorer / Home filter search |
+| `Ctrl/Cmd + S` | Save the active file (atomic write) |
+| `Ctrl/Cmd + W` | Close active editor tab |
+| `Ctrl/Cmd + N` | Create new file |
+| `Ctrl/Cmd + A` | Select all files in Explorer |
+| `F2` | Rename selected item or active tab |
+| `Delete` | Delete selected item(s) with confirmation |
+| `F11` | Toggle fullscreen |
+| `Esc` | Close menus, pickers, dialogs, or Command Palette |
 
----
+Image Viewer also supports `Ctrl + +/-/0/1` zoom, `R` / `Shift+R` rotate, `H` / `V` flip, and `I` eyedropper; `Mouse Back / Forward` steps across top-level pages.
 
 ## Technology
 
@@ -108,64 +145,66 @@ Composer separates native desktop operations in Rust from the React UI through a
 | Native backend | Rust 2021 (`serde`, `serde_json`, `toml`, `sys-info`, `base64`) |
 | UI Framework | React 19 + TypeScript 5.8 (Strict) |
 | Build Tool | Vite 7 |
-| Styling & Components | Tailwind CSS 4, CSS Design Tokens, Glassmorphism, `GhostFibers`, `GlideSelect` |
-| Icons | `lucide-react`, `@hugeicons/react` |
-| Editor | `monaco-editor` (lazy-loaded with self-hosted workers) |
-| Previews & PDF | `pdfjs-dist`, `pdf-lib`, `DOMPurify`, `marked` |
+| Styling &amp; Motion | Tailwind CSS 4, CSS design tokens, `GhostFibers`, `GlideSelect` |
+| Icons | `lucide-react` &amp; `@hugeicons/react` |
+| Code Editor | Monaco Editor (lazy-loaded with self-hosted workers) |
+| Previews &amp; PDF | PDF.js (`pdfjs-dist`), `pdf-lib`, `marked`, `DOMPurify` |
 
----
+## Repository layout
 
-## Run locally
-
-### Requirements
-
-- Node.js (v20 or v22 recommended) & npm
-- Rust stable & Cargo
-- Platform prerequisites from the [Tauri setup guide](https://tauri.app/start/prerequisites/)
-
-### Setup & Development
-
-```bash
-git clone https://github.com/zishan049/Composer.git
-cd Composer
-npm install
-npm run dev
+```text
+Composer/
+├── .github/workflows/   # CI validation & cross-platform Windows/Linux release workflows
+├── docs/screenshots/    # Source-derived SVG UI previews
+├── public/              # Static assets and Composer SVG app mark
+├── src/
+│   ├── components/      # Home, Explorer, Settings, MediaCompareViewer, WorktreeManager, GhostFibers, GlideSelect
+│   ├── lib/             # Typed Tauri IPC API (api.ts), WorktreeContext, DirtyStateContext, Monaco setup
+│   ├── styles/          # Design tokens and view/shell CSS layers
+│   ├── utils/           # Theme, fonts, recent files, and updater helpers
+│   ├── App.tsx          # App shell, glassmorphic navigation, loading reveal & telemetry rings
+│   └── types.ts         # Shared TypeScript interfaces
+├── src-tauri/
+│   ├── icons/           # Cross-platform .png, .icns, and .ico bundle icons
+│   └── src/             # Sandboxed file_ops, worktrees, session allowlist, config & native commands
+├── tests/               # Node unit tests for search, stats, and workspace lifecycle
+├── PRD.md               # Product requirements
+└── package.json
 ```
 
-To launch the native desktop application in development mode with Tauri:
+## Project status
 
-```bash
-npm run tauri dev
-```
+- [x] Frameless glassmorphic desktop shell, Quantum Blue dark/light themes, and Ghost Fibers canvas
+- [x] Local sandboxed file browsing, atomic writes, and deterministic Command Palette search
+- [x] Unified Bento Overview dashboard with **GlideSelect** controls
+- [x] Git-free named **Worktrees** and nested `composer.toml` workspaces
+- [x] Unified Multi-Image / SVG Compare Workspace alongside Code, Markdown, PDF, and structured-data views
+- [x] Native 15-second circular CPU &amp; RAM telemetry meters
+- [x] Cross-platform Windows (`.exe`) and Linux (`.deb`, `.AppImage`) CI/release configuration
+- [ ] Replace source-derived SVG previews with live binary captures
 
-To build the production bundle:
+## Contributing
 
-```bash
-npm run build
-```
+Bug reports, feature ideas, and focused improvements are welcome.
 
-### Verification Checks
+1. Search [existing issues](https://github.com/zishan049/Composer/issues) before opening a new one.
+2. For bugs, include your operating system (Windows or Linux), reproduction steps, and expected behavior.
+3. Run the CI checks (`npx tsc --noEmit`, `npm test`, `cargo fmt --check`, `cargo test`, `cargo clippy`) before submitting changes.
 
-```bash
-# Typecheck
-npm run typecheck
+## Privacy
 
-# Frontend unit tests
-npm test
-
-# Rust checks
-cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-cargo test --manifest-path src-tauri/Cargo.toml
-```
-
----
-
-## Privacy & Network
-
-Composer is local-first. File editing, search indexing, previews, image/SVG comparison, and worktree management happen entirely offline on your machine. Optional update checks configured in **Settings** query GitHub Releases tags (`endpoints` configured in `src-tauri/tauri.conf.json`).
-
----
+Composer is designed around local file workflows — editing, indexing, search, comparison, and worktree management run offline on your machine. Optional GitHub Releases update checks (configured in **Settings**) and Google Fonts stylesheet links (`index.html`) are the only network requests.
 
 ## License
 
 Licensing terms will be specified upon public release. All rights reserved.
+
+---
+
+<div align="center">
+
+**Made for focused work. Built to stay out of the way.**
+
+[Star Composer on GitHub](https://github.com/zishan049/Composer)
+
+</div>
